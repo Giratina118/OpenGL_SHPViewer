@@ -1,0 +1,226 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="리소스 파일">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="App">
+      <UniqueIdentifier>{3fb1bc19-8cb8-4db7-868f-e11161050232}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine">
+      <UniqueIdentifier>{51605ef8-1161-4d0c-bcf7-20ec74c16b3e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource">
+      <UniqueIdentifier>{4fd7ce97-07cf-49a6-8e54-f79208f58121}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource\Shader">
+      <UniqueIdentifier>{957fafd6-6d03-4d5f-801f-2e8bd0e3dd8e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\Render">
+      <UniqueIdentifier>{854115d9-e051-40af-b9a8-96ea186e4bdb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\Parser">
+      <UniqueIdentifier>{73975f4e-d70b-43b4-9014-6a8f504b03bf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App\UI">
+      <UniqueIdentifier>{a25b2062-1ef3-48b9-9e39-21c8e9a3c726}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App\MFC_Original">
+      <UniqueIdentifier>{1ea7a9ec-6ed5-4947-bd72-2ac924de344d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="App\SHPViewerStudy.rc">
+      <Filter>리소스 파일</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="res\SHPViewerStudy.rc2">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="Resource\Shader\shader.frag">
+      <Filter>Resource\Shader</Filter>
+    </None>
+    <None Include="Resource\Shader\shader.vert">
+      <Filter>Resource\Shader</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\SHPViewerStudyDoc.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\SHPViewerStudy.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\Toolbar.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="App\res\SHPViewerStudy.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="App\res\SHPViewerStudyDoc.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="App\res\Toolbar.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\Render\Renderer.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\FeatureObject.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Parser\DbfParser.h">
+      <Filter>Engine\Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Parser\SHPLoader.h">
+      <Filter>Engine\Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Parser\ShpParser.h">
+      <Filter>Engine\Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Parser\ShxParser.h">
+      <Filter>Engine\Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Parser\SwapEndian.h">
+      <Filter>Engine\Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Render\ShaderLoadAndUse.h">
+      <Filter>Engine\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\CameraController.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\QuadTree.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Transform.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Triangulate.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\DBFTable.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="App\targetver.h">
+      <Filter>App\MFC_Original</Filter>
+    </ClInclude>
+    <ClInclude Include="App\framework.h">
+      <Filter>App\MFC_Original</Filter>
+    </ClInclude>
+    <ClInclude Include="App\MainFrm.h">
+      <Filter>App\MFC_Original</Filter>
+    </ClInclude>
+    <ClInclude Include="App\pch.h">
+      <Filter>App\MFC_Original</Filter>
+    </ClInclude>
+    <ClInclude Include="App\Resource.h">
+      <Filter>App\MFC_Original</Filter>
+    </ClInclude>
+    <ClInclude Include="App\SHPViewerStudy.h">
+      <Filter>App\MFC_Original</Filter>
+    </ClInclude>
+    <ClInclude Include="App\SHPViewerStudyDoc.h">
+      <Filter>App\MFC_Original</Filter>
+    </ClInclude>
+    <ClInclude Include="App\SHPViewerStudyView.h">
+      <Filter>App\MFC_Original</Filter>
+    </ClInclude>
+    <ClInclude Include="App\UI\CPanelLeft.h">
+      <Filter>App\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="App\UI\CPanelRight.h">
+      <Filter>App\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="App\UI\CControlPage.h">
+      <Filter>App\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="App\UI\CVisibilityPage.h">
+      <Filter>App\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="App\UI\CPickingPage.h">
+      <Filter>App\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="App\UI\Palette.h">
+      <Filter>App\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Layer.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Engine\Render\Renderer.cpp">
+      <Filter>Engine\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\FeatureObject.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Parser\DbfParser.cpp">
+      <Filter>Engine\Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Parser\SHPLoader.cpp">
+      <Filter>Engine\Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Parser\ShpParser.cpp">
+      <Filter>Engine\Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Parser\ShxParser.cpp">
+      <Filter>Engine\Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Render\ShaderLoadAndUse.cpp">
+      <Filter>Engine\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\CameraController.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\QuadTree.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Transform.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Triangulate.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\DBFTable.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="App\MainFrm.cpp">
+      <Filter>App\MFC_Original</Filter>
+    </ClCompile>
+    <ClCompile Include="App\pch.cpp">
+      <Filter>App\MFC_Original</Filter>
+    </ClCompile>
+    <ClCompile Include="App\SHPViewerStudy.cpp">
+      <Filter>App\MFC_Original</Filter>
+    </ClCompile>
+    <ClCompile Include="App\SHPViewerStudyDoc.cpp">
+      <Filter>App\MFC_Original</Filter>
+    </ClCompile>
+    <ClCompile Include="App\SHPViewerStudyView.cpp">
+      <Filter>App\MFC_Original</Filter>
+    </ClCompile>
+    <ClCompile Include="App\UI\CPanelLeft.cpp">
+      <Filter>App\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="App\UI\CPanelRight.cpp">
+      <Filter>App\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="App\UI\CControlPage.cpp">
+      <Filter>App\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="App\UI\CPickingPage.cpp">
+      <Filter>App\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="App\UI\CVisibilityPage.cpp">
+      <Filter>App\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Layer.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

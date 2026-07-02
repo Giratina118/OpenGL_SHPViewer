@@ -1,0 +1,1521 @@
+// SHPViewerStudyView.h: CSHPViewerStudyView 클래스의 인터페이스
+#pragma once
+
+#include <string>
+#include "CPanelLeft.h"
+#include "CPanelRight.h"
+
+#include "Render/Renderer.h"
+#include "Parser/SHPLoader.h"
+#include "CameraController.h"
+
+// 키보드 버튼 눌림 상태 관리
+struct KeyState
+{
+	bool keyW = false, keyA = false, keyS = false, keyD = false; // 로컬 이동
+	bool keyR = false, keyF = false; // 로컬 줌인 줌아웃
+	bool keyQ = false, keyE = false; // 로절 회전
+	bool keyUp = false, keyDown = false, keyLeft = false, keyRight = false; // 로컬 회전
+
+	bool keyI = false, keyJ = false, keyK = false, keyL = false; // 월드 이동
+	bool keyU = false, keyO = false; // 월드 줌인 줌아웃
+};
+
+class CSHPViewerStudyDoc;
+
+class CSHPViewerStudyView : public CView
+{
+protected:
+	CSHPViewerStudyView() noexcept;
+	DECLARE_DYNCREATE(CSHPViewerStudyView)
+
+public:
+	virtual ~CSHPViewerStudyView();
+	virtual void OnDraw(CDC* pDC);
+	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+	virtual void OnInitialUpdate() override;
+	CSHPViewerStudyDoc* GetDocument() const;
+
+	// shapefile 로드, 파싱
+	void LoadShapefile(const std::filesystem::path& shpPath, const std::filesystem::path& shxPath, const std::filesystem::path& dbfPath);
+	void RefreshMap(); // 파일 열기 시 화면 갱신
+	void ResizeUI();
+
+	void InputKey(float deltaTime); // 키 입력
+	void PickingPos(); // 피킹
+	void PickingObj(); // 피킹
+
+	// 토글 상태
+	UIState m_uiState;
+
+	// UI 패널 가로 폭 (화면 왼쪽 UI 전용 공간)
+	static constexpr float uiPanelWidthRate = 0.2f;
+	int32_t m_screenWidth  = 100;
+	int32_t m_screenHeight = 100;
+
+	// UI - 색상 범례 (팔레트 색상 개수만큼 고정)
+	static constexpr int kLegendCount = 9;   // palette 색상 개수와 일치
+	CStatic m_legendSwatch[kLegendCount];    // 색상 칸
+	CStatic m_legendLabel[kLegendCount];     // "Level N" 텍스트
+	CBrush  m_legendBrush[kLegendCount];     // 색상 칸 배경 브러시
+	//bool    m_legendBuilt = false;
+
+	bool  m_isPickingMode = false;
+	POINT m_pickingMousePos;
+	int32_t pickingDataId = -1;
+
+	// 자동 측정용 (panning)
+	bool   m_autoPanning = false;
+	double m_panTime = 0.0;       // 경과 시간(초)
+	double m_panDuration = 8.0;   // 왕복 총 시간(초)
+	double m_panRangeX = 0.0;     // 좌우 이동 폭(미터)
+	glm::dvec3 m_panCenter;        // 왕복 중심 위치
+
+protected:
+	afx_msg int  OnCreate(LPCREATESTRUCT lpCreateStruct);   // 초기 생성
+	afx_msg void OnSize(UINT nType, int screenWidth, int height); // 창 크기 변경
+	afx_msg void OnDestroy();				 // 창 닫기
+	afx_msg BOOL OnEraseBkgnd(CDC* pDC);	 // 깜빡임 제거, 다시 지웠다 그리기 없애기
+	afx_msg void OnTimer(UINT_PTR nIDEvent); // 타이머, 반복 실행
+
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point); // 마우스 좌클릭 누르기
+	afx_msg void OnLButtonUp  (UINT nFlags, CPoint point); // 마우스 좌클릭 떼기
+	afx_msg void OnRButtonDown(UINT nFlags, CPoint point); // 마우스 우클릭 누르기
+	afx_msg void OnRButtonUp  (UINT nFlags, CPoint point); // 마우스 우클릭 떼기
+	afx_msg void OnMouseMove  (UINT nFlags, CPoint point); // 마우스 이동
+	afx_msg BOOL OnMouseWheel (UINT nFlags, short zDelta, CPoint point); // 마우스 휠
+
+	afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags); // 키보드 키 누르기
+	afx_msg void OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags);   // 키보드 키 떼기
+
+	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor); // 색상 관리
+
+	/*
+	afx_msg void OnButtonObjectMBR();   // UI 버튼 클릭 - 객체 MBR박스 on/off
+	afx_msg void OnButtonNodeMBR();	    // UI 버튼 클릭 - 노드 MBR박스 on/off
+	afx_msg void OnButtonLevelColor();  // UI 버튼 클릭 - 객체 노드 레벨 별 컬러 on/off
+	afx_msg void OnButtonFrustumView(); // UI 버튼 클릭 - 절두체 가시화 on/off
+	afx_msg void OnButtonFakeObject();  // UI 버튼 클릭 - 가상 객체 on/off
+	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar); // UI 슬라이더  - 카메라 가시 정도를 조작 
+	*/
+
+	afx_msg void OnDropFiles(HDROP hDropInfo); // 파일 끌어다 놓기
+	afx_msg void OnFileOpenFolder(); // 폴더 열기
+	afx_msg void OnFileOpenShp();	 // 파일 열기
+	DECLARE_MESSAGE_MAP()
+
+private:
+	CLeftPanel  m_leftPanel;
+	CRightPanel m_rightPanel;
+
+	Renderer  m_renderer;
+	SHPLoader m_shpLoader;
+	Layer	  m_layer;
+	CameraController m_camera;
+
+	CBrush m_transparentBrush;   // 색상 브러시
+	float m_deltaTimeStack = 0.0f; // 델타타임 누적
+	int32_t m_frameCount = 0; // 프레임 카운트
+
+	bool m_isLButtonDragging = false; // 마우스 좌클릭 눌림 상태
+	bool m_isRButtonDragging = false; // 마우스 우클릭 눌림 상캐
+	POINT m_lastMousePos;			  // 이전 마우스 위치
+	glm::dvec3 m_thirdPoint;		  // 3인칭 카메라 조작 시 기준점
+	glm::dvec3 m_thirdPointCameraPos; // 3인칭 카메라 조작 시 카메라 위치
+
+	KeyState m_keyState;
+	std::chrono::steady_clock::time_point m_lastTime;
+	std::chrono::steady_clock::time_point m_currentTime;
+
+	// UI
+	/*
+	CButton m_buttonObjectMBR;	 // 객체 MBR 가시화 버튼
+	CButton m_buttonNodeMBR;	 // 노드 MBR 가시화 버튼
+	CButton m_buttonLevelColor;	 // 레벨에 따른 객체 색상 가시화 버튼
+	CButton m_buttonFrustumView; // 절두체 가시화 버튼
+	CButton m_buttonFakeObject;  // 가상 객체 가시화 버튼
+	CStatic m_staticChangeInfo;  // 상태에 따라 변화하는 텍스트
+	CStatic m_staticInfo;		 // 변화하지 않는 텍스트
+	CStatic m_staticSliderInfo;	 // 슬라이더(가시거리) 텍스트
+	CStatic m_staticColorInfo;	 // 색상 범례 텍스트
+	CStatic m_panelLeftBackground;  // UI 패널(좌측) 배경
+	CStatic m_panelRightBackground; // UI 패널(우측) 배경
+	CSliderCtrl m_sliderViewRange;  // 카메라 가시 범위 조절 슬라이더
+	CFont   m_uiFont;
+	CBrush  m_panelBrush; // UI 패널 배경 브러시
+	*/
+
+
+	// UI 마우스 이벤트가 3D 영역인지 판별
+	bool IsInUIPanel(const CPoint& mousePoint) const { return mousePoint.x < m_screenWidth * uiPanelWidthRate || mousePoint.x > m_screenWidth * (1 - uiPanelWidthRate); }
+
+};
+
+
+#ifndef _DEBUG  // SHPViewerStudyView.cpp의 디버그 버전
+//inline CSHPViewerStudyDoc* CSHPViewerStudyView::GetDocument() const
+//   { return reinterpret_cast<CSHPViewerStudyDoc*>(m_pDocument); }
+#endif
+
+// SHPViewerStudyView.cpp: CSHPViewerStudyView 클래스의 구현
+#include "pch.h"
+#include "framework.h"
+
+// SHARED_HANDLERS는 미리 보기, 축소판 그림 및 검색 필터 처리기를 구현하는 ATL 프로젝트에서 정의할 수 있으며 해당 프로젝트와 문서 코드를 공유하도록 해 줍니다.
+#ifndef SHARED_HANDLERS
+#include "SHPViewerStudy.h"
+#endif
+
+// App
+#include "SHPViewerStudyDoc.h"
+#include "SHPViewerStudyView.h"
+
+#include <filesystem>
+#include <limits>
+#include <glm/gtc/type_ptr.hpp>
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+
+IMPLEMENT_DYNCREATE(CSHPViewerStudyView, CView)
+
+BEGIN_MESSAGE_MAP(CSHPViewerStudyView, CView)
+	ON_WM_CREATE()		// OnCreate
+	ON_WM_TIMER()		// OnTimer
+	ON_WM_SIZE()		// OnSize
+	ON_WM_ERASEBKGND()	// OnEraseBkgnd
+	ON_WM_DESTROY()		// OnDestroy
+
+	ON_WM_LBUTTONDOWN()	// OnLButtonDown
+	ON_WM_LBUTTONUP()	// OnLButtonUp
+	ON_WM_RBUTTONDOWN()	// OnRButtonDown
+	ON_WM_RBUTTONUP()	// OnRButtonUp
+	ON_WM_MOUSEMOVE()	// OnMouseMove
+	ON_WM_MOUSEWHEEL()	// OnMouseWheel
+
+	ON_WM_KEYDOWN()		// OnKeyDown
+	ON_WM_KEYUP()		// OnKeyUp
+
+	ON_WM_DROPFILES()	// OnDropFiles
+	ON_COMMAND(ID_FILE_OPEN_SHP,    &CSHPViewerStudyView::OnFileOpenShp)
+	ON_COMMAND(ID_FILE_OPEN_FOLDER, &CSHPViewerStudyView::OnFileOpenFolder)
+
+	ON_WM_CTLCOLOR()	// OnCtlColor
+	/*
+	ON_BN_CLICKED(ID_BTN_OBJECT_MBR,   &CSHPViewerStudyView::OnButtonObjectMBR)
+	ON_BN_CLICKED(ID_BTN_NODE_MBR,     &CSHPViewerStudyView::OnButtonNodeMBR)
+	ON_BN_CLICKED(ID_BTN_LEVEL_COLOR,  &CSHPViewerStudyView::OnButtonLevelColor)
+	ON_BN_CLICKED(ID_BTN_FRUSTUM_VIEW, &CSHPViewerStudyView::OnButtonFrustumView)
+	ON_BN_CLICKED(ID_BTN_FAKE_OBJECT,  &CSHPViewerStudyView::OnButtonFakeObject)
+	*/
+	ON_WM_HSCROLL() // 슬라이더
+END_MESSAGE_MAP()
+
+CSHPViewerStudyView::CSHPViewerStudyView() noexcept
+{
+}
+
+CSHPViewerStudyView::~CSHPViewerStudyView()
+{
+}
+
+// 윈도우 스타일 지정
+BOOL CSHPViewerStudyView::PreCreateWindow(CREATESTRUCT& cs)
+{
+	cs.style |= WS_CLIPCHILDREN;
+	return CView::PreCreateWindow(cs);
+}
+
+void CSHPViewerStudyView::OnInitialUpdate()
+{
+	CView::OnInitialUpdate();
+
+	m_renderer.ReDraw();
+	m_renderer.Render(m_camera, m_layer, m_uiState);
+}
+
+// CSHPViewerStudyView 그리기
+void CSHPViewerStudyView::OnDraw(CDC* pDc)
+{
+	CSHPViewerStudyDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc) return;
+
+	m_renderer.Render(m_camera, m_layer, m_uiState);
+}
+
+// 뷰와 연결되어 있는 Doc의 포인터 얻어는 함수
+CSHPViewerStudyDoc* CSHPViewerStudyView::GetDocument() const
+{
+	ASSERT(m_pDocument->IsKindOf(RUNTIME_CLASS(CSHPViewerStudyDoc)));
+	return (CSHPViewerStudyDoc*)m_pDocument;
+}
+
+
+// shapefile 로드, 파싱
+void CSHPViewerStudyView::LoadShapefile(const std::filesystem::path& shpPath, const std::filesystem::path& shxPath, const std::filesystem::path& dbfPath)
+{
+	m_layer = Layer();
+	m_shpLoader.Parse(shpPath, shxPath, dbfPath, m_layer);
+	RefreshMap();
+}
+
+// 파일 열리면 화면 갱신
+void CSHPViewerStudyView::RefreshMap()
+{
+	if (m_layer.polygonObjects.empty() && m_layer.polyLineObjects.empty() && m_layer.pointObjects.empty()) return;
+
+	CRect rect;
+	GetClientRect(&rect);
+	m_camera.InitCamera(m_layer.boundingBox, rect.Width() * (1.0f - uiPanelWidthRate * 2), rect.Height());
+
+	m_renderer.BuildMesh(m_layer);
+	m_renderer.RebuildQuadTree(m_layer);
+
+	m_renderer.ReDraw();
+}
+
+// 윈도우 변화 시 UI도 비례해서 변화
+void CSHPViewerStudyView::ResizeUI()
+{
+	if (m_screenWidth <= 0 || m_screenHeight <= 0) return;
+
+	int panelWidth = (int)(m_screenWidth * uiPanelWidthRate);
+	int panelHeight = m_screenHeight;
+
+	/*
+	// 패널 배경 크기 갱신
+	if (m_panelLeftBackground.GetSafeHwnd())
+		m_panelLeftBackground.MoveWindow(0, 0, panelWidth, panelHeight);
+
+	if (m_panelRightBackground.GetSafeHwnd())
+		m_panelRightBackground.MoveWindow(m_screenWidth - panelWidth, 0, m_screenWidth, panelHeight);
+	*/
+
+	// 비율 기반 레이아웃
+	int marginX = (int)(panelWidth * 0.05);   // 좌우 여백: 패널 폭의 7%
+	int buttonWidth = panelWidth - marginX * 2;   // 버튼 너비
+	int buttonHeight = (int)(panelHeight * 0.07);  // 버튼 높이: 화면 높이의 4.5%
+	int gapY = (int)(panelHeight * 0.01);  // 버튼 간격
+	int buttonStartY = (int)(panelHeight * 0.02);  // 첫 버튼 Y 시작
+
+	/*
+	// 버튼 배치
+	if (m_buttonObjectMBR.GetSafeHwnd())
+		m_buttonObjectMBR.MoveWindow(marginX, buttonStartY, buttonWidth, buttonHeight);
+
+	if (m_buttonNodeMBR.GetSafeHwnd())
+		m_buttonNodeMBR.MoveWindow(marginX, buttonStartY + (buttonHeight + gapY), buttonWidth, buttonHeight);
+
+	if (m_buttonLevelColor.GetSafeHwnd())
+		m_buttonLevelColor.MoveWindow(marginX, buttonStartY + (buttonHeight + gapY) * 2, buttonWidth, buttonHeight);
+
+	if (m_buttonFrustumView.GetSafeHwnd())
+		m_buttonFrustumView.MoveWindow(marginX, buttonStartY + (buttonHeight + gapY) * 3, buttonWidth, buttonHeight);
+
+	if (m_buttonFakeObject.GetSafeHwnd())
+		m_buttonFakeObject.MoveWindow(marginX, buttonStartY + (buttonHeight + gapY) * 4, buttonWidth, buttonHeight);
+
+	//if (m_buttonColorLegend.GetSafeHwnd())
+	//	m_buttonColorLegend.MoveWindow(marginX, buttonStartY + (buttonHeight + gapY) * 5, buttonWidth, buttonHeight);
+
+
+	// 슬라이더 배치 (버튼 아래)
+	if (m_staticSliderInfo.GetSafeHwnd())
+		m_staticSliderInfo.MoveWindow(marginX, buttonStartY + (buttonHeight + gapY) * 5.2, buttonWidth, (int)(buttonHeight * 0.6));
+
+	if (m_sliderViewRange.GetSafeHwnd())
+		m_sliderViewRange.MoveWindow(marginX, buttonStartY + (buttonHeight + gapY) * 5.7, buttonWidth, buttonHeight * 0.5);
+
+	// 색상 범례 배치 (슬라이더 아래)
+	if (m_staticColorInfo.GetSafeHwnd())
+		m_staticColorInfo.MoveWindow(marginX, buttonStartY + (buttonHeight + gapY) * 6.4, buttonWidth, (int)(buttonHeight * 0.6));
+
+	int legendStartY = buttonStartY + (int)((buttonHeight + gapY) * 7.0);
+	int rowHeight = (int)(buttonHeight * 0.5);
+
+	for (int i = 0; i <= kLegendCount; i++)
+	{
+		int rowY = legendStartY + i * (rowHeight + gapY / 2);
+		int posX = marginX + i * rowHeight;
+
+		if (m_legendSwatch[i].GetSafeHwnd())
+			m_legendSwatch[i].MoveWindow(posX, legendStartY, rowHeight, rowHeight);
+	}
+
+	// 텍스트 영역
+	int textStartY = buttonStartY + (buttonHeight + gapY) * 8.0 + gapY;
+	if (m_staticChangeInfo.GetSafeHwnd())
+		m_staticChangeInfo.MoveWindow(marginX, textStartY, buttonWidth, (int)(panelHeight * 0.2));
+
+	if (m_staticInfo.GetSafeHwnd())
+		m_staticInfo.MoveWindow(marginX, textStartY + (int)(panelHeight * 0.2), buttonWidth, (int)(panelHeight * 0.15));
+
+	// 폰트 크기: 화면 높이에 비례 (최소 10pt 보장)
+	int fontSize = std::max(10, panelHeight / 32);
+
+	m_uiFont.DeleteObject();
+	m_uiFont.CreateFont(
+		-fontSize,           // 높이 (음수 = pt 기준)
+		0, 0, 0,
+		FW_NORMAL,           // 굵기
+		FALSE, FALSE, FALSE,
+		DEFAULT_CHARSET,
+		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+		CLEARTYPE_QUALITY,
+		DEFAULT_PITCH | FF_SWISS,
+		_T("Segoe UI")       // 폰트
+	);
+
+	CFont halfSizeFont;
+	halfSizeFont.CreateFont(
+		-fontSize * 0.5f,           // 높이 (음수 = pt 기준)
+		0, 0, 0,
+		FW_NORMAL,           // 굵기
+		FALSE, FALSE, FALSE,
+		DEFAULT_CHARSET,
+		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+		CLEARTYPE_QUALITY,
+		DEFAULT_PITCH | FF_SWISS,
+		_T("Segoe UI")       // 폰트
+	);
+
+	// 모든 컨트롤에 폰트 적용
+	m_panelRightBackground.SetFont(&halfSizeFont);
+	m_buttonObjectMBR.SetFont(&m_uiFont);
+	m_buttonNodeMBR.SetFont(&m_uiFont);
+	m_buttonLevelColor.SetFont(&m_uiFont);
+	m_buttonFrustumView.SetFont(&m_uiFont);
+	m_buttonFakeObject.SetFont(&m_uiFont);
+	m_staticChangeInfo.SetFont(&m_uiFont);
+	m_staticInfo.SetFont(&m_uiFont);
+	m_staticSliderInfo.SetFont(&m_uiFont);
+	m_staticColorInfo.SetFont(&m_uiFont);
+
+	// 다시 그리기
+	m_panelRightBackground.Invalidate();
+	m_buttonObjectMBR.Invalidate();
+	m_buttonNodeMBR.Invalidate();
+	m_buttonLevelColor.Invalidate();
+	m_buttonFrustumView.Invalidate();
+	m_buttonFakeObject.Invalidate();
+	m_staticChangeInfo.Invalidate();
+	m_staticInfo.Invalidate();
+	m_staticSliderInfo.Invalidate();
+	m_staticColorInfo.Invalidate();
+	*/
+}
+
+// 키 입력
+void CSHPViewerStudyView::InputKey(float deltaTime)
+{
+	float moveSpeed = 300.0f * deltaTime;
+	float rotateSpeed = 900.0f * deltaTime;
+
+	float moveX = 0.0f;
+	float moveY = 0.0f;
+
+	// WASD (로컬 좌표 이동)
+	if (m_keyState.keyW) moveY += moveSpeed;
+	if (m_keyState.keyS) moveY -= moveSpeed;
+	if (m_keyState.keyA) moveX += moveSpeed;
+	if (m_keyState.keyD) moveX -= moveSpeed;
+	if (moveX != 0.0f || moveY != 0.0f) m_camera.MoveLocal(moveX, moveY);
+
+	// IJKL (월드 좌표 이동)
+	if (m_keyState.keyI) moveY += moveSpeed;
+	if (m_keyState.keyK) moveY -= moveSpeed;
+	if (m_keyState.keyJ) moveX += moveSpeed;
+	if (m_keyState.keyL) moveX -= moveSpeed;
+	if (moveX != 0.0f || moveY != 0.0f) m_camera.MoveWorld(moveX, moveY);
+
+	// RF (로컬 좌표 줌)
+	if (m_keyState.keyR) m_camera.ZoomLocal(1.0);
+	if (m_keyState.keyF) m_camera.ZoomLocal(-1.0);
+
+	// UO (월드 좌표 줌)
+	if (m_keyState.keyU) m_camera.ZoomWorld(1.0);
+	if (m_keyState.keyO) m_camera.ZoomWorld(-1.0);
+
+	// 회전
+	float rotX = 0.0f;
+	float rotY = 0.0f;
+	float rotZ = 0.0f;
+	if (m_keyState.keyQ)	 rotZ -= rotateSpeed;
+	if (m_keyState.keyE)	 rotZ += rotateSpeed;
+	if (m_keyState.keyLeft)  rotX -= rotateSpeed;
+	if (m_keyState.keyRight) rotX += rotateSpeed;
+	if (m_keyState.keyUp)    rotY -= rotateSpeed;
+	if (m_keyState.keyDown)  rotY += rotateSpeed;
+	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) m_camera.RotateLocal(rotX, rotY, rotZ);
+}
+
+// 위치 선택 (픽킹)
+void CSHPViewerStudyView::PickingPos()
+{
+	glm::mat4 invVP = glm::inverse(m_camera.GetMatrix());
+
+	CRect rect;
+	GetClientRect(&rect);
+
+	// UI 패널 제외한 실제 3D 렌더 영역
+	int panelW = (int)(rect.Width() * uiPanelWidthRate);
+	int mapW = rect.Width() - panelW * 2;
+	int mapH = rect.Height();
+
+	// 3D 영역 기준 마우스 좌표
+	float mousePosX = (float)(m_pickingMousePos.x - panelW);
+	float mousePosY = (float)(m_pickingMousePos.y);
+
+	// NDC 변환 (Y축 반전 필수)
+	float ndcX = (mousePosX / mapW) * 2.0f - 1.0f;
+	float ndcY = -((mousePosY / mapH) * 2.0f - 1.0f);
+
+	glm::vec4 nearClip(ndcX, ndcY, -1.0f, 1.0f);
+	glm::vec4 farClip(ndcX, ndcY, 1.0f, 1.0f);
+
+	// inverse 변환 후 w로 나누기 (필수)
+	glm::vec4 nearWorld = invVP * nearClip;
+	glm::vec4 farWorld = invVP * farClip;
+
+	nearWorld /= nearWorld.w;
+	farWorld /= farWorld.w;
+
+	glm::dvec3 rayOrigin = glm::dvec3(nearWorld);
+	glm::dvec3 rayDir = glm::normalize(glm::dvec3(farWorld) - rayOrigin);
+
+	// z=0 지면과 교차
+	if (std::abs(rayDir.z) < 1e-6f) return; // 수평 방향이면 교차 없음
+
+	double t = -rayOrigin.z / rayDir.z;
+	if (t < 0.0f) return; // 카메라 뒤쪽
+
+	glm::dvec3 hitPoint = rayOrigin + t * rayDir;
+
+	m_renderer.m_hitPoint = hitPoint;
+}
+
+// 객체 선택 (픽킹)
+void CSHPViewerStudyView::PickingObj()
+{
+	PickingPos();
+
+	//m_renderer.m_hitPoint = hitPoint;
+
+	// 레이와 객체의 충돌 검사, 쿼드트리를 이용한 피킹
+	double collisionDistance = std::numeric_limits<double>::max();
+	pickingDataId = m_renderer.m_quadTree.SearchPickingData(m_layer, m_renderer.m_hitPoint, 0, collisionDistance);
+	if (pickingDataId == -1) {
+		m_renderer.SetSelectedObject(-1, m_uiState);
+		return;
+	}
+
+	// 피킹된 객체 정보 얻기
+	// TODO: 폴리곤 데이터만 일단 적용
+	if (m_layer.polygonObjects.size() < 1)
+		return;
+
+	// TODO: 피킹 아이디 뽑아내는데 성공, 이제 DBF 후 정보출력 차례
+	//m_layer.polygonObjects[pickingDataId];
+	CString pickingInfo = m_layer.dbfTable.PrintAttribute(pickingDataId);
+	m_renderer.SetSelectedObject(pickingDataId, m_uiState);
+
+	m_rightPanel.SetPickingInfo(pickingInfo); // 자동으로 열림
+	//m_panelRightBackground.SetWindowText(pickingInfo);
+	Invalidate(FALSE);
+}
+
+// WM_CREATE 시 호출, 초기 설정
+int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
+{
+	if (CView::OnCreate(lpCreateStruct) == -1) return -1;
+	DragAcceptFiles(TRUE); // 파일 드래그, 드롭 허용
+
+	// UI 패널 생성 (왼쪽 20% 영역)
+	CRect rect;
+	GetClientRect(&rect);
+
+	// 콜백 연결 (람다로 View 멤버에 접근)
+	LeftPanelCallbacks callback;
+	callback.onObjectMBR = [this](bool v) { m_uiState.isShowObjectMBR = v; m_renderer.ReDraw(); SetFocus(); };
+	callback.onNodeMBR = [this](bool v) { m_uiState.isShowNodeMBR = v; m_renderer.ReDraw(); SetFocus(); };
+	callback.onLevelColor = [this](bool v) { m_uiState.isShowLevelColor = v; m_renderer.ApplyLevelColors(v); m_renderer.ReDraw(); SetFocus(); };
+	callback.onFrustumView = [this](bool v) { m_uiState.isShowFrustumView = v; m_renderer.SetDrawFrustum(!v); m_renderer.ReDraw(); SetFocus(); };
+	callback.onFakeObject = [this](bool v) { m_uiState.isShowFakeObject = v; m_renderer.ReDraw(); SetFocus(); };
+	callback.onPicking = [this](bool v) { m_isPickingMode = v; SetFocus(); };
+	callback.onThirdMode = [this](bool v) { m_camera.m_isCameraThirdMode = v; SetFocus(); };
+	callback.onViewRange = [this](int  v) { m_renderer.SetViewRange(v); m_renderer.ReDraw(); SetFocus(); };
+	m_leftPanel.SetCallbacks(callback);
+
+	/*
+	int32_t windowWidth  = rect.Width();
+	int32_t windowHeight = rect.Height();
+	
+	int32_t leftPannelStartWidth = windowWidth * 0.01;
+	int32_t leftPannelEndWidth   = windowWidth * (uiPanelWidthRate - 0.01);
+	
+	m_panelBrush.CreateSolidBrush(RGB(240, 240, 240));
+	m_panelLeftBackground.Create( _T(""), WS_CHILD | WS_VISIBLE, CRect(0, 0, windowWidth * uiPanelWidthRate, windowHeight), this, ID_PANNEL_LEFT_BACKGROUND); // UI 패널(좌측) 배경
+	m_panelRightBackground.Create(_T(""), WS_CHILD | WS_VISIBLE, CRect(windowWidth * (1 - uiPanelWidthRate * 2), 0, windowWidth, windowHeight), this, ID_PANNEL_RIGHT_BACKGROUND); // UI 패널(우측) 배경
+
+	const DWORD toggleStyle = WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | BS_PUSHLIKE; // 토글 버튼처럼 동작 (눌리면 체크 유지)
+	CString infoText = _T("이동: WASD, 좌클릭\n줌: R/F, 휠\n회전: Arrow, Q/E, 우클릭\n");
+	m_staticChangeInfo.Create(_T(""),   WS_CHILD | WS_VISIBLE, CRect(leftPannelStartWidth, windowHeight * 0.01, leftPannelEndWidth, windowHeight * 0.2),  this); // 텍스트 창
+	m_staticInfo.Create      (infoText, WS_CHILD | WS_VISIBLE, CRect(leftPannelStartWidth, windowHeight * 0.2,  leftPannelEndWidth, windowHeight * 0.4),  this); // 텍스트 창
+
+	infoText = _T("가시거리 슬라이더\n");
+	m_staticSliderInfo.Create(infoText, WS_CHILD | WS_VISIBLE, CRect(leftPannelStartWidth, windowHeight * 0.2,  leftPannelEndWidth, windowHeight * 0.4),  this); // 텍스트 창
+
+	infoText = _T("색상범례 (Lv 0 -> Lv 8)\n");
+	m_staticColorInfo.Create (infoText, WS_CHILD | WS_VISIBLE, CRect(leftPannelStartWidth, windowHeight * 0.2,  leftPannelEndWidth, windowHeight * 0.4),  this); // 텍스트 창
+
+	m_buttonObjectMBR.Create  (_T("객체 MBR"),    toggleStyle, CRect(leftPannelStartWidth, windowHeight * 0.3,  leftPannelEndWidth, windowHeight * 0.35), this, ID_BTN_OBJECT_MBR);  // 객체 MBR 가시화 버튼
+	m_buttonNodeMBR.Create    (_T("노드 MBR"),    toggleStyle, CRect(leftPannelStartWidth, windowHeight * 0.35, leftPannelEndWidth, windowHeight * 0.4),  this, ID_BTN_NODE_MBR);	// 노드 MBR 가시화 버튼
+	m_buttonLevelColor.Create (_T("객체 색상"),   toggleStyle, CRect(leftPannelStartWidth, windowHeight * 0.4,  leftPannelEndWidth, windowHeight * 0.45), this, ID_BTN_LEVEL_COLOR); // 레벨 별 객체 색상 변경 버튼 
+	m_buttonFrustumView.Create(_T("절두체 라인"), toggleStyle, CRect(leftPannelStartWidth, windowHeight * 0.45, leftPannelEndWidth, windowHeight * 0.5),  this, ID_BTN_FRUSTUM_VIEW); // 레벨 별 객체 색상 변경 버튼 
+	m_buttonFakeObject.Create (_T("가상 객체"),   toggleStyle, CRect(leftPannelStartWidth, windowHeight * 0.5,  leftPannelEndWidth, windowHeight * 0.55), this, ID_BTN_FAKE_OBJECT); // 가상 객체 토글 버튼
+	
+	m_sliderViewRange.Create(WS_CHILD | WS_VISIBLE | TBS_AUTOTICKS, CRect(leftPannelStartWidth, windowHeight * 0.6, leftPannelEndWidth, windowHeight * 0.7), this, ID_SLIDER_VIEW_RANGE); // 시점 범위 슬라이더
+	m_sliderViewRange.SetRange(0, 32);
+	m_sliderViewRange.SetPos(16);
+	m_sliderViewRange.SetTicFreq(2);
+
+	// 색상 범례 컨트롤 생성
+	for (int i = 0; i < kLegendCount; i++)
+	{
+		m_legendSwatch[i].Create(_T(""), WS_CHILD | WS_VISIBLE | SS_NOTIFY, CRect(0, 0, 10, 10), this);
+
+		// 색상 브러시 생성 (Renderer 팔레트에서 가져옴)
+		float r, g, b;
+		m_renderer.GetLevelColor(i, r, g, b);
+		m_legendBrush[i].CreateSolidBrush(RGB((int)(r * 255), (int)(g * 255), (int)(b * 255)));
+	}
+	//m_legendBuilt = true;
+	*/
+
+
+	// shapefile 파싱
+	std::filesystem::path base = std::filesystem::current_path();
+	std::filesystem::path shpPath = base / "Resource" / "BusanBuilding" / "F_FAC_BUILDING_26_202505.shp";
+	std::filesystem::path shxPath = base / "Resource" / "BusanBuilding" / "F_FAC_BUILDING_26_202505.shx";
+	std::filesystem::path dbfPath = base / "Resource" / "BusanBuilding" / "F_FAC_BUILDING_26_202505.dbf";
+	m_shpLoader.Parse(shpPath, shxPath, dbfPath, m_layer);
+
+	// 카메라 초기화, UI 패널 부분 남기기
+	m_camera.InitCamera(m_layer.boundingBox, rect.Width() * (1.0f - uiPanelWidthRate * 2), rect.Height());
+
+	// 렌더링 초기화
+	m_renderer.Initialize(m_hWnd, m_layer, rect);
+	m_renderer.Resize(rect.Width(), rect.Height(), uiPanelWidthRate);
+	m_renderer.BuildMesh(m_layer);
+	m_renderer.RebuildQuadTree(m_layer);
+
+	m_currentTime = std::chrono::steady_clock::now();
+	m_lastTime = m_currentTime;
+	SetTimer(1, 8, nullptr); // 8ms마다 WM_TIMER -> OnTimer함수 호출
+	return 0;
+}
+
+// WM_SIZE 시 호출, 화면 사이즈 변화 시
+void CSHPViewerStudyView::OnSize(UINT nType, int screenWidth, int screenHeight)
+{
+	CView::OnSize(nType, screenWidth, screenHeight);
+	if (screenWidth <= 0 || screenHeight <= 0) return; // 최소화 방어
+
+	m_screenWidth = screenWidth;
+	m_screenHeight = screenHeight;
+	int32_t panelWidth = m_screenWidth * uiPanelWidthRate;
+	m_leftPanel.MoveWindow(0, 0, panelWidth, m_screenHeight);
+	m_leftPanel.Resize(panelWidth, m_screenHeight);
+	m_rightPanel.Resize(m_screenWidth, m_screenHeight, uiPanelWidthRate);
+
+	//ResizeUI();
+
+	m_renderer.Resize(screenWidth, screenHeight, uiPanelWidthRate);
+	m_camera.UpdateAspect(screenWidth * (1.0f - uiPanelWidthRate * 2), screenHeight);
+	m_renderer.ReDraw();
+	m_renderer.Render(m_camera, m_layer, m_uiState);
+}
+
+// WM_DESTROY 시 호출
+void CSHPViewerStudyView::OnDestroy()
+{
+	KillTimer(1);
+	m_renderer.Shutdown(m_hWnd);
+	CView::OnDestroy();
+}
+
+// 배경 지우기 제거
+BOOL CSHPViewerStudyView::OnEraseBkgnd(CDC* pDC)
+{
+	/*
+	if (m_sizeChanged) {
+		CRect rect;
+		GetClientRect(&rect);
+		pDC->FillSolidRect(rect, RGB(240, 240, 240));
+		m_sizeChanged = false; // 한 번만 실행
+	}
+	*/
+	return true;
+}
+
+// WM_TIMER 시 호출, 타이머에 따라 주기적으로 호출
+void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
+{
+	// deltaTime, fps 계산
+	m_lastTime = m_currentTime;
+	m_currentTime = std::chrono::steady_clock::now();
+	std::chrono::duration<float> deltaTime = m_currentTime - m_lastTime;
+	//float fps = 1.0f / deltaTime.count();
+	
+	m_deltaTimeStack += deltaTime.count();
+	m_frameCount++;
+	// 0.2초에 1번씩 갱신
+	if (m_deltaTimeStack > 0.5f) {
+		float fps = (float)m_frameCount / m_deltaTimeStack; // 평균 fps 계산
+		m_deltaTimeStack = 0.0f;
+		m_frameCount = 0;
+		int totalObjectCount = static_cast<int>(m_layer.pointObjects.size()) + static_cast<int>(m_layer.polyLineObjects.size()) + static_cast<int>(m_layer.polygonObjects.size());
+		int renderedObjectCount = m_renderer.m_currentRenderCount;
+		int fakeObjectCount = m_uiState.isShowFakeObject ? m_renderer.m_currentRenderFakeCount : 0;
+
+		/*
+		CString text;
+		text.Format(
+			_T("FPS : %.1f\r\n")
+			_T("전체 객체 수: %d\r\n")
+			_T("렌더링 객체 수: %d\r\n")
+			_T("가상 객체 수: %d\r\n"),
+			fps, totalObjectCount, renderedObjectCount, fakeObjectCount);
+		m_staticChangeInfo.SetWindowText(text);
+		*/
+
+		m_leftPanel.UpdateInfo(fps, totalObjectCount, renderedObjectCount, fakeObjectCount);
+	}
+
+	InputKey(deltaTime.count());
+	Invalidate(FALSE); // 배경을 흰색으로 지우지 않고 다시 그리기 WM_PAINT -> OnDraw
+	CView::OnTimer(nIDEvent);
+	
+
+	/*
+	// 자동 panning 중이면 키 입력 무시하고 자동 이동만 (측정 궤적 보호)
+	if (m_autoPanning) {
+		m_panTime += deltaTime.count();
+
+		if (m_panTime >= m_panDuration) {
+			m_autoPanning = false;
+			m_camera.transform.position = m_panCenter; // 정확히 시작점 복귀
+			m_camera.UpdateMatrix();
+		}
+		else {
+			// 0 → 2π 한 주기 sin 왕복 (중심에서 시작 → 우 → 좌 → 중심)
+			double phase = (m_panTime / m_panDuration) * 2.0 * 3.14159265358979;
+			double offsetX = std::sin(phase) * m_panRangeX;
+
+			m_camera.transform.position.x = m_panCenter.x + (float)offsetX;
+			m_camera.transform.position.y = m_panCenter.y;
+			m_camera.transform.position.z = m_panCenter.z; // 줌 높이 고정
+			m_camera.UpdateMatrix(); // m_isCameraChanged=true → Render가 다시 돔
+		}
+	}
+	else {
+		InputKey(deltaTime.count());
+	}
+	Invalidate(FALSE); // 배경을 흰색으로 지우지 않고 다시 그리기 WM_PAINT -> OnDraw
+	CView::OnTimer(nIDEvent);
+	*/
+}
+
+
+// 마우스 이벤트
+// 마우스 좌클릭 누르기
+void CSHPViewerStudyView::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	if (IsInUIPanel(point)) return; // UI 패널 위에서는 카메라가 반응하지 않도록 차단
+
+	if (m_isPickingMode) {
+		m_pickingMousePos = point;
+		PickingObj();
+		//return;
+	}
+	else if (m_camera.m_isCameraThirdMode) {
+		//m_thirdPoint.x = (float)point.x;
+		//m_thirdPoint.y = (float)point.y;
+		m_pickingMousePos = point;
+		PickingPos();
+	}
+	if (m_camera.m_isCameraThirdMode) {
+		m_thirdPoint = m_renderer.m_hitPoint;
+		m_thirdPointCameraPos = m_camera.transform.position;
+	}
+
+	//if (m_camera.m_isCameraThirdMode)
+	//	m_thirdPoint = (glm::dvec3)(point, 0.0f);
+
+	m_isLButtonDragging = true;
+	m_lastMousePos = point;
+	SetCapture(); // 마우스가 창 밖으로 나가도 추적
+	SetFocus();
+
+	CView::OnLButtonDown(nFlags, point);
+}
+
+// 마우스 좌클릭 떼기
+void CSHPViewerStudyView::OnLButtonUp(UINT nFlags, CPoint point)
+{
+	m_isLButtonDragging = false;
+
+	ReleaseCapture(); // SetCapture() 끊기
+	CView::OnLButtonUp(nFlags, point);
+}
+
+// 마우스 우클릭 누르기
+void CSHPViewerStudyView::OnRButtonDown(UINT nFlags, CPoint point)
+{
+	if (IsInUIPanel(point)) return;
+	
+	if (m_camera.m_isCameraThirdMode) {
+		m_pickingMousePos = point;
+		PickingPos();
+	}
+
+	m_isRButtonDragging = true;
+	m_lastMousePos = point;
+	SetCapture(); // 마우스가 창 밖으로 나가도 추적
+
+	CView::OnRButtonDown(nFlags, point);
+}
+
+// 마우스 우클릭 떼기
+void CSHPViewerStudyView::OnRButtonUp(UINT nFlags, CPoint point)
+{
+	m_isRButtonDragging = false;
+
+	ReleaseCapture(); // SetCapture() 끊기
+	CView::OnRButtonUp(nFlags, point);
+}
+
+// 마우스 이동
+void CSHPViewerStudyView::OnMouseMove(UINT nFlags, CPoint point)
+{
+	if (!m_isLButtonDragging && !m_isRButtonDragging) return;
+
+	// 화면 픽셀 이동량 → 세계 좌표 이동량으로 변환
+	CPoint mouseDelta = point - m_lastMousePos;
+
+	if (m_isLButtonDragging) { // 좌클릭
+		if (m_camera.m_isCameraThirdMode) { // 3인칭 이동
+
+			m_camera.transform.position = m_thirdPointCameraPos;
+			m_camera.UpdateMatrix();
+
+			m_pickingMousePos = point;
+			PickingPos();
+			glm::dvec3 deltaPos = m_thirdPoint - m_renderer.m_hitPoint;
+			m_renderer.m_hitPoint = m_thirdPoint;
+
+			m_camera.transform.position += deltaPos;
+			m_camera.UpdateMatrix();
+			//m_camera.MoveThird(m_thirdPoint, point);
+		}
+		else // 1인칭 이동
+			m_camera.MoveLocal(static_cast<float>(mouseDelta.x), static_cast<float>(mouseDelta.y));
+	}
+	if (m_isRButtonDragging) { // 우클릭
+		if (m_camera.m_isCameraThirdMode) // 3인칭 회전
+			m_camera.RotateThird(static_cast<float>(mouseDelta.x), static_cast<float>(mouseDelta.y), 0.0f, m_renderer.m_hitPoint);
+		else // 1인칭 회전
+			m_camera.RotateLocal(static_cast<float>(mouseDelta.x), static_cast<float>(mouseDelta.y), 0.0f);
+	}
+
+	m_lastMousePos = point;
+
+	//CView::OnMouseMove(nFlags, point);
+}
+
+// 마우스 휠
+BOOL CSHPViewerStudyView::OnMouseWheel(UINT nFlags, short zDelta, CPoint point)
+{
+	// 휠은 화면 좌표가 아닌 스크린 좌표 → 클라이언트 좌표 변환 후 판정
+	CPoint clientPt = point;
+	ScreenToClient(&clientPt);
+	if (IsInUIPanel(clientPt)) return CView::OnMouseWheel(nFlags, zDelta, point);
+
+	// 일반 휠: 줌
+	double factor = (zDelta > 0) ? 1.0 : -1.0;
+
+	if (m_camera.m_isCameraThirdMode) {
+		m_pickingMousePos = clientPt;
+		PickingPos();
+		m_camera.ZoomThird(factor, m_renderer.m_hitPoint);
+	}
+	else
+		m_camera.ZoomLocal(factor);
+
+	return TRUE;
+}
+
+
+// 키보드 이벤트
+// 키보트 키 누르기
+void CSHPViewerStudyView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
+{
+	switch (nChar)
+	{
+	case 'W': m_keyState.keyW = true; break;
+	case 'A': m_keyState.keyA = true; break;
+	case 'S': m_keyState.keyS = true; break;
+	case 'D': m_keyState.keyD = true; break;
+
+	case 'R': m_keyState.keyR = true; break;
+	case 'F': m_keyState.keyF = true; break;
+
+	case 'Q': m_keyState.keyQ = true; break;
+	case 'E': m_keyState.keyE = true; break;
+
+	case VK_UP:    m_keyState.keyUp    = true; break;
+	case VK_DOWN:  m_keyState.keyDown  = true; break;
+	case VK_LEFT:  m_keyState.keyLeft  = true; break;
+	case VK_RIGHT: m_keyState.keyRight = true; break;
+
+	case 'I': m_keyState.keyI = true; break;
+	case 'J': m_keyState.keyJ = true; break;
+	case 'K': m_keyState.keyK = true; break;
+	case 'L': m_keyState.keyL = true; break;
+
+	case 'U': m_keyState.keyU = true; break;
+	case 'O': m_keyState.keyO = true; break;
+
+	case 'P': m_isPickingMode = !m_isPickingMode;  break;  // 피킹 모드 on/off
+
+	case '1': m_camera.m_isCameraThirdMode = false; break; // 카메라 1인칭 모드(기본)
+	case '3': m_camera.m_isCameraThirdMode = true;  break; // 카메라 3인칭 모드
+		/*
+	case 'Z':
+		if (!m_autoPanning) {
+			glm::dvec3 pos = m_camera.transform.position;
+			pos.z = 5000.0f; // 측정용 고정 줌 높이 (렌더객체 1만~3만 나오던 값으로)
+			//m_camera.SetPosition(pos);
+
+			TCHAR buf[256];
+			_stprintf_s(buf, _T("[click P] 높이= %f\n"),
+				pos.z);
+			OutputDebugString(buf);
+
+			m_camera.transform.position = pos;
+
+			m_panTime = 0.0;
+			m_panCenter = m_camera.transform.position; // 현재 위치를 기준점으로
+			m_panRangeX = m_layer.boundingBox.GetLengthX() * 0.1; // 이동 폭
+			m_autoPanning = true;
+		}
+		break;
+		*/
+	}
+
+	CView::OnKeyDown(nChar, nRepCnt, nFlags);
+}
+
+// 키보드 키 떼기
+void CSHPViewerStudyView::OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
+{
+	switch (nChar)
+	{
+	case 'W': m_keyState.keyW = false; break;
+	case 'A': m_keyState.keyA = false; break;
+	case 'S': m_keyState.keyS = false; break;
+	case 'D': m_keyState.keyD = false; break;
+
+	case 'R': m_keyState.keyR = false; break;
+	case 'F': m_keyState.keyF = false; break;
+
+	case 'Q': m_keyState.keyQ = false; break;
+	case 'E': m_keyState.keyE = false; break;
+
+	case VK_UP:    m_keyState.keyUp    = false; break;
+	case VK_DOWN:  m_keyState.keyDown  = false; break;
+	case VK_LEFT:  m_keyState.keyLeft  = false; break;
+	case VK_RIGHT: m_keyState.keyRight = false; break;
+
+	case 'I': m_keyState.keyI = false; break;
+	case 'J': m_keyState.keyJ = false; break;
+	case 'K': m_keyState.keyK = false; break;
+	case 'L': m_keyState.keyL = false; break;
+
+	case 'U': m_keyState.keyU = false; break;
+	case 'O': m_keyState.keyO = false; break;
+	}
+
+	CView::OnKeyUp(nChar, nRepCnt, nFlags);
+}
+
+
+// UI 이벤트
+/*
+// 객체 MBR 가시화 버튼
+void CSHPViewerStudyView::OnButtonObjectMBR()
+{
+	m_uiState.isShowObjectMBR = (m_buttonObjectMBR.GetCheck() == BST_CHECKED);
+	m_renderer.ReDraw(); // 다음 프레임 한 번 강제 갱신
+	SetFocus(); // 버튼 클릭 후에도 키보드 입력이 계속되도록 포커스 유지
+}
+
+// 노드 MBR 가시화 버튼
+void CSHPViewerStudyView::OnButtonNodeMBR()
+{
+	m_uiState.isShowNodeMBR = (m_buttonNodeMBR.GetCheck() == BST_CHECKED);
+	m_renderer.ReDraw(); // 다음 프레임 한 번 강제 갱신
+	SetFocus();
+}
+
+// 객체 색상 노드 레벨 별 구분
+void CSHPViewerStudyView::OnButtonLevelColor()
+{
+	m_uiState.isShowLevelColor = (m_buttonLevelColor.GetCheck() == BST_CHECKED);
+	m_renderer.ApplyLevelColors(m_uiState.isShowLevelColor); // 색상만 다시 적용
+	m_renderer.ReDraw(); // 다음 프레임 한 번 강제 갱신
+	SetFocus();
+}
+
+void CSHPViewerStudyView::OnButtonFrustumView()
+{
+	m_uiState.isShowFrustumView = (m_buttonFrustumView.GetCheck() == BST_CHECKED);
+	m_renderer.SetDrawFrustum(!m_uiState.isShowFrustumView);
+	m_renderer.ReDraw(); // 다음 프레임 한 번 강제 갱신
+	SetFocus();
+}
+
+void CSHPViewerStudyView::OnButtonFakeObject()
+{
+	m_uiState.isShowFakeObject = (m_buttonFakeObject.GetCheck() == BST_CHECKED);
+	m_renderer.ReDraw(); // 다음 프레임 한 번 강제 갱신
+	SetFocus();
+}
+
+void CSHPViewerStudyView::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
+{
+	if (pScrollBar->GetSafeHwnd() == m_sliderViewRange.GetSafeHwnd())
+	{
+		m_renderer.SetViewRange(m_sliderViewRange.GetPos());
+		m_renderer.ReDraw();
+		SetFocus();
+	}
+
+	CView::OnHScroll(nSBCode, nPos, pScrollBar);
+}
+
+// 색상 관리
+HBRUSH CSHPViewerStudyView::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
+{
+	HBRUSH brush = CView::OnCtlColor(pDC, pWnd, nCtlColor);
+
+	if (pWnd->GetDlgCtrlID() == ID_PANNEL_LEFT_BACKGROUND) {
+		pDC->SetBkColor(RGB(240, 240, 240));
+		return (HBRUSH)m_panelBrush;
+	}
+
+	// 색상 범례 칸: 해당 레벨 색으로 배경 칠하기
+	for (int i = 0; i < kLegendCount; i++) {
+		if (pWnd->GetSafeHwnd() == m_legendSwatch[i].GetSafeHwnd())
+			return (HBRUSH)m_legendBrush[i];
+	}
+
+	return brush;
+}
+*/
+
+// 파일 열기
+// 파일 끌어다 놓기
+void CSHPViewerStudyView::OnDropFiles(HDROP hDropInfo)
+{
+	UINT fileCount = DragQueryFile(hDropInfo, 0xFFFFFFFF, nullptr, 0);
+
+	m_layer = Layer();  // 초기화
+
+	for (UINT i = 0; i < fileCount; i++)
+	{
+		TCHAR filePath[MAX_PATH];
+		DragQueryFile(hDropInfo, i, filePath, MAX_PATH);
+
+		std::filesystem::path shpPath = filePath;
+		if (shpPath.extension() != ".shp") continue;
+
+		std::filesystem::path shxPath = shpPath;
+		shxPath.replace_extension(".shx");
+		if (!std::filesystem::exists(shxPath)) continue;
+
+		std::filesystem::path dbfPath = shpPath;
+		dbfPath.replace_extension(".dbf");
+		if (!std::filesystem::exists(dbfPath)) continue;
+
+		m_shpLoader.Parse(shpPath, shxPath, dbfPath, m_layer);
+	}
+
+	DragFinish(hDropInfo);
+	RefreshMap();
+}
+
+// SHP 파일 직접 선택
+void CSHPViewerStudyView::OnFileOpenShp()
+{
+	CFileDialog dlg(TRUE, _T("shp"), nullptr,
+		OFN_FILEMUSTEXIST | OFN_HIDEREADONLY,
+		_T("Shapefile (*.shp)|*.shp||"));
+
+	if (dlg.DoModal() != IDOK) return;
+
+	std::filesystem::path shpPath = dlg.GetPathName().GetString();
+
+	std::filesystem::path shxPath = shpPath;
+	shxPath.replace_extension(".shx");
+	if (!std::filesystem::exists(shxPath))
+	{
+		AfxMessageBox(_T("같은 폴더에 .shx 파일이 없습니다."));
+		return;
+	}
+
+	std::filesystem::path dbfPath = shpPath;
+	dbfPath.replace_extension(".dbf");
+	if (!std::filesystem::exists(dbfPath))
+	{
+		AfxMessageBox(_T("같은 폴더에 .dbf 파일이 없습니다."));
+		return;
+	}
+
+	LoadShapefile(shpPath, shxPath, dbfPath); // shapefile 로드, 파싱
+}
+
+// 폴더 선택 -> 안에 있는 shp 전부 읽기
+void CSHPViewerStudyView::OnFileOpenFolder()
+{
+	// Vista 이상 폴더 선택 다이얼로그
+	IFileOpenDialog* pDialog = nullptr;
+	CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pDialog));
+
+	DWORD options;
+	pDialog->GetOptions(&options);
+	pDialog->SetOptions(options | FOS_PICKFOLDERS);
+
+	if (FAILED(pDialog->Show(m_hWnd))) { pDialog->Release(); return; }
+
+	IShellItem* pItem = nullptr;
+	pDialog->GetResult(&pItem);
+
+	PWSTR folderPath = nullptr;
+	pItem->GetDisplayName(SIGDN_FILESYSPATH, &folderPath);
+
+	std::filesystem::path folder = folderPath;
+	CoTaskMemFree(folderPath);
+	pItem->Release();
+	pDialog->Release();
+
+	// 폴더 안 .shp 파일 전부 수집
+	m_layer = Layer();  // 초기화
+	for (const auto& entry : std::filesystem::directory_iterator(folder))
+	{
+		if (entry.path().extension() != ".shp") continue;
+
+		std::filesystem::path shxPath = entry.path();
+		shxPath.replace_extension(".shx");
+		if (!std::filesystem::exists(shxPath)) continue;
+
+		std::filesystem::path dbfPath = entry.path();
+		dbfPath.replace_extension(".dbf");
+		if (!std::filesystem::exists(dbfPath)) continue;
+
+		m_shpLoader.Parse(entry.path(), shxPath, dbfPath, m_layer);
+	}
+
+	RefreshMap();
+}
+
+#pragma once
+#include "framework.h"
+#include <functional>
+
+// View → 패널에 전달할 콜백 묶음
+struct LeftPanelCallbacks
+{
+    std::function<void(bool)> onObjectMBR;
+    std::function<void(bool)> onNodeMBR;
+    std::function<void(bool)> onLevelColor;
+    std::function<void(bool)> onFrustumView;
+    std::function<void(bool)> onFakeObject;
+    std::function<void(bool)> onPicking;
+    std::function<void(bool)> onThirdMode;
+    std::function<void(int)>  onViewRange;
+};
+
+class CLeftPanel : public CWnd
+{
+public:
+    CLeftPanel() = default;
+    ~CLeftPanel() = default;
+
+    bool Create(CWnd* pParent, UINT nID);
+    void Resize(int panelWidth, int panelHeight);
+    void SetCallbacks(const LeftPanelCallbacks& cb) { m_cb = cb; }
+
+    // View에서 호출 -> 텍스트 갱신
+    void UpdateInfo(float fps, int total, int rendered, int fake);
+
+    // 색상 범례 브러시 (OnCtlColor는 부모 View에서 처리하므로
+    // 브러시는 패널이 소유, View가 가져가서 쓸 수 있게 public)
+    static constexpr int kLegendCount = 9;
+    CBrush m_legendBrush[kLegendCount];
+    CStatic m_legendSwatch[kLegendCount];
+
+private:
+    LeftPanelCallbacks m_cb;
+
+    CTabCtrl  m_tab;
+
+    // 탭별 컨테이너 (CWnd)
+    CWnd m_page1; // 조작 정보
+    CWnd m_page2; // 가시 모드
+    CWnd m_page3; // 피킹
+
+    // 탭1 컨트롤
+    CStatic m_staticChangeInfo;
+    CStatic m_staticInfo;
+
+    // 탭2 컨트롤
+    CButton     m_buttonObjectMBR;
+    CButton     m_buttonNodeMBR;
+    CButton     m_buttonLevelColor;
+    CButton     m_buttonFrustumView;
+    CButton     m_buttonFakeObject;
+    CSliderCtrl m_sliderViewRange;
+    CStatic     m_staticSliderInfo;
+    CStatic     m_staticColorInfo;
+
+    // 탭3 컨트롤
+    CButton m_buttonPicking;
+    CButton m_radioFirstPerson;
+    CButton m_radioThirdPerson;
+
+    CBrush m_bgBrush;
+    CFont  m_font;
+
+    void CreateTab1Controls();
+    void CreateTab2Controls();
+    void CreateTab3Controls();
+    void ShowPage(int tabIndex);
+
+    // 메시지 맵
+    afx_msg int  OnCreate(LPCREATESTRUCT lp);
+    afx_msg void OnSize(UINT nType, int w, int h);
+    afx_msg void OnTcnSelChange(NMHDR* pNMHDR, LRESULT* pResult);
+    afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
+    afx_msg void OnBtnObjectMBR();
+    afx_msg void OnBtnNodeMBR();
+    afx_msg void OnBtnLevelColor();
+    afx_msg void OnBtnFrustumView();
+    afx_msg void OnBtnFakeObject();
+    afx_msg void OnBtnPicking();
+    afx_msg void OnBtnFirstPerson();
+    afx_msg void OnBtnThirdPerson();
+    afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
+    DECLARE_MESSAGE_MAP()
+};
+
+#include "pch.h"
+#include "CPanelLeft.h"
+#include "resource.h"
+
+BEGIN_MESSAGE_MAP(CLeftPanel, CWnd)
+    ON_WM_CREATE()
+    ON_WM_SIZE()
+    ON_WM_CTLCOLOR()
+    ON_WM_HSCROLL()
+    ON_NOTIFY(TCN_SELCHANGE, ID_TAB_LEFT, &CLeftPanel::OnTcnSelChange)
+    ON_BN_CLICKED(ID_BTN_OBJECT_MBR, &CLeftPanel::OnBtnObjectMBR)
+    ON_BN_CLICKED(ID_BTN_NODE_MBR, &CLeftPanel::OnBtnNodeMBR)
+    ON_BN_CLICKED(ID_BTN_LEVEL_COLOR, &CLeftPanel::OnBtnLevelColor)
+    ON_BN_CLICKED(ID_BTN_FRUSTUM_VIEW, &CLeftPanel::OnBtnFrustumView)
+    ON_BN_CLICKED(ID_BTN_FAKE_OBJECT, &CLeftPanel::OnBtnFakeObject)
+    ON_BN_CLICKED(ID_BTN_PICKING, &CLeftPanel::OnBtnPicking)
+    ON_BN_CLICKED(ID_BTN_FIRST_PERSON_VIEW, &CLeftPanel::OnBtnFirstPerson)
+    ON_BN_CLICKED(ID_BTN_THIRD_PERSON_VIEW, &CLeftPanel::OnBtnThirdPerson)
+END_MESSAGE_MAP()
+
+bool CLeftPanel::Create(CWnd* pParent, UINT nID)
+{
+    m_bgBrush.CreateSolidBrush(RGB(240, 240, 240));
+    return CWnd::Create(
+        AfxRegisterWndClass(CS_HREDRAW | CS_VREDRAW,
+            ::LoadCursor(nullptr, IDC_ARROW),
+            (HBRUSH)(COLOR_BTNFACE + 1)),
+        _T(""), WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
+        CRect(0, 0, 10, 10), pParent, nID) == TRUE;
+}
+
+int CLeftPanel::OnCreate(LPCREATESTRUCT lp)
+{
+    if (CWnd::OnCreate(lp) == -1) return -1;
+
+    // 탭 컨트롤 생성
+    m_tab.Create(WS_CHILD | WS_VISIBLE | TCS_TABS,
+        CRect(0, 0, 10, 10), this, ID_TAB_LEFT);
+    m_tab.InsertItem(0, _T("조작"));
+    m_tab.InsertItem(1, _T("가시"));
+    m_tab.InsertItem(2, _T("피킹"));
+
+    // 탭별 페이지 컨테이너
+    DWORD pageStyle = WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN;
+    m_page1.Create(AfxRegisterWndClass(0), _T(""), pageStyle, CRect(0, 0, 10, 10), this, ID_PANNEL_LEFT_PAGE1);
+    m_page2.Create(AfxRegisterWndClass(0), _T(""), pageStyle, CRect(0, 0, 10, 10), this, ID_PANNEL_LEFT_PAGE2);
+    m_page3.Create(AfxRegisterWndClass(0), _T(""), pageStyle, CRect(0, 0, 10, 10), this, ID_PANNEL_LEFT_PAGE3);
+
+    CreateTab1Controls();
+    CreateTab2Controls();
+    CreateTab3Controls();
+
+    ShowPage(0); // 탭1이 기본
+    return 0;
+}
+
+void CLeftPanel::CreateTab1Controls()
+{
+    m_staticChangeInfo.Create(_T(""), WS_CHILD | WS_VISIBLE | SS_LEFT,
+        CRect(0, 0, 10, 10), &m_page1);
+    m_staticInfo.Create(
+        _T("이동: WASD, 좌클릭\n줌: R/F, 휠\n회전: Arrow, Q/E, 우클릭"),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        CRect(0, 0, 10, 10), &m_page1);
+}
+
+void CLeftPanel::CreateTab2Controls()
+{
+    const DWORD tog = WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | BS_PUSHLIKE;
+    m_buttonObjectMBR.Create(_T("객체 MBR"), tog, CRect(0, 0, 10, 10), &m_page2, ID_BTN_OBJECT_MBR);
+    m_buttonNodeMBR.Create(_T("노드 MBR"), tog, CRect(0, 0, 10, 10), &m_page2, ID_BTN_NODE_MBR);
+    m_buttonLevelColor.Create(_T("객체 색상"), tog, CRect(0, 0, 10, 10), &m_page2, ID_BTN_LEVEL_COLOR);
+    m_buttonFrustumView.Create(_T("절두체 라인"), tog, CRect(0, 0, 10, 10), &m_page2, ID_BTN_FRUSTUM_VIEW);
+    m_buttonFakeObject.Create(_T("가상 객체"), tog, CRect(0, 0, 10, 10), &m_page2, ID_BTN_FAKE_OBJECT);
+    m_staticSliderInfo.Create(_T("가시거리"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), &m_page2);
+    m_sliderViewRange.Create(WS_CHILD | WS_VISIBLE | TBS_AUTOTICKS,
+        CRect(0, 0, 10, 10), &m_page2, ID_SLIDER_VIEW_RANGE);
+    m_sliderViewRange.SetRange(0, 32);
+    m_sliderViewRange.SetPos(16);
+}
+
+void CLeftPanel::CreateTab3Controls()
+{
+    const DWORD tog = WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | BS_PUSHLIKE;
+    const DWORD rad = WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON;
+    m_buttonPicking.Create(_T("피킹 ON/OFF"), tog, CRect(0, 0, 10, 10), &m_page3, ID_BTN_PICKING);
+    m_radioFirstPerson.Create(_T("1인칭"), rad, CRect(0, 0, 10, 10), &m_page3, ID_BTN_FIRST_PERSON_VIEW);
+    m_radioThirdPerson.Create(_T("3인칭"), rad, CRect(0, 0, 10, 10), &m_page3, ID_BTN_THIRD_PERSON_VIEW);
+    m_radioFirstPerson.SetCheck(BST_CHECKED); // 기본값
+}
+
+void CLeftPanel::ShowPage(int idx)
+{
+    m_page1.ShowWindow(idx == 0 ? SW_SHOW : SW_HIDE);
+    m_page2.ShowWindow(idx == 1 ? SW_SHOW : SW_HIDE);
+    m_page3.ShowWindow(idx == 2 ? SW_SHOW : SW_HIDE);
+}
+
+void CLeftPanel::OnTcnSelChange(NMHDR*, LRESULT* pResult)
+{
+    ShowPage(m_tab.GetCurSel());
+    *pResult = 0;
+}
+
+void CLeftPanel::Resize(int w, int h)
+{
+    int mx = w * 0.05, bw = w - mx * 2;
+    int bh = h * 0.08, gap = h * 0.01;
+    int tabH = 28;
+    int pageTop = tabH + 4;
+    int pageH = h - pageTop;
+
+    m_tab.MoveWindow(0, 0, w, tabH + pageH);
+
+    // 세 페이지 모두 같은 위치에 겹쳐 배치 (탭이 전환할 때 ShowWindow로 교체)
+    CRect pageRect(mx, pageTop + gap, w - mx, pageTop + pageH - gap);
+    m_page1.MoveWindow(pageRect);
+    m_page2.MoveWindow(pageRect);
+    m_page3.MoveWindow(pageRect);
+
+    // 탭1 내부
+    m_staticChangeInfo.MoveWindow(0, 0, bw, bh * 2.5);
+    m_staticInfo.MoveWindow(0, bh * 2.5 + gap, bw, bh * 2);
+
+    // 탭2 내부
+    for (int i = 0; i < 5; i++) {
+        CWnd* btns[] = { &m_buttonObjectMBR,&m_buttonNodeMBR,
+                        &m_buttonLevelColor,&m_buttonFrustumView,&m_buttonFakeObject };
+        btns[i]->MoveWindow(0, i * (bh + gap), bw, bh);
+    }
+    m_staticSliderInfo.MoveWindow(0, 5 * (bh + gap), bw, bh * 0.6);
+    m_sliderViewRange.MoveWindow(0, 5 * (bh + gap) + bh * 0.6 + gap, bw, bh * 0.5);
+
+    // 탭3 내부
+    m_buttonPicking.MoveWindow(0, 0, bw, bh);
+    m_radioFirstPerson.MoveWindow(0, bh + gap, bw / 2 - gap, bh);
+    m_radioThirdPerson.MoveWindow(bw / 2 + gap, bh + gap, bw / 2 - gap, bh);
+
+    // 폰트
+    int fs = std::max(10, h / 32);
+    m_font.DeleteObject();
+    m_font.CreateFont(-fs, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+
+    auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&m_font); };
+    applyFont(m_staticChangeInfo); applyFont(m_staticInfo);
+    applyFont(m_buttonObjectMBR);  applyFont(m_buttonNodeMBR);
+    applyFont(m_buttonLevelColor); applyFont(m_buttonFrustumView);
+    applyFont(m_buttonFakeObject); applyFont(m_staticSliderInfo);
+    applyFont(m_buttonPicking);    applyFont(m_radioFirstPerson);
+    applyFont(m_radioThirdPerson);
+}
+
+void CLeftPanel::UpdateInfo(float fps, int total, int rendered, int fake)
+{
+    CString text;
+    text.Format(_T("FPS : %.1f\r\n전체: %d\r\n렌더: %d\r\n가상: %d"),
+        fps, total, rendered, fake);
+    if (m_staticChangeInfo.GetSafeHwnd())
+        m_staticChangeInfo.SetWindowText(text);
+}
+
+HBRUSH CLeftPanel::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
+{
+    HBRUSH br = CWnd::OnCtlColor(pDC, pWnd, nCtlColor);
+    pDC->SetBkColor(RGB(240, 240, 240));
+    for (int i = 0; i < kLegendCount; i++)
+        if (pWnd->GetSafeHwnd() == m_legendSwatch[i].GetSafeHwnd())
+            return (HBRUSH)m_legendBrush[i];
+    return (HBRUSH)m_bgBrush;
+}
+
+// 콜백 전달
+void CLeftPanel::OnBtnObjectMBR()
+{
+    if (m_cb.onObjectMBR) m_cb.onObjectMBR(m_buttonObjectMBR.GetCheck() == BST_CHECKED);
+}
+void CLeftPanel::OnBtnNodeMBR()
+{
+    if (m_cb.onNodeMBR)   m_cb.onNodeMBR(m_buttonNodeMBR.GetCheck() == BST_CHECKED);
+}
+void CLeftPanel::OnBtnLevelColor()
+{
+    if (m_cb.onLevelColor) m_cb.onLevelColor(m_buttonLevelColor.GetCheck() == BST_CHECKED);
+}
+void CLeftPanel::OnBtnFrustumView()
+{
+    if (m_cb.onFrustumView) m_cb.onFrustumView(m_buttonFrustumView.GetCheck() == BST_CHECKED);
+}
+void CLeftPanel::OnBtnFakeObject()
+{
+    if (m_cb.onFakeObject) m_cb.onFakeObject(m_buttonFakeObject.GetCheck() == BST_CHECKED);
+}
+void CLeftPanel::OnBtnPicking()
+{
+    if (m_cb.onPicking) m_cb.onPicking(m_buttonPicking.GetCheck() == BST_CHECKED);
+}
+void CLeftPanel::OnBtnFirstPerson()
+{
+    if (m_cb.onThirdMode) m_cb.onThirdMode(false);
+}
+void CLeftPanel::OnBtnThirdPerson()
+{
+    if (m_cb.onThirdMode) m_cb.onThirdMode(true);
+}
+void CLeftPanel::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pSB)
+{
+    if (pSB->GetSafeHwnd() == m_sliderViewRange.GetSafeHwnd())
+        if (m_cb.onViewRange) m_cb.onViewRange(m_sliderViewRange.GetPos());
+    CWnd::OnHScroll(nSBCode, nPos, pSB);
+}
+
+#pragma once
+#include "framework.h"
+
+class CRightPanel : public CWnd
+{
+public:
+    bool Create(CWnd* pParent, UINT nID);
+    void Resize(int screenW, int screenH, float panelRate);
+    void SetPickingInfo(const CString& text);
+    void Show(bool show);       // 열기/닫기
+    bool IsOpen() const { return m_isOpen; }
+
+private:
+    CStatic m_staticInfo;
+    CBrush  m_bgBrush;
+    CFont   m_font;
+    bool    m_isOpen = false;
+
+    afx_msg int  OnCreate(LPCREATESTRUCT lp);
+    afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
+    DECLARE_MESSAGE_MAP()
+};
+
+#include "pch.h"
+#include "CPanelRight.h"
+#include <algorithm>
+
+BEGIN_MESSAGE_MAP(CRightPanel, CWnd)
+    ON_WM_CREATE()
+    ON_WM_CTLCOLOR()
+END_MESSAGE_MAP()
+
+bool CRightPanel::Create(CWnd* pParent, UINT nID)
+{
+    m_bgBrush.CreateSolidBrush(RGB(240, 240, 240));
+    return CWnd::Create(
+        AfxRegisterWndClass(CS_HREDRAW | CS_VREDRAW,
+            ::LoadCursor(nullptr, IDC_ARROW),
+            (HBRUSH)(COLOR_BTNFACE + 1)),
+        _T(""), WS_CHILD | WS_CLIPCHILDREN, // WS_VISIBLE 없이 시작 = 닫힌 상태
+        CRect(0, 0, 10, 10), pParent, nID) == TRUE;
+}
+
+int CRightPanel::OnCreate(LPCREATESTRUCT lp)
+{
+    if (CWnd::OnCreate(lp) == -1) return -1;
+    m_staticInfo.Create(_T(""), WS_CHILD | WS_VISIBLE | SS_LEFT,
+        CRect(0, 0, 10, 10), this);
+    return 0;
+}
+
+void CRightPanel::Resize(int screenW, int screenH, float panelRate)
+{
+    int pw = (int)(screenW * panelRate);
+    MoveWindow(screenW - pw, 0, pw, screenH);
+
+    int mx = pw * 0.05;
+    m_staticInfo.MoveWindow(mx, mx, pw - mx * 2, screenH - mx * 2);
+
+    int fs = std::max(10, screenH / 32);
+    m_font.DeleteObject();
+    m_font.CreateFont(-fs, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+    m_staticInfo.SetFont(&m_font);
+}
+
+void CRightPanel::SetPickingInfo(const CString& text)
+{
+    m_staticInfo.SetWindowText(text);
+    Show(true); // 피킹 정보가 오면 자동으로 열림
+}
+
+void CRightPanel::Show(bool show)
+{
+    m_isOpen = show;
+    ShowWindow(show ? SW_SHOW : SW_HIDE);
+}
+
+HBRUSH CRightPanel::OnCtlColor(CDC* pDC, CWnd*, UINT)
+{
+    pDC->SetBkColor(RGB(240, 240, 240));
+    return (HBRUSH)m_bgBrush;
+}
