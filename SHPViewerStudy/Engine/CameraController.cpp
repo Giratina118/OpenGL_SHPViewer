@@ -151,7 +151,7 @@ void CameraController::UpdateMatrix()
     viewMatrix = glm::lookAt(eye, target, up);
 
 	// 투영행렬 (원근 투영)
-    double nearPlane  = 1.0;
+    double nearPlane  = 0.0001;
     double farPlane   = 10000000.0;
     projectionMatrix  = glm::perspective(glm::radians(fov), safeAspect, nearPlane, farPlane);
     

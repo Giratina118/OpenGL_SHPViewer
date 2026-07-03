@@ -230,6 +230,10 @@ void Renderer::Resize(int32_t screenWidth, int32_t screenHeight, int32_t panelWi
 // 메쉬 빌드 진입점, 파일이 열리면 실행
 void Renderer::BuildMesh()
 {
+	TCHAR buf[256];
+	_stprintf_s(buf, _T("[Build Mesh] start\n"));
+	OutputDebugString(buf);
+
 	// 모든 멤버 클리어
 	m_polygonVertices.clear(); // TODO: 클리어 부분 하나로 모아서 함수 만들기
 	m_polygonIndices.clear();
@@ -239,7 +243,11 @@ void Renderer::BuildMesh()
 	m_lineDrawInfos.clear();
 	m_lineVisibleIndices.clear();
 
-	BuildPolygonMesh(); // 면 정점/인덱스 빌드
+	switch (m_layer.m_shapeType) {
+	case 1: break;
+	case 3: BuildPolyLineMesh(); break; // 선 정점/인덱스 빌드, 선을 직사각형의 폴리곤으로 만들어 너비를 설정
+	case 5: BuildPolygonMesh();  break; // 면 정점/인덱스 빌드
+	}
 
 	// 기본 색상 적용 (레벨 색상 OFF 상태)
 	ApplyLevelColors(false);
@@ -259,6 +267,83 @@ void Renderer::BuildMesh()
 	}
 
 	// GPU 업로드 완료, CPU 사본 해제 (더 이상 안 쓰임)
+	m_polygonVertices.shrink_to_fit();
+	m_polygonIndices.shrink_to_fit();
+	m_lineIndices.shrink_to_fit();
+
+	//TCHAR buf[256];
+	_stprintf_s(buf, _T("[Build Mesh] finish\n"));
+	OutputDebugString(buf);
+}
+
+// 선(너비를 부여해 직사각형으로) 빌드
+void Renderer::BuildPolyLineMesh()
+{
+	m_polygonVertices.clear(); // TODO: 클리어 부분 하나로 모아서 함수 만들기
+	m_polygonIndices.clear();
+	m_polygonDrawInfos.clear();
+	m_lineIndices.clear();
+	m_lineDrawInfos.clear();
+
+	int32_t polyLineCount = static_cast<int32_t>(m_layer.polyLineObjects.size());
+	m_polygonDrawInfos.resize(polyLineCount);
+	m_lineDrawInfos.resize(polyLineCount);
+	if (polyLineCount == 0) return;
+
+	for (int32_t dataId = 0; dataId < m_layer.polyLineObjects.size(); dataId++) {
+		PolyObject& polyLine       = m_layer.polyLineObjects[dataId];
+		uint32_t polygonVertStart  = (uint32_t)m_polygonVertices.size();
+		uint32_t polygonIndexStart = (uint32_t)m_polygonIndices.size();
+		uint32_t lineIndexStart    = (uint32_t)m_lineIndices.size();
+
+		m_polygonVertices.reserve(m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
+		m_polygonIndices.reserve (m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 6);
+		m_lineIndices.reserve    (m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
+
+		for (int32_t partNum = 0; partNum < polyLine.parts.size(); partNum++) {
+			size_t startPoint = polyLine.parts[partNum];
+			size_t endPoint = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : polyLine.points.size();
+			for (int32_t pointNum = startPoint; pointNum < endPoint - 1; pointNum++) {
+				glm::dvec2 pointOrigin1 = polyLine.points[pointNum];     //+(polyLine.points[pointNum] - polyLine.mbrBox.GetCenter()) * 100.0;
+				glm::dvec2 pointOrigin2 = polyLine.points[pointNum + 1]; //+(polyLine.points[pointNum + 1] - polyLine.mbrBox.GetCenter()) * 100.0;
+				glm::dvec2 lineDir      = pointOrigin2 - pointOrigin1; // 이 방향 벡터에 수직인 방향으로 두 point에 m_layer.m_objSize 만큼 떨어진 거리에 점 생성
+				glm::dvec2 widthDir     = glm::normalize(glm::dvec2(-lineDir.y, lineDir.x));   // 수직 벡터(너비 방향 벡터)
+				glm::dvec2 widthValue   = widthDir * static_cast<double>(m_layer.m_objSize);
+				
+				glm::dvec2 point1 = pointOrigin1 + widthValue;
+				glm::dvec2 point2 = pointOrigin1 - widthValue;
+				glm::dvec2 point3 = pointOrigin2 + widthValue;
+				glm::dvec2 point4 = pointOrigin2 - widthValue;
+
+				uint32_t pointVertexNum = (int32_t)m_polygonVertices.size();
+
+				m_polygonVertices.push_back({ (float)point1.x, (float)point1.y, 0.0, 200, 200, 50, 255 });
+				m_polygonVertices.push_back({ (float)point2.x, (float)point2.y, 0.0, 200, 200, 50, 255 });
+				m_polygonVertices.push_back({ (float)point3.x, (float)point3.y, 0.0, 200, 200, 50, 255 });
+				m_polygonVertices.push_back({ (float)point4.x, (float)point4.y, 0.0, 200, 200, 50, 255 });
+
+				m_polygonIndices.push_back({ pointVertexNum });
+				m_polygonIndices.push_back({ pointVertexNum + 1 });
+				m_polygonIndices.push_back({ pointVertexNum + 2 });
+				m_polygonIndices.push_back({ pointVertexNum + 1 });
+				m_polygonIndices.push_back({ pointVertexNum + 2 });
+				m_polygonIndices.push_back({ pointVertexNum + 3 });
+
+				m_lineIndices.push_back({ pointVertexNum });
+				m_lineIndices.push_back({ pointVertexNum + 2 });
+				m_lineIndices.push_back({ pointVertexNum + 1 });
+				m_lineIndices.push_back({ pointVertexNum + 3 });				
+			}
+		}
+
+		uint32_t polygonVertCount  = (uint32_t)m_polygonVertices.size() - polygonVertStart;
+		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size()  - polygonIndexStart;
+		uint32_t lineIndexCount    = (uint32_t)m_lineIndices.size()     - lineIndexStart;
+
+		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
+		m_lineDrawInfos[dataId]    = { lineIndexStart, lineIndexCount, 0, 0 };
+	}
+
 	m_polygonVertices.shrink_to_fit();
 	m_polygonIndices.shrink_to_fit();
 	m_lineIndices.shrink_to_fit();
@@ -394,7 +479,7 @@ void Renderer::BuildPolygonMesh()
 void Renderer::RebuildQuadTree()
 {
 	m_quadTree.BuildQuadTree(); // 트리 빌드
-	ApplyLevelColors(false);         // 트리에 따라 색상 적용
+	ApplyLevelColors(false);    // 트리에 따라 색상 적용
 
 	//auto fakeBuildStart = std::chrono::high_resolution_clock::now(); // 디버그용, 시간 측정
 
@@ -416,6 +501,8 @@ void Renderer::RebuildQuadTree()
 // 트리 빌드 후 각 노드의 LOD 메쉬 생성
 void Renderer::BuildFakeMeshes()
 {
+	if (m_layer.m_shapeType != 5) return;
+
 	m_fakeIndices.clear();
 	BuildConvexHullNode(m_quadTree.m_nodes[0]); // 루트 노드부터 재귀적으로 가상 객체 생성 (자식 노드가 없으면 객체 중심점으로, 있으면 자식 노드의 LOD 점들로 볼록껍질 생성)
 	if (m_fakeIndices.empty()) return; // 데이터 없으면 업로드 스킵

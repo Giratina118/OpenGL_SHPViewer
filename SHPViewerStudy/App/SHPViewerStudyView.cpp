@@ -74,8 +74,8 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(value); m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; /*m_renderer.SetDrawFrustum(!value);*/  m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onFakeObject  = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
-	callback.visibilityCallbacks.onMap         = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_uiState.isShowBuilding    = value; m_layerManager.ReDraw(); SetFocus(); }; 
+	callback.visibilityCallbacks.onMap         = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
 	callback.visibilityCallbacks.onTriangulate = [this](bool value) { /*m_renderer.m_isCDTTriangluate = value;*/ SetFocus(); };
 	callback.visibilityCallbacks.onViewRange   = [this](int  value) { m_camera.SetViewRange(value);      m_layerManager.ReDraw(); SetFocus(); };
 
@@ -190,7 +190,7 @@ void CSHPViewerStudyView::PickingObj(CPoint clientPos)
 
 	// 레이와 객체의 충돌 검사, 쿼드트리를 이용한 피킹
 	double collisionDistance = std::numeric_limits<double>::max();
-	pickingDataId = m_layerManager.layers[0].get()->m_quadTree.get()->SearchPickingData(m_rayStart, m_rayDir, 0, collisionDistance, m_layerManager.layers[0].get()->m_renderer.get()->GetPolygonDrawInfo(), m_layerManager.layers[0].get()->m_renderer.get()->GetPolygonIndices(), m_layerManager.layers[0].get()->m_renderer.get()->GetPolygonVertices());
+	pickingDataId = m_layerManager.layers[0]->m_quadTree->SearchPickingData(m_rayStart, m_rayDir, 0, collisionDistance, m_layerManager.layers[0]->m_renderer->GetPolygonDrawInfo(), m_layerManager.layers[0]->m_renderer->GetPolygonIndices(), m_layerManager.layers[0]->m_renderer->GetPolygonVertices());
 
 	auto cullEnd = std::chrono::high_resolution_clock::now();
 	double cullMicros = std::chrono::duration<double, std::micro>(cullEnd - cullStart).count();
@@ -200,14 +200,14 @@ void CSHPViewerStudyView::PickingObj(CPoint clientPos)
 	OutputDebugString(buf);
 
 
-	if (pickingDataId   == -1)            { m_layerManager.layers[0].get()->m_renderer.get()->SetSelectedObject(-1, m_uiState);  return; } // 객체가 없는 빈 공간 선택
+	if (pickingDataId   == -1)            { m_layerManager.layers[0]->m_renderer->SetSelectedObject(-1, m_uiState);  return; } // 객체가 없는 빈 공간 선택
 	if (beforePickingId == pickingDataId) { m_panelRight.Show(false); pickingDataId = -1; return; } // 이전과 같은 객체 선택
 
 	// 피킹된 객체 정보 얻기, TODO: 폴리곤 데이터만 일단 적용
-	if (m_layerManager.layers[0].get()->polygonObjects.size() < 1) return;
+	if (m_layerManager.layers[0]->polygonObjects.size() < 1) return;
 
-	m_layerManager.layers[0].get()->m_renderer.get()->SetSelectedObject(pickingDataId, m_uiState); // 선택 객체 색상 적용
-	m_panelRight.SetPickingInfo(m_layerManager.layers[0].get()->dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
+	m_layerManager.layers[0]->m_renderer->SetSelectedObject(pickingDataId, m_uiState); // 선택 객체 색상 적용
+	m_panelRight.SetPickingInfo(m_layerManager.layers[0]->dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
 
 	m_layerManager.ReDraw();
 	Invalidate(FALSE);
@@ -296,9 +296,9 @@ void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
 		//int32_t totalObjCount  = static_cast<int32_t>(m_layerManager.pointObjects.size()) + static_cast<int32_t>(m_layerManager.polyLineObjects.size()) + static_cast<int32_t>(m_layerManager.polygonObjects.size());
 		//int32_t renderObjCount = m_renderer.m_currentRenderCount;
 		//int32_t fakeObjCount   = m_uiState.isShowFakeObject ? m_renderer.m_currentRenderFakeCount : 0;
-		double  scalePerCm     = 2 * m_camera.transform.position.z * glm::tan(m_camera.fov * 3.141592 / 180.0 * 0.5) * m_camera.aspect / m_clientWidth * 37.795276;
+		//double  scalePerCm     = 2 * m_camera.transform.position.z * glm::tan(m_camera.fov * 3.141592 / 180.0 * 0.5) * m_camera.aspect / m_clientWidth * 37.795276;
 		//m_panelLeft.UpdateInfo(fps, totalObjCount, renderObjCount, fakeObjCount, static_cast<int32_t>(m_camera.transform.position.z), scalePerCm);
-		m_panelLeft.UpdateInfo(fps, 0, 0, 0, static_cast<int32_t>(m_camera.transform.position.z), scalePerCm);
+		m_panelLeft.UpdateInfo(fps, 0, 0, 0, static_cast<int32_t>(m_camera.transform.position.z), 0.0);
 		m_panelLeft.UpdatePickingInfo(m_hitPoint);
 	}
 
@@ -546,7 +546,11 @@ void CSHPViewerStudyView::OnDropFiles(HDROP hDropInfo)
 	m_shpLoader.Parse(filePath, m_layerManager);
 
 	DragFinish(hDropInfo);
-	m_layerManager.layers.back().get()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back().get(), *m_layerManager.layers.back().get()->m_quadTree);
+
+	CRect rect;
+	GetClientRect(&rect);
+	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 }
 
@@ -560,7 +564,11 @@ void CSHPViewerStudyView::OnFileOpenShp()
 
 	//m_layerManager = LayerManager();
 	m_shpLoader.Parse(shpPath, m_layerManager);
-	m_layerManager.layers.back().get()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back().get(), *m_layerManager.layers.back().get()->m_quadTree);
+
+	CRect rect;
+	GetClientRect(&rect);
+	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 }
 
@@ -595,7 +603,10 @@ void CSHPViewerStudyView::OnFileOpenFolder()
 		m_shpLoader.Parse(entry.path(), m_layerManager);
 	}
 
-	m_layerManager.layers.back().get()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back().get(), *m_layerManager.layers.back().get()->m_quadTree);
+	CRect rect;
+	GetClientRect(&rect);
+	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 	//RefreshMap();
 }

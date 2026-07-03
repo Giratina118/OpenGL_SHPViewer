@@ -23,10 +23,11 @@ constexpr LevelColor palette[9]
 // UI 토글 상태 관리
 struct UIState
 {
-    bool isShowObjectMBR = false;
-    bool isShowNodeMBR = false;
-    bool isShowLevelColor = false;
+    bool isShowObjectMBR   = false;
+    bool isShowNodeMBR     = false;
+    bool isShowLevelColor  = false;
     bool isShowFrustumView = false;
     bool isShowColorLegend = false;
-    bool isShowFakeObject = false;
+    bool isShowFakeObject  = false;
+    bool isShowBuilding    = false;
 };

@@ -12,10 +12,6 @@ Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox
     newLayer.m_boundingBox = layerBox;
 	if (layers.size() == 1) newLayer.m_isBuilding = true; // 첫 번째 레이어(건물 정보)일 시 표시, 높이값 적용을 위해
 
-    TCHAR buf[256];
-    _stprintf_s(buf, _T("[Create Layer] 레이어 번호 = %d\n"), layers.size());
-    OutputDebugString(buf);
-
     boundingBox = boundingBox.CombineBox(layerBox);
     visibleLayers.push_back(layers.size() - 1);
     return newLayer;
@@ -25,7 +21,7 @@ Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox
 bool LayerManager::InitRenderer(HWND hWnd)
 {
     if (!InitEGL(hWnd)) return false;
-    for (std::unique_ptr<Layer>& layer : layers) layer.get()->m_renderer = std::make_unique<Renderer>(hWnd, *layer.get(), *layer.get()->m_quadTree);
+    for (std::unique_ptr<Layer>& layer : layers) layer->m_renderer = std::make_unique<Renderer>(hWnd, *layer, *layer->m_quadTree);
     return true;
 }
 
@@ -74,7 +70,7 @@ bool LayerManager::InitEGL(HWND hwnd)
 void LayerManager::Shutdown(HWND hWnd)
 {
     for (std::unique_ptr<Layer>& layer : layers)
-        layer.get()->m_renderer.get()->Shutdown(hWnd);
+        layer->m_renderer->Shutdown(hWnd);
 
     if (m_display != EGL_NO_DISPLAY) {
         eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
@@ -122,8 +118,8 @@ void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t sc
     for (int32_t visibleLayerId : visibleLayers)
     {
         if (visibleLayerId < 0 || visibleLayerId >= layers.size()) continue;
-        Renderer* renderer = layers[visibleLayerId].get()->m_renderer.get();
-        if (renderer != nullptr)
+        Renderer* renderer = layers[visibleLayerId]->m_renderer.get();
+        if (renderer != nullptr && !(!uiState.isShowBuilding && layers[visibleLayerId]->m_isBuilding))
             renderer->Render(camera, uiState, screenWidth, screenHeight, panelWidthLeft);
     }
 
@@ -144,8 +140,8 @@ void LayerManager::Resize(int32_t screenWidth, int32_t screenHeight, int32_t pan
 void LayerManager::Refresh()
 {
     for (std::unique_ptr<Layer>& layer : layers) {
-        layer.get()->m_renderer.get()->BuildMesh();
-        layer.get()->m_renderer.get()->RebuildQuadTree();
+        layer->m_renderer->BuildMesh();
+        layer->m_renderer->RebuildQuadTree();
     }
 	ReDraw();
 }
@@ -153,7 +149,7 @@ void LayerManager::Refresh()
 void LayerManager::ApplyObjectColorWithLevel(bool useLevelColor)
 {
     for (int32_t visibleLayerId : visibleLayers)
-        layers[visibleLayerId].get()->m_renderer.get()->ApplyLevelColors(useLevelColor);
+        layers[visibleLayerId]->m_renderer->ApplyLevelColors(useLevelColor);
 }
 
 /*

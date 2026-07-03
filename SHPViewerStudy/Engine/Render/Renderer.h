@@ -99,7 +99,8 @@ public:
 	//void Resize(int32_t width, int32_t height, int32_t panelWidthLeft); // 윈도우 크기 변경 시 viewport 갱신
 
 	// 그리기 정보 빌드, 파일 열때 호출되는 함수들
-	void BuildMesh();        // 라인 메쉬 빌드
+	void BuildMesh();        // 메쉬 빌드
+	void BuildPolyLineMesh(); // 선 메쉬 빌드
 	void BuildPolygonMesh(); // 면 메쉬 빌드
 	void RebuildQuadTree();  // 쿼드트리 재빌드 (파일 새로 로딩 시 호출)
 	void BuildFakeMeshes();  // LOD용 간략화된 메쉬 빌드

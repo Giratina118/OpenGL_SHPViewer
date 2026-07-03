@@ -15,6 +15,7 @@ public:
 	uint32_t    m_shapeType;   // 객체 타입   (1: Point, 3: PolyLine, 5: Polygon, 8: MultiPoint, 31: MultiPatch)
 	int32_t     m_startIndex;  // 시작 인덱스 (pointObjects, polyLineObjects, polygonObjects, multiPointObjects, multiPatchObjects 중 하나의 벡터에서)
 	int32_t     m_length;      // 데이터 개수 (startIndex부터 m_length 개의 데이터가 해당 레이어에 속함)
+	float	    m_objSize = 0.01; // 객체 크기   (선 객체 -> 너비, 점 객체 -> 반지름)
 	std::unique_ptr<Renderer> m_renderer;
 	std::unique_ptr<QuadTree> m_quadTree;
 	BoundingBox m_boundingBox; // 레이어 전체 MBR

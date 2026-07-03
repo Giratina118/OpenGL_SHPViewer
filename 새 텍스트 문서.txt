@@ -1,0 +1,1786 @@
+#include "pch.h"
+#include "framework.h"
+
+// SHARED_HANDLERS는 미리 보기, 축소판 그림 및 검색 필터 처리기를 구현하는 ATL 프로젝트에서 정의할 수 있으며 해당 프로젝트와 문서 코드를 공유하도록 해 줍니다.
+#ifndef SHARED_HANDLERS
+#include "SHPViewerStudy.h"
+#endif
+
+#include "SHPViewerStudyDoc.h"
+#include "SHPViewerStudyView.h"
+#include <filesystem>
+#include <limits>
+#include <glm/gtc/type_ptr.hpp>
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+IMPLEMENT_DYNCREATE(CSHPViewerStudyView, CView)
+
+BEGIN_MESSAGE_MAP(CSHPViewerStudyView, CView)
+	ON_WM_CREATE()		// OnCreate
+	ON_WM_TIMER()		// OnTimer
+	ON_WM_SIZE()		// OnSize
+	ON_WM_ERASEBKGND()	// OnEraseBkgnd
+	ON_WM_DESTROY()		// OnDestroy
+	ON_WM_LBUTTONDOWN()	// OnLButtonDown
+	ON_WM_LBUTTONUP()	// OnLButtonUp
+	ON_WM_RBUTTONDOWN()	// OnRButtonDown
+	ON_WM_RBUTTONUP()	// OnRButtonUp
+	ON_WM_MOUSEMOVE()	// OnMouseMove
+	ON_WM_MOUSEWHEEL()	// OnMouseWheel
+	ON_WM_KEYDOWN()		// OnKeyDown
+	ON_WM_KEYUP()		// OnKeyUp
+	ON_WM_DROPFILES()	// OnDropFiles
+	ON_COMMAND(ID_FILE_OPEN_SHP,    &CSHPViewerStudyView::OnFileOpenShp)
+	ON_COMMAND(ID_FILE_OPEN_FOLDER, &CSHPViewerStudyView::OnFileOpenFolder)
+END_MESSAGE_MAP()
+
+
+// 뷰와 연결되어 있는 Doc의 포인터 얻어오는 함수
+CSHPViewerStudyDoc* CSHPViewerStudyView::GetDocument() const
+{
+	ASSERT(m_pDocument->IsKindOf(RUNTIME_CLASS(CSHPViewerStudyDoc)));
+	return (CSHPViewerStudyDoc*)m_pDocument;
+}
+
+// 윈도우 스타일 지정
+BOOL CSHPViewerStudyView::PreCreateWindow(CREATESTRUCT& cs)
+{
+	cs.style |= WS_CLIPCHILDREN;
+	return CView::PreCreateWindow(cs);
+}
+
+// CSHPViewerStudyView 그리기
+void CSHPViewerStudyView::OnDraw(CDC* pDc)
+{
+	CSHPViewerStudyDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc) return;
+
+	CRect rect;
+	GetClientRect(&rect);
+
+	m_layerManager.Render(m_camera, m_uiState, rect.Width(), rect.Height(), m_panelLeft.GetWidth());
+	//m_renderer.Render(m_camera, m_layerManager, m_uiState);
+}
+
+void CSHPViewerStudyView::LinkCallbacksToUI()
+{
+	LeftPanelCallbacks callback;
+	callback.visibilityCallbacks.onObjectMBR   = [this](bool value) { m_uiState.isShowObjectMBR   = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onNodeMBR     = [this](bool value) { m_uiState.isShowNodeMBR     = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(value); m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; /*m_renderer.SetDrawFrustum(!value);*/  m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onFakeObject  = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_uiState.isShowBuilding    = value; m_layerManager.ReDraw(); SetFocus(); }; 
+	callback.visibilityCallbacks.onMap         = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
+	callback.visibilityCallbacks.onTriangulate = [this](bool value) { /*m_renderer.m_isCDTTriangluate = value;*/ SetFocus(); };
+	callback.visibilityCallbacks.onViewRange   = [this](int  value) { m_camera.SetViewRange(value);      m_layerManager.ReDraw(); SetFocus(); };
+
+	callback.pickingCallbacks.onPicking        = [this](bool value) { m_isPickingMode     = value; SetFocus(); };
+	callback.pickingCallbacks.onPicking        = [this](bool value) { m_isPickingMode     = value; SetFocus(); };
+	callback.pickingCallbacks.onThirdMode      = [this](bool value) { m_isCameraThirdMode = value; SetFocus(); };
+	m_panelLeft.SetCallbacks(callback);
+}
+
+// 파일 열리면 화면 갱신
+void CSHPViewerStudyView::RefreshMap()
+{
+	//if (m_layerManager.polygonObjects.empty() && m_layerManager.polyLineObjects.empty() && m_layerManager.pointObjects.empty()) return;
+
+	CRect rect;
+	GetClientRect(&rect);
+	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+
+	m_layerManager.Refresh();
+	//m_renderer.BuildMesh(m_layerManager);
+	//m_renderer.RebuildQuadTree(m_layerManager);
+	//m_renderer.ReDraw();
+}
+
+// 키 입력
+void CSHPViewerStudyView::InputKey(float deltaTime)
+{
+	float moveSpeed   = 300.0f * deltaTime;
+	float rotateSpeed = 900.0f * deltaTime;
+	float moveX = 0.0f, moveY = 0.0f;
+
+	// WASD (로컬 좌표 이동)
+	if (m_keyState.keyW) moveY += moveSpeed;
+	if (m_keyState.keyS) moveY -= moveSpeed;
+	if (m_keyState.keyA) moveX += moveSpeed;
+	if (m_keyState.keyD) moveX -= moveSpeed;
+	if (moveX != 0.0f || moveY != 0.0f) m_camera.MoveLocal(moveX, moveY);
+
+	// IJKL (월드 좌표 이동)
+	moveX = moveY = 0.0f;
+	if (m_keyState.keyI) moveY += moveSpeed;
+	if (m_keyState.keyK) moveY -= moveSpeed;
+	if (m_keyState.keyJ) moveX += moveSpeed;
+	if (m_keyState.keyL) moveX -= moveSpeed;
+	if (moveX != 0.0f || moveY != 0.0f) m_camera.MoveWorld(moveX, moveY);
+
+	// RF (로컬 좌표 줌)
+	if (m_keyState.keyR) m_camera.ZoomLocal(1.0);
+	if (m_keyState.keyF) m_camera.ZoomLocal(-1.0);
+
+	// UO (월드 좌표 줌)
+	if (m_keyState.keyU) m_camera.ZoomWorld(1.0);
+	if (m_keyState.keyO) m_camera.ZoomWorld(-1.0);
+
+	// QE, 방향키 (로컬 회전)
+	float rotX = 0.0f, rotY = 0.0f, rotZ = 0.0f;
+	if (m_keyState.keyE)	 rotZ -= rotateSpeed;
+	if (m_keyState.keyQ)	 rotZ += rotateSpeed;
+	if (m_keyState.keyLeft)  rotX -= rotateSpeed;
+	if (m_keyState.keyRight) rotX += rotateSpeed;
+	if (m_keyState.keyUp)    rotY -= rotateSpeed;
+	if (m_keyState.keyDown)  rotY += rotateSpeed;
+	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) m_camera.RotateLocal(rotX, rotY, rotZ);
+
+	// 숫자패드 (월드 회전)
+	rotX = rotY = rotZ = 0.0f;
+	if (m_keyState.numPad9)  rotZ -= rotateSpeed;
+	if (m_keyState.numPad7)	 rotZ += rotateSpeed;
+	if (m_keyState.numPad4)  rotX -= rotateSpeed;
+	if (m_keyState.numPad6)  rotX += rotateSpeed;
+	if (m_keyState.numPad8)  rotY -= rotateSpeed;
+	if (m_keyState.numPad5)  rotY += rotateSpeed;
+	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) m_camera.RotateWorld(rotX, rotY, rotZ);
+}
+
+// 마우스 커서 world 좌표 획득
+glm::dvec3 CSHPViewerStudyView::ClientToWorldPos(CPoint clientPos)
+{
+	glm::mat4 inverseViewProjection = glm::inverse(m_camera.GetMatrix());
+	CRect rect;
+	GetClientRect(&rect);
+
+	// NDC 변환 (윈도우 전체를 비율에 맞춰 -1 ~ 1의 범위로 축소, Y축 반전 필수)
+	float ndcX =  (float)(clientPos.x - m_panelLeft.GetWidth()) / (rect.Width() - m_panelLeft.GetWidth())  * 2.0f - 1.0f;
+	float ndcY = -((float)clientPos.y / rect.Height() * 2.0f - 1.0f);
+
+	// inverse 변환 후 w로 나누기
+	glm::vec4 nearWorld = inverseViewProjection * glm::vec4(ndcX, ndcY, -1.0f, 1.0f);
+	glm::vec4 farWorld  = inverseViewProjection * glm::vec4(ndcX, ndcY,  1.0f, 1.0f);
+	nearWorld /= nearWorld.w;
+	farWorld  /= farWorld.w;
+
+	m_rayStart = glm::dvec3(nearWorld);
+	m_rayDir   = glm::normalize(glm::dvec3(farWorld) - m_rayStart);
+
+	if (m_rayStart.z > 0.0 && m_rayDir.z > -0.01 || m_rayStart.z < 0.0 && m_rayDir.z < 0.01 )
+		return glm::dvec3(); // 수평 방향이면 교차 없음
+
+	// rayOrigin에서 rayDir 방향으로 쏘았을 때 * correctionValue만큼 가면 z = 0에 도달,  origin.z + dir.z * cor = 0 -> cor = -origin.z / dir.z
+	double correctionValue = -m_rayStart.z / m_rayDir.z;
+	return m_rayStart + correctionValue * m_rayDir;
+}
+
+// 객체 선택 (픽킹)
+// TODO: 현재는 0번 레이어만 피킹 체크 중
+void CSHPViewerStudyView::PickingObj(CPoint clientPos)
+{
+	int32_t beforePickingId = pickingDataId;
+	m_hitPoint = ClientToWorldPos(clientPos);
+
+	auto cullStart = std::chrono::high_resolution_clock::now();
+
+	// 레이와 객체의 충돌 검사, 쿼드트리를 이용한 피킹
+	double collisionDistance = std::numeric_limits<double>::max();
+	pickingDataId = m_layerManager.layers[0]->m_quadTree->SearchPickingData(m_rayStart, m_rayDir, 0, collisionDistance, m_layerManager.layers[0]->m_renderer->GetPolygonDrawInfo(), m_layerManager.layers[0]->m_renderer->GetPolygonIndices(), m_layerManager.layers[0]->m_renderer->GetPolygonVertices());
+
+	auto cullEnd = std::chrono::high_resolution_clock::now();
+	double cullMicros = std::chrono::duration<double, std::micro>(cullEnd - cullStart).count();
+
+	TCHAR buf[256];
+	_stprintf_s(buf, _T("[Picking] 객체 선택 시간 = %f\n"), cullMicros);
+	OutputDebugString(buf);
+
+
+	if (pickingDataId   == -1)            { m_layerManager.layers[0]->m_renderer->SetSelectedObject(-1, m_uiState);  return; } // 객체가 없는 빈 공간 선택
+	if (beforePickingId == pickingDataId) { m_panelRight.Show(false); pickingDataId = -1; return; } // 이전과 같은 객체 선택
+
+	// 피킹된 객체 정보 얻기, TODO: 폴리곤 데이터만 일단 적용
+	if (m_layerManager.layers[0]->polygonObjects.size() < 1) return;
+
+	m_layerManager.layers[0]->m_renderer->SetSelectedObject(pickingDataId, m_uiState); // 선택 객체 색상 적용
+	m_panelRight.SetPickingInfo(m_layerManager.layers[0]->dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
+
+	m_layerManager.ReDraw();
+	Invalidate(FALSE);
+}
+
+// WM_CREATE 시 호출, 초기 설정
+int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
+{
+	if (CView::OnCreate(lpCreateStruct) == -1) return -1;
+	DragAcceptFiles(TRUE); // 파일 드래그, 드롭 허용
+
+	// TODO: 처음에 파일 안 들어 있도록 바꾸기
+	// shapefile 파싱
+	std::filesystem::path busanBuildingPath = std::filesystem::current_path() / "Resource" / "ShpFile" / "BusanBuilding" / "F_FAC_BUILDING_26_202505.shp";
+	m_shpLoader.Parse(busanBuildingPath, m_layerManager);
+
+	// UI 패널 생성
+	CRect rect;
+	GetClientRect(&rect);
+	m_panelLeft.Create (this, ID_PANNEL_LEFT_BACKGROUND,  rect);
+	m_panelRight.Create(this, ID_PANNEL_RIGHT_BACKGROUND, rect);
+
+	// 콜백 연결 (람다로 View 멤버에 접근)
+	// TODO: render에 레이어마다 그려야 하는 것들(객체)만 남기고 전체에 하나만 그리는 것들(절두체)은 밖으로 빼기
+	LinkCallbacksToUI();
+	
+	// 카메라 초기화, UI 패널 부분 남기기
+	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_layerManager.InitRenderer(m_hWnd); // 렌더 초기화
+
+	m_lastTime = std::chrono::steady_clock::now();
+	SetTimer(1, 8, nullptr); // 8ms마다 WM_TIMER -> OnTimer함수 호출
+	return 0;
+}
+
+// WM_SIZE 시 호출, 화면 사이즈 변화 시
+void CSHPViewerStudyView::OnSize(UINT nType, int clientWidth, int clientHeight)
+{
+	CView::OnSize(nType, clientWidth, clientHeight);
+	if (clientWidth <= 0 || clientHeight <= 0) return; // 최소화 방어
+
+	// 새로 변경된 화면 크기 정보
+	m_clientWidth  = clientWidth;
+	m_clientHeight = clientHeight;
+
+	// 양쪽 패널 사이즈 재지정
+	m_panelLeft.Resize (m_clientWidth, m_clientHeight);
+	m_panelRight.Resize(m_clientWidth, m_clientHeight);
+
+	// 가운데 렌더링 영역 사이즈, 카메라 종횡비 재지정
+	m_camera.UpdateAspect(m_clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_clientHeight);
+	m_layerManager.Resize(m_clientWidth, m_clientHeight, m_panelLeft.GetWidth());
+}
+
+// WM_DESTROY 시 호출
+void CSHPViewerStudyView::OnDestroy()
+{
+	KillTimer(1); // SetTimer로 생성한 타이머(현재 OnTimer 반복 실행 중) 제거
+	m_layerManager.Shutdown(m_hWnd);
+	CView::OnDestroy();
+}
+
+// 배경 지우기 제거
+BOOL CSHPViewerStudyView::OnEraseBkgnd(CDC* pDC)
+{
+	return false;
+}
+
+// WM_TIMER 시 호출, 타이머에 따라 주기적으로 호출
+void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
+{
+	// deltaTime, fps 계산
+	std::chrono::steady_clock::time_point currentTime = std::chrono::steady_clock::now();
+	std::chrono::duration<float>          deltaTime   = currentTime - m_lastTime;
+	m_lastTime        = currentTime;
+	m_deltaTimeStack += deltaTime.count();
+	m_frameCount++;
+
+	// m_updatePeriod 주기마다 1번씩 갱신 (ui 정보 출력)
+	if (m_deltaTimeStack > m_updatePeriod) {
+		float fps        = (float)m_frameCount / m_deltaTimeStack; // 평균 fps 계산
+		m_deltaTimeStack = 0.0f;
+		m_frameCount     = 0;
+
+		// TODO: 모든 레이어 총합 구하기
+		//int32_t totalObjCount  = static_cast<int32_t>(m_layerManager.pointObjects.size()) + static_cast<int32_t>(m_layerManager.polyLineObjects.size()) + static_cast<int32_t>(m_layerManager.polygonObjects.size());
+		//int32_t renderObjCount = m_renderer.m_currentRenderCount;
+		//int32_t fakeObjCount   = m_uiState.isShowFakeObject ? m_renderer.m_currentRenderFakeCount : 0;
+		//double  scalePerCm     = 2 * m_camera.transform.position.z * glm::tan(m_camera.fov * 3.141592 / 180.0 * 0.5) * m_camera.aspect / m_clientWidth * 37.795276;
+		//m_panelLeft.UpdateInfo(fps, totalObjCount, renderObjCount, fakeObjCount, static_cast<int32_t>(m_camera.transform.position.z), scalePerCm);
+		m_panelLeft.UpdateInfo(fps, 0, 0, 0, static_cast<int32_t>(m_camera.transform.position.z), 0.0);
+		m_panelLeft.UpdatePickingInfo(m_hitPoint);
+	}
+
+	InputKey(deltaTime.count()); // 키보드 입력
+	Invalidate(FALSE); // 배경을 흰색으로 지우지 않고 다시 그리기 WM_PAINT -> OnDraw
+	CView::OnTimer(nIDEvent);
+	
+	// 측정 부분
+	/*
+	if (m_autoPanning) {
+		m_panTime += deltaTime.count();
+
+		if (m_panTime >= m_panDuration) {
+			m_autoPanning = false;
+			m_camera.transform.position = m_panCenter; // 정확히 시작점 복귀
+			m_camera.UpdateMatrix();
+		}
+		else {
+			// 0 → 2π 한 주기 sin 왕복 (중심에서 시작 → 우 → 좌 → 중심)
+			double phase = (m_panTime / m_panDuration) * 2.0 * 3.14159265358979;
+			double offsetX = std::sin(phase) * m_panRangeX;
+
+			m_camera.transform.position.x = m_panCenter.x + (float)offsetX;
+			m_camera.transform.position.y = m_panCenter.y;
+			m_camera.transform.position.z = m_panCenter.z; // 줌 높이 고정
+			m_camera.UpdateMatrix(); // m_isCameraChanged=true → Render가 다시 돔
+		}
+	}
+	else {
+		InputKey(deltaTime.count());
+	}
+	Invalidate(FALSE); // 배경을 흰색으로 지우지 않고 다시 그리기 WM_PAINT -> OnDraw
+	CView::OnTimer(nIDEvent);
+	*/
+}
+
+
+// 마우스 이벤트
+// 마우스 좌클릭 누르기
+void CSHPViewerStudyView::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	if (IsInUIPanel(point))  return; // UI 패널 위에서는 카메라가 반응하지 않도록 차단
+	if (m_isPickingMode)     { PickingObj(point); m_panelLeft.UpdatePickingInfo(m_hitPoint); } // 피킹 모드
+	if (m_isCameraThirdMode) { m_hitPoint = ClientToWorldPos(point); m_camera.m_thirdMovePos = m_camera.transform.position; } // 3인칭 카메라 조작 모드
+
+	m_isLButtonDragging = true;
+	m_mouseClientPos    = point;
+	SetCapture(); // 마우스가 창 밖으로 나가도 추적
+	SetFocus();
+	CView::OnLButtonDown(nFlags, point);
+}
+
+// 마우스 좌클릭 떼기
+void CSHPViewerStudyView::OnLButtonUp(UINT nFlags, CPoint point)
+{
+	m_isLButtonDragging = false;
+	ReleaseCapture(); // SetCapture() 끊기
+	CView::OnLButtonUp(nFlags, point);
+}
+
+// 마우스 우클릭 누르기
+void CSHPViewerStudyView::OnRButtonDown(UINT nFlags, CPoint point)
+{
+	if (IsInUIPanel(point))  return;
+	if (m_isCameraThirdMode) { m_hitPoint = ClientToWorldPos(point); }
+
+	m_isRButtonDragging = true;
+	m_mouseClientPos    = point;
+	SetCapture(); // 마우스가 창 밖으로 나가도 추적
+	CView::OnRButtonDown(nFlags, point);
+}
+
+// 마우스 우클릭 떼기
+void CSHPViewerStudyView::OnRButtonUp(UINT nFlags, CPoint point)
+{
+	m_isRButtonDragging = false;
+	ReleaseCapture(); // SetCapture() 끊기
+	CView::OnRButtonUp(nFlags, point);
+}
+
+// 마우스 이동
+void CSHPViewerStudyView::OnMouseMove(UINT nFlags, CPoint point)
+{
+	if (!m_isLButtonDragging && !m_isRButtonDragging) return;
+
+	// 화면 픽셀 이동량 -> 세계 좌표 이동량으로 변환
+	CPoint mouseDelta = point - m_mouseClientPos;
+	m_mouseClientPos = point;
+
+	if (m_isLButtonDragging) { // 좌클릭
+		if (m_isCameraThirdMode) { // 3인칭 이동
+			m_camera.transform.position = m_camera.m_thirdMovePos;
+			m_camera.UpdateMatrix();
+
+			glm::dvec3 hitPoint = ClientToWorldPos(point);
+			glm::dvec3 deltaPos = m_hitPoint - hitPoint;
+			m_camera.transform.position += deltaPos;
+			m_camera.UpdateMatrix();
+		}
+		else m_camera.MoveLocal(static_cast<float>(mouseDelta.x), static_cast<float>(mouseDelta.y)); // 1인칭 이동
+	}
+	if (m_isRButtonDragging) { // 우클릭
+		if (m_isCameraThirdMode) m_camera.RotateThird(static_cast<float>(mouseDelta.x), static_cast<float>(mouseDelta.y), 0.0f, m_hitPoint); // 3인칭 회전
+		else                     m_camera.RotateFirst(static_cast<float>(mouseDelta.x), static_cast<float>(mouseDelta.y), 0.0f);             // 1인칭 회전
+	}
+}
+
+// 마우스 휠
+BOOL CSHPViewerStudyView::OnMouseWheel(UINT nFlags, short zDelta, CPoint point)
+{
+	// 휠은 화면 좌표가 아닌 스크린 좌표 -> 클라이언트 좌표 변환 후 판정
+	ScreenToClient(&point);
+	if (IsInUIPanel(point)) return CView::OnMouseWheel(nFlags, zDelta, point);
+
+	// 일반 휠: 줌
+	double factor = (zDelta > 0) ? 1.0 : -1.0;
+
+	if (m_isCameraThirdMode) { m_hitPoint = ClientToWorldPos(point); m_camera.ZoomThird(factor, m_hitPoint); }
+	else                     m_camera.ZoomLocal(factor);
+
+	return TRUE;
+}
+
+
+// 키보드 이벤트
+// 키보트 키 누르기
+void CSHPViewerStudyView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
+{
+	switch (nChar)
+	{
+	case 'W': m_keyState.keyW = true; break; // 로컬 이동
+	case 'A': m_keyState.keyA = true; break;
+	case 'S': m_keyState.keyS = true; break;
+	case 'D': m_keyState.keyD = true; break;
+
+	case 'R': m_keyState.keyR = true; break; // 로컬 줌인/줌아웃
+	case 'F': m_keyState.keyF = true; break;
+
+	case 'Q': m_keyState.keyQ = true; break; // 로컬 회전
+	case 'E': m_keyState.keyE = true; break;
+
+	case VK_UP:    m_keyState.keyUp    = true; break; // 로컬 회전
+	case VK_DOWN:  m_keyState.keyDown  = true; break;
+	case VK_LEFT:  m_keyState.keyLeft  = true; break;
+	case VK_RIGHT: m_keyState.keyRight = true; break;
+
+	case 'I': m_keyState.keyI = true; break; // 월드 이동
+	case 'J': m_keyState.keyJ = true; break;
+	case 'K': m_keyState.keyK = true; break;
+	case 'L': m_keyState.keyL = true; break;
+
+	case 'U': m_keyState.keyU = true; break; // 월드 줌인/줌아웃
+	case 'O': m_keyState.keyO = true; break;
+
+	case VK_NUMPAD7: m_keyState.numPad7 = true; break; // 월드 회전
+	case VK_NUMPAD9: m_keyState.numPad9 = true; break;
+
+	case VK_NUMPAD8: m_keyState.numPad8 = true; break; // 월드 회전
+	case VK_NUMPAD5: m_keyState.numPad5 = true; break;
+	case VK_NUMPAD4: m_keyState.numPad4 = true; break;
+	case VK_NUMPAD6: m_keyState.numPad6 = true; break;
+
+	// 테스트용
+	case '1': if (!m_autoPanning) TestTimeAboutAltitude(100000.0);break;
+	case '2': if (!m_autoPanning) TestTimeAboutAltitude(50000.0); break;
+	case '3': if (!m_autoPanning) TestTimeAboutAltitude(20000.0); break;
+	case '4': if (!m_autoPanning) TestTimeAboutAltitude(17500.0); break;
+	case '5': if (!m_autoPanning) TestTimeAboutAltitude(15000.0); break;
+	case '6': if (!m_autoPanning) TestTimeAboutAltitude(12500.0); break;
+	case '7': if (!m_autoPanning) TestTimeAboutAltitude(10000.0); break;
+	case '8': if (!m_autoPanning) TestTimeAboutAltitude(7500.0);  break;
+	case '9': if (!m_autoPanning) TestTimeAboutAltitude(5000.0);  break;
+	case '0': if (!m_autoPanning) TestTimeAboutAltitude(2500.0);  break;
+	}
+
+	CView::OnKeyDown(nChar, nRepCnt, nFlags);
+}
+
+// 측정용
+void CSHPViewerStudyView::TestTimeAboutAltitude(double altitude)
+{
+	glm::dvec3 pos = m_camera.transform.position;
+	pos.z = altitude; // 측정용 고정 줌 높이 (렌더객체 1만~3만 나오던 값으로)
+
+	TCHAR buf[256];
+	_stprintf_s(buf, _T("[click P] 높이= %f\n"), pos.z);
+	OutputDebugString(buf);
+
+	m_camera.transform.position = pos;
+
+	m_panTime = 0.0;
+	m_panCenter = m_camera.transform.position; // 현재 위치를 기준점으로
+	m_panRangeX = m_layerManager.boundingBox.GetLengthX() * 0.1; // 이동 폭
+	m_autoPanning = true;
+}
+
+// 키보드 키 떼기
+void CSHPViewerStudyView::OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
+{
+	switch (nChar)
+	{
+	case 'W': m_keyState.keyW = false; break; // 로컬 이동
+	case 'A': m_keyState.keyA = false; break;
+	case 'S': m_keyState.keyS = false; break;
+	case 'D': m_keyState.keyD = false; break;
+
+	case 'R': m_keyState.keyR = false; break; // 로컬 줌인/줌아웃
+	case 'F': m_keyState.keyF = false; break;
+
+	case 'Q': m_keyState.keyQ = false; break; // 로컬 회전
+	case 'E': m_keyState.keyE = false; break;
+
+	case VK_UP:    m_keyState.keyUp    = false; break; // 로컬 회전
+	case VK_DOWN:  m_keyState.keyDown  = false; break;
+	case VK_LEFT:  m_keyState.keyLeft  = false; break;
+	case VK_RIGHT: m_keyState.keyRight = false; break;
+
+	case 'I': m_keyState.keyI = false; break; // 월드 이동
+	case 'J': m_keyState.keyJ = false; break;
+	case 'K': m_keyState.keyK = false; break;
+	case 'L': m_keyState.keyL = false; break;
+
+	case 'U': m_keyState.keyU = false; break; // 월드 줌인/줌아웃
+	case 'O': m_keyState.keyO = false; break;
+
+	case VK_NUMPAD7: m_keyState.numPad7 = false; break; // 월드 회전
+	case VK_NUMPAD9: m_keyState.numPad9 = false; break;
+
+	case VK_NUMPAD8: m_keyState.numPad8 = false; break; // 월드 회전
+	case VK_NUMPAD5: m_keyState.numPad5 = false; break;
+	case VK_NUMPAD4: m_keyState.numPad4 = false; break;
+	case VK_NUMPAD6: m_keyState.numPad6 = false; break;
+	}
+
+	CView::OnKeyUp(nChar, nRepCnt, nFlags);
+}
+
+
+// 파일 열기
+// 파일 끌어다 놓기
+void CSHPViewerStudyView::OnDropFiles(HDROP hDropInfo)
+{
+	TCHAR filePath[MAX_PATH];
+	DragQueryFile(hDropInfo, 0, filePath, MAX_PATH);
+	m_shpLoader.Parse(filePath, m_layerManager);
+
+	DragFinish(hDropInfo);
+
+	CRect rect;
+	GetClientRect(&rect);
+	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
+	m_layerManager.ReDraw();
+}
+
+// SHP 파일 직접 선택
+void CSHPViewerStudyView::OnFileOpenShp()
+{
+	CFileDialog dlg(TRUE, _T("shp"), nullptr, OFN_FILEMUSTEXIST | OFN_HIDEREADONLY, _T("Shapefile (*.shp)|*.shp||"));
+	if (dlg.DoModal() != IDOK) return;
+
+	std::filesystem::path shpPath = dlg.GetPathName().GetString();
+
+	//m_layerManager = LayerManager();
+	m_shpLoader.Parse(shpPath, m_layerManager);
+
+	CRect rect;
+	GetClientRect(&rect);
+	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
+	m_layerManager.ReDraw();
+}
+
+// 폴더 선택 -> 안에 있는 shp 전부 읽기
+void CSHPViewerStudyView::OnFileOpenFolder()
+{
+	// Vista 이상 폴더 선택 다이얼로그
+	IFileOpenDialog* pDialog = nullptr;
+	CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pDialog));
+
+	DWORD options;
+	pDialog->GetOptions(&options);
+	pDialog->SetOptions(options | FOS_PICKFOLDERS);
+
+	if (FAILED(pDialog->Show(m_hWnd))) { pDialog->Release(); return; }
+
+	IShellItem* pItem = nullptr;
+	pDialog->GetResult(&pItem);
+
+	PWSTR folderPath = nullptr;
+	pItem->GetDisplayName(SIGDN_FILESYSPATH, &folderPath);
+
+	std::filesystem::path folder = folderPath;
+	CoTaskMemFree(folderPath);
+	pItem->Release();
+	pDialog->Release();
+
+	// 폴더 안 .shp 파일 전부 수집
+	//m_layerManager = LayerManager();  // 초기화
+	for (const auto& entry : std::filesystem::directory_iterator(folder)) {
+		if (entry.path().extension() != ".shp") continue;
+		m_shpLoader.Parse(entry.path(), m_layerManager);
+	}
+
+	CRect rect;
+	GetClientRect(&rect);
+	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
+	m_layerManager.ReDraw();
+	//RefreshMap();
+}
+
+
+#include <pch.h>
+#include <fstream>
+#include <filesystem>
+#include <execution>
+#include <numeric>
+#include <algorithm>
+
+// Engine
+#include "Renderer.h"
+#include "Layer.h"
+#include <glm/gtc/type_ptr.hpp>
+
+
+// 전체 초기화 진입점, EGL/셰이더/버퍼/상태/쿼드트리를 준비
+bool Renderer::Initialize(HWND hWnd)
+{
+	// 셰이더 설정
+	if (!m_shader.CreateProgram("Resource/Shader/shader.vert", "Resource/Shader/shader.frag")) return false;
+	m_viewProjectionLocation  = glGetUniformLocation(m_shader.GetProgram(), "u_viewProjection");
+	m_colorMultiplierLocation = glGetUniformLocation(m_shader.GetProgram(), "u_colorMultiplier");
+	
+	// 깊이 테스트 활성화 (3D 건물, 면/라인 z-fighting 해결에 필요)
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_POLYGON_OFFSET_FILL); // 면 위에 라인을 그릴 때 z-fighting 방지, 면을 살짝 뒤로 밀어서 라인이 면 위에 보이게 함
+	glPolygonOffset(1.0f, 1.0f);
+
+	// 버퍼 등록
+	GLuint iboNull = -1; // 인덱스버퍼 없는 것들
+	InitBuffer(m_polygonVAO, m_polygonVBO, &m_polygonIBO); // 폴리곤 버퍼
+	InitBuffer(m_mbrVAO,     m_mbrVBO,     nullptr);       // MBR박스 그리기 버퍼
+
+	glGenBuffers(1, &m_polygonIBOVisible); // 가시 폴리곤 인덱스 버퍼
+	glGenBuffers(1, &m_lineIBOVisible);	   // 가시 라인 인덱스 전용 버퍼
+	glGenBuffers(1, &m_fakeIBO);           // 가상 객체 인덱스 버퍼
+	glGenBuffers(1, &m_fakeIBOVisible);	   // 가시 가상 객체 인덱스 버퍼
+
+	RebuildQuadTree(); // 쿼드트리 생성
+	BuildMesh();
+
+	return true;
+}
+
+// 버퍼 초기화, VAO + VBO (+ 옵션 IBO) 한 묶음으로 생성
+void Renderer::InitBuffer(GLuint& vao, GLuint& vbo, GLuint* ibo)
+{
+	glGenVertexArrays(1, &vao);			// vao 생성(id를 1개 생성해서 변수에 담기)
+	glGenBuffers(1, &vbo);				// vbo id 1개 생성
+	glBindVertexArray(vao);				// 조작할 vao 등록
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);	// 조작할 vbo 등록
+
+	// location 0: position (vec3)
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0); // GPU에게 데이터 구조(Vertex) 전달
+	glEnableVertexAttribArray(0);		// 방금 세팅한 슬롯(0번)을 활성화
+
+	// location 1: color (vec4)
+	glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void*)(sizeof(float) * 3));
+	glEnableVertexAttribArray(1);
+
+	if (ibo) { // ibo가 있는 경우
+		glGenBuffers(1, ibo); // ibo id 1개 생성
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *ibo); // 조작할 ibo 등록
+	}
+
+	glBindVertexArray(0); // vao 등록 해제
+}
+
+// 업로드 & 그리기 (객체 mbr, 노드 mbr, 절두체 사각형 등)
+void Renderer::UploadAndDraw(GLuint& vao, GLuint& vbo, std::vector<Vertex>& vertices, int drawType)
+{
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_DYNAMIC_DRAW);
+	glDrawArrays(drawType, 0, (GLsizei)vertices.size());
+	glBindVertexArray(0);
+}
+
+// GPU 리소스 해제
+void Renderer::Shutdown(HWND m_hWnd)
+{
+	if (m_shader.GetProgram() != 0) glDeleteProgram(m_shader.GetProgram());
+	
+	// 라인 메쉬 버퍼 해제
+	if (m_lineIBOVisible)    glDeleteBuffers(1, &m_lineIBOVisible);
+	if (m_polygonIBOVisible) glDeleteBuffers(1, &m_polygonIBOVisible);
+	if (m_fakeIBOVisible)    glDeleteBuffers(1, &m_fakeIBOVisible);
+
+	// 면 메쉬 버퍼 해제
+	if (m_polygonIBO)        glDeleteBuffers(1, &m_polygonIBO);
+	if (m_polygonVBO)        glDeleteBuffers(1, &m_polygonVBO);
+	if (m_polygonVAO)        glDeleteVertexArrays(1, &m_polygonVAO);
+
+	// MBR 버퍼 해제
+	if (m_mbrVBO)            glDeleteBuffers(1, &m_mbrVBO);
+	if (m_mbrVAO)            glDeleteVertexArrays(1, &m_mbrVAO);
+
+	// 가상 객체 버퍼 해제
+	if (m_fakeIBO)           glDeleteBuffers(1, &m_fakeIBO);
+}
+
+// 메인 렌더 함수
+void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft)
+{
+	// 쿼드트리에서 가시 객체 검색 (컬링, LOD)
+	if (!uiState.isShowFrustumView) {
+		m_renderObjectIds.clear();
+		m_quadTree.m_visibleNodeIds.clear();
+		m_quadTree.m_visibleNodeFakeObjIds.clear();
+
+		double halfFovRad = glm::radians(camera.fov * 0.5);
+		double lodFactor  = std::max(screenHeight, 1) / (2.0 * std::tan(halfFovRad));
+		m_quadTree.SearchRenderingData(m_renderObjectIds, 0, camera, camera.transform.position, lodFactor);
+
+		m_currentRenderCount     = static_cast<int32_t>(m_renderObjectIds.size());
+		m_currentRenderFakeCount = static_cast<int32_t>(m_quadTree.m_visibleNodeFakeObjIds.size());
+	}
+
+	// 셰이더 설정
+	m_shader.UseProgram();
+	glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(camera.GetMatrix()));
+	glUniform1f(m_colorMultiplierLocation, 1.0f); // 기본값
+
+	// TODO: 면, 라인, fake 그리는 함수를 한데 묶어 처리
+	// 면 가시 인덱스, 가시 인덱스를 모아서 GPU에 stream 업로드
+	size_t  totalPolygonIndices = 0;
+	int32_t polygonCount = static_cast<int32_t>(m_polygonDrawInfos.size());
+	for (int32_t id : m_renderObjectIds) { // 컬링 통과한 객체 ID를 순회
+		if (id < 0 || id >= polygonCount) continue; // ID 유효성 체크 (안전장치)
+		totalPolygonIndices += m_polygonDrawInfos[id].indexCount; // 총 가시 인덱스 수 계산
+	}
+	if (totalPolygonIndices > 0) { // 가시 인덱스가 하나라도 있으면 진행
+		m_polygonVisibleIndices.resize(totalPolygonIndices); // 가시 인덱스 임시 버퍼 크기 조정
+		uint32_t* writePtr = m_polygonVisibleIndices.data(); // 가시 인덱스 버퍼 채우기
+		
+		// 컬링 통과한 객체 ID 순회하면서 가시 인덱스 버퍼 채우기
+		for (int32_t id : m_renderObjectIds) {
+			if (id < 0 || id >= polygonCount) continue; // ID 유효성 체크
+			const DrawInfo& info = m_polygonDrawInfos[id]; // 객체별 인덱스 범위 정보
+			if (info.indexCount == 0) continue; // 인덱스 없는 객체는 건너뛰기
+			memcpy(writePtr, m_polygonIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t)); // CPU 측 전체 인덱스에서 해당 객체의 인덱스 범위를 가시 인덱스 버퍼로 복사
+			writePtr += info.indexCount; // 가시 인덱스 버퍼 쓰기 포인터 이동
+		}
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBOVisible); // 가시 인덱스 버퍼 바인딩
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalPolygonIndices, nullptr, GL_STREAM_DRAW); // nullptr로 먼저 한 번 호출 = "이전 버퍼 내용 버려, 새로 할당해줘"
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalPolygonIndices, m_polygonVisibleIndices.data(), GL_STREAM_DRAW); // 가시 인덱스 데이터 GPU로 업로드 (stream draw: 매 프레임 바뀌는 데이터 -> 드라이버가 빠른 쓰기용 메모리에 배치)
+
+		// 면 그리기
+		glBindVertexArray(m_polygonVAO); // 면 VAO 바인딩
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBOVisible); // 가시 인덱스 버퍼 바인딩
+		glDrawElements(GL_TRIANGLES, (GLsizei)totalPolygonIndices, GL_UNSIGNED_INT, nullptr); // 인덱스 드로우콜, 가시 인덱스 수만큼 그리기, 실제 그리기 명령
+		glBindVertexArray(0); // VAO 바인딩 해제
+	}
+
+	// 라인 가시 인덱스
+	size_t  totalLineIndices = 0;
+	int32_t lineCount = static_cast<int32_t>(m_lineDrawInfos.size());
+	for (int32_t id : m_renderObjectIds) {
+		if (id < 0 || id >= lineCount) continue;
+		totalLineIndices += m_lineDrawInfos[id].indexCount;
+	}
+	if (totalLineIndices > 0) {
+		m_lineVisibleIndices.resize(totalLineIndices);
+		uint32_t* writePtr = m_lineVisibleIndices.data();
+
+		for (int32_t id : m_renderObjectIds) {
+			if (id < 0 || id >= lineCount) continue;
+			const DrawInfo& info = m_lineDrawInfos[id];
+			if (info.indexCount == 0) continue;
+			memcpy(writePtr, m_lineIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t));
+			writePtr += info.indexCount;
+		}
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLineIndices, nullptr, GL_STREAM_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLineIndices, m_lineVisibleIndices.data(), GL_STREAM_DRAW);
+
+		glUniform1f(m_colorMultiplierLocation, 0.6f); // 어둡게
+		glBindVertexArray(m_polygonVAO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
+		glDrawElements(GL_LINES, (GLsizei)totalLineIndices, GL_UNSIGNED_INT, nullptr);
+		glUniform1f(m_colorMultiplierLocation, 1.0f); // 복원
+		glBindVertexArray(0);
+	}
+
+	// Fake Object (LOD 메쉬) 그리기
+	int32_t quadTreenodeCount = static_cast<int32_t>(m_quadTree.m_nodes.size());
+	if (uiState.isShowFakeObject) {
+		size_t totalLodIndices = 0;
+		for (int32_t nodeId : m_quadTree.m_visibleNodeFakeObjIds) {
+			if (nodeId < 0 || nodeId >= quadTreenodeCount) continue;
+			totalLodIndices += m_quadTree.m_nodes[nodeId].m_lodIndexCount;
+		}
+		if (m_quadTree.m_visibleNodeFakeObjIds.size() > 0) {
+			m_fakeVisibleIndices.resize(totalLodIndices);
+			uint32_t* writePtr = m_fakeVisibleIndices.data();
+			for (int32_t nodeId : m_quadTree.m_visibleNodeFakeObjIds) {
+				if (nodeId < 0 || nodeId >= quadTreenodeCount) continue;
+				const QuadTreeNode& node = m_quadTree.m_nodes[nodeId];
+				if (node.m_lodIndexCount == 0) continue;
+				memcpy(writePtr, m_fakeIndices.data() + node.m_lodIndexOffset, node.m_lodIndexCount * sizeof(uint32_t));
+				writePtr += node.m_lodIndexCount;
+			}
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBOVisible);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLodIndices, nullptr, GL_STREAM_DRAW);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLodIndices, m_fakeVisibleIndices.data(), GL_STREAM_DRAW);
+			
+			glBindVertexArray(m_polygonVAO);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBOVisible);
+			glDrawElements(GL_TRIANGLES, (GLsizei)totalLodIndices, GL_UNSIGNED_INT, nullptr);
+			glBindVertexArray(0);
+		}
+	}
+
+	if (uiState.isShowObjectMBR)   DrawObjectMBR();           // 객체 MBR 그리기
+	if (uiState.isShowNodeMBR)     DrawQuadTreeNodeMBR();     // 노드 MBR 그리기
+	if (uiState.isShowFrustumView) DrawCameraFrustum(camera); // 카메라 절두체 라인 그리기
+}
+
+// 윈도우 크기 변경 시 호출되는 viewport 갱신
+/*
+void Renderer::Resize(int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft)
+{
+	m_viewportWidth    = screenWidth;
+	m_viewportHeight   = screenHeight;
+	m_uiPanelWidthLeft = panelWidthLeft; // 3D 렌더링 영역은 UI 패널 오른쪽 부분만
+	glViewport(panelWidthLeft, 0, screenWidth - panelWidthLeft, screenHeight);
+	ReDraw(); // 다시 그리기
+}
+*/
+
+// 메쉬 빌드 진입점, 파일이 열리면 실행
+void Renderer::BuildMesh()
+{
+	TCHAR buf[256];
+	_stprintf_s(buf, _T("[Build Mesh] start\n"));
+	OutputDebugString(buf);
+
+	// 모든 멤버 클리어
+	m_polygonVertices.clear(); // TODO: 클리어 부분 하나로 모아서 함수 만들기
+	m_polygonIndices.clear();
+	m_polygonDrawInfos.clear();
+	m_polygonVisibleIndices.clear();
+	m_lineIndices.clear();
+	m_lineDrawInfos.clear();
+	m_lineVisibleIndices.clear();
+
+	switch (m_layer.m_shapeType) {
+	case 1: break;
+	case 3: BuildPolyLineMesh(); break; // 선 정점/인덱스 빌드, 선을 직사각형의 폴리곤으로 만들어 너비를 설정
+	case 5: BuildPolygonMesh();  break; // 면 정점/인덱스 빌드
+	}
+
+	// 기본 색상 적용 (레벨 색상 OFF 상태)
+	ApplyLevelColors(false);
+
+	// GPU 업로드  VBO 하나에 모든 정점
+	glBindVertexArray(m_polygonVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * m_polygonVertices.size(), m_polygonVertices.data(), GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_polygonIndices.size(), m_polygonIndices.data(), GL_STATIC_DRAW);
+	glBindVertexArray(0);
+
+	// 라인 IBO 업로드
+	if (!m_lineIndices.empty()) {
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_lineIndices.size(), m_lineIndices.data(), GL_STATIC_DRAW);
+	}
+
+	// GPU 업로드 완료, CPU 사본 해제 (더 이상 안 쓰임)
+	m_polygonVertices.shrink_to_fit();
+	m_polygonIndices.shrink_to_fit();
+	m_lineIndices.shrink_to_fit();
+
+	//TCHAR buf[256];
+	_stprintf_s(buf, _T("[Build Mesh] finish\n"));
+	OutputDebugString(buf);
+}
+
+// 선(너비를 부여해 직사각형으로) 빌드
+void Renderer::BuildPolyLineMesh()
+{
+	m_polygonVertices.clear(); // TODO: 클리어 부분 하나로 모아서 함수 만들기
+	m_polygonIndices.clear();
+	m_polygonDrawInfos.clear();
+	m_lineIndices.clear();
+	m_lineDrawInfos.clear();
+
+	int32_t polyLineCount = static_cast<int32_t>(m_layer.polyLineObjects.size());
+	m_polygonDrawInfos.resize(polyLineCount);
+	m_lineDrawInfos.resize(polyLineCount);
+	if (polyLineCount == 0) return;
+
+	for (int32_t dataId = 0; dataId < m_layer.polyLineObjects.size(); dataId++) {
+		PolyObject& polyLine       = m_layer.polyLineObjects[dataId];
+		uint32_t polygonVertStart  = (uint32_t)m_polygonVertices.size();
+		uint32_t polygonIndexStart = (uint32_t)m_polygonIndices.size();
+		uint32_t lineIndexStart    = (uint32_t)m_lineIndices.size();
+
+		m_polygonVertices.reserve(m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
+		m_polygonIndices.reserve (m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 6);
+		m_lineIndices.reserve    (m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
+
+		for (int32_t partNum = 0; partNum < polyLine.parts.size(); partNum++) {
+			size_t startPoint = polyLine.parts[partNum];
+			size_t endPoint = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : polyLine.points.size();
+			for (int32_t pointNum = startPoint; pointNum < endPoint - 1; pointNum++) {
+				glm::dvec2 pointOrigin1 = polyLine.points[pointNum];     //+(polyLine.points[pointNum] - polyLine.mbrBox.GetCenter()) * 100.0;
+				glm::dvec2 pointOrigin2 = polyLine.points[pointNum + 1]; //+(polyLine.points[pointNum + 1] - polyLine.mbrBox.GetCenter()) * 100.0;
+				glm::dvec2 lineDir      = pointOrigin2 - pointOrigin1; // 이 방향 벡터에 수직인 방향으로 두 point에 m_layer.m_objSize 만큼 떨어진 거리에 점 생성
+				glm::dvec2 widthDir     = glm::normalize(glm::dvec2(-lineDir.y, lineDir.x));   // 수직 벡터(너비 방향 벡터)
+				glm::dvec2 widthValue   = widthDir * static_cast<double>(m_layer.m_objSize);
+				
+				glm::dvec2 point1 = pointOrigin1 + widthValue;
+				glm::dvec2 point2 = pointOrigin1 - widthValue;
+				glm::dvec2 point3 = pointOrigin2 + widthValue;
+				glm::dvec2 point4 = pointOrigin2 - widthValue;
+
+				uint32_t pointVertexNum = (int32_t)m_polygonVertices.size();
+
+				m_polygonVertices.push_back({ (float)point1.x, (float)point1.y, 0.0, 200, 200, 50, 255 });
+				m_polygonVertices.push_back({ (float)point2.x, (float)point2.y, 0.0, 200, 200, 50, 255 });
+				m_polygonVertices.push_back({ (float)point3.x, (float)point3.y, 0.0, 200, 200, 50, 255 });
+				m_polygonVertices.push_back({ (float)point4.x, (float)point4.y, 0.0, 200, 200, 50, 255 });
+
+				m_polygonIndices.push_back({ pointVertexNum });
+				m_polygonIndices.push_back({ pointVertexNum + 1 });
+				m_polygonIndices.push_back({ pointVertexNum + 2 });
+				m_polygonIndices.push_back({ pointVertexNum + 1 });
+				m_polygonIndices.push_back({ pointVertexNum + 2 });
+				m_polygonIndices.push_back({ pointVertexNum + 3 });
+
+				m_lineIndices.push_back({ pointVertexNum });
+				m_lineIndices.push_back({ pointVertexNum + 2 });
+				m_lineIndices.push_back({ pointVertexNum + 1 });
+				m_lineIndices.push_back({ pointVertexNum + 3 });				
+			}
+		}
+
+		uint32_t polygonVertCount  = (uint32_t)m_polygonVertices.size() - polygonVertStart;
+		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size()  - polygonIndexStart;
+		uint32_t lineIndexCount    = (uint32_t)m_lineIndices.size()     - lineIndexStart;
+
+		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
+		m_lineDrawInfos[dataId]    = { lineIndexStart, lineIndexCount, 0, 0 };
+	}
+
+	m_polygonVertices.shrink_to_fit();
+	m_polygonIndices.shrink_to_fit();
+	m_lineIndices.shrink_to_fit();
+}
+
+// 면(지붕 + 벽) 메쉬 빌드. 폴리곤 객체만 대상
+void Renderer::BuildPolygonMesh()
+{
+	m_polygonVertices.clear(); // TODO: 클리어 부분 하나로 모아서 함수 만들기
+	m_polygonIndices.clear();
+	m_polygonDrawInfos.clear();
+	m_lineIndices.clear();
+	m_lineDrawInfos.clear();
+
+	int32_t polygonCount = static_cast<int32_t>(m_layer.polygonObjects.size());
+	m_polygonDrawInfos.resize(polygonCount);
+	m_lineDrawInfos.resize(polygonCount);
+	if (polygonCount == 0) return;
+
+	
+	// 삼각분할
+	struct TriResult {
+		std::vector<glm::dvec2> vertices;
+		std::vector<uint32_t>   indices;
+	};
+	std::vector<TriResult> results(polygonCount);
+	std::vector<int> indexArray(polygonCount);
+
+	// 병렬 CDT
+	if (m_isCDTTriangluate) {
+		std::iota(indexArray.begin(), indexArray.end(), 0);
+		std::for_each(std::execution::par, indexArray.begin(), indexArray.end(), [&](int dataId) {
+			results[dataId].indices = m_triangulate.TriangulatePolygonCDT(m_layer.polygonObjects[dataId], results[dataId].vertices);
+		});
+	}
+	else { // Ear Clipping
+		// TODO: 이어 클리핑
+		for (int dataId = 0; dataId < polygonCount; dataId++) {
+			results[dataId].indices = m_triangulate.TriangulateEarClipping(m_layer.polygonObjects[dataId], results[dataId].vertices);
+		}
+	}
+
+	// shp에서 받아온 정점을 렌더링하기 위한 형태로 저장하기
+	for (int32_t dataId = 0; dataId < polygonCount; dataId++) {
+		PolyObject& polygon        = m_layer.polygonObjects[dataId];
+		uint32_t polygonIndexStart = (uint32_t)m_polygonIndices.size();
+		uint32_t polygonVertStart  = (uint32_t)m_polygonVertices.size();
+		uint32_t lineIndexStart    = (uint32_t)m_lineIndices.size();
+
+		if (results[dataId].vertices.size() < 3 || results[dataId].indices.empty()) {
+			m_polygonDrawInfos[dataId] = { polygonIndexStart, 0, polygonVertStart, 0 };
+			m_lineDrawInfos[dataId]    = { lineIndexStart, 0, 0, 0 };
+			continue;
+		}
+
+		// 지붕 정점
+		m_polygonVertices.reserve(m_polygonVertices.size() + results[dataId].vertices.size());
+		m_polygonVertices.reserve(m_polygonVertices.size() + polygon.parts.size());
+		uint32_t roofVertexBase = (uint32_t)m_polygonVertices.size();
+		for (const auto& point : results[dataId].vertices)
+			m_polygonVertices.push_back({(float)point.x, (float)point.y, (float)polygon.mbrBox.height, 190, 190, 220, 255 });
+
+		for (uint32_t index : results[dataId].indices)
+			m_polygonIndices.push_back(roofVertexBase + index);
+
+		// 벽 정점 + 라인 인덱스 동시 빌드
+		size_t partCount = polygon.parts.size();
+		for (size_t partNum = 0; partNum < partCount; partNum++) {
+			size_t startPoint = polygon.parts[partNum];
+			size_t endPoint   = (partNum + 1 < partCount) ? polygon.parts[partNum + 1] : polygon.points.size();
+			if (endPoint <= startPoint + 1) continue;
+
+			// SHP ring 닫힘점 제거
+			size_t wallEnd = endPoint;
+			if (wallEnd > startPoint + 1 && polygon.points[wallEnd - 1].x == polygon.points[startPoint].x && polygon.points[wallEnd - 1].y == polygon.points[startPoint].y) wallEnd--;
+			if (wallEnd <= startPoint + 1) continue;
+
+			size_t ringSize = wallEnd - startPoint;
+			for (size_t ringNum = 0; ringNum < ringSize; ringNum++) {
+				size_t index0 = startPoint + ringNum;
+				size_t index1 = startPoint + (ringNum + 1) % ringSize;
+
+				// 정점 저장
+				const glm::vec2& point0 = static_cast<glm::vec2>(polygon.points[index0]);
+				const glm::vec2& point1 = static_cast<glm::vec2>(polygon.points[index1]);
+				float height = static_cast<float>(polygon.mbrBox.height);
+
+				// 인덱스 저장
+				uint32_t wallBottom0 = (uint32_t)m_polygonVertices.size();
+				uint32_t wallBottom1 = wallBottom0 + 1;
+				uint32_t wallTop0    = wallBottom0 + 2;
+				uint32_t wallTop1    = wallBottom0 + 3;
+
+				// 정점
+				m_polygonVertices.push_back({ point0.x, point0.y, 0.0f,   100, 100, 120, 255 });
+				m_polygonVertices.push_back({ point1.x, point1.y, 0.0f,   100, 100, 120, 255 });
+				m_polygonVertices.push_back({ point0.x, point0.y, height, 160, 160, 180, 255 });
+				m_polygonVertices.push_back({ point1.x, point1.y, height, 160, 160, 180, 255 });
+
+				// 벽면: 삼각형 2개
+				m_polygonIndices.push_back(wallBottom0);
+				m_polygonIndices.push_back(wallTop0);
+				m_polygonIndices.push_back(wallTop1);
+				m_polygonIndices.push_back(wallBottom0);
+				m_polygonIndices.push_back(wallTop1);
+				m_polygonIndices.push_back(wallBottom1);
+
+				// 라인: 벽 상단 모서리(지붕 높이)와 벽 하단 모서리
+				m_lineIndices.push_back(wallTop0);    // 상단 수평선: wallTop0 → wallTop1
+				m_lineIndices.push_back(wallTop1);
+				m_lineIndices.push_back(wallBottom0); // 수직선: wallBottom0 → wallTop0
+				m_lineIndices.push_back(wallTop0);
+			}
+		}
+
+		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size()  - polygonIndexStart;
+		uint32_t polygonVertCount  = (uint32_t)m_polygonVertices.size() - polygonVertStart;
+		uint32_t lineIndexCount    = (uint32_t)m_lineIndices.size()     - lineIndexStart;
+
+		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
+		m_lineDrawInfos[dataId]    = { lineIndexStart, lineIndexCount, 0, 0 };
+	}
+	//m_polygonVisibleIndices.reserve(m_polygonIndices.size());
+	//m_lineVisibleIndices.reserve(m_lineIndices.size());
+
+	m_polygonVertices.shrink_to_fit();
+	m_polygonIndices.shrink_to_fit();
+	m_lineIndices.shrink_to_fit();
+}
+
+
+// 쿼드트리 재빌드 (파일 새로 로딩 시 호출)
+void Renderer::RebuildQuadTree()
+{
+	m_quadTree.BuildQuadTree(); // 트리 빌드
+	ApplyLevelColors(false);    // 트리에 따라 색상 적용
+
+	//auto fakeBuildStart = std::chrono::high_resolution_clock::now(); // 디버그용, 시간 측정
+
+	BuildFakeMeshes(); // 트리 빌드 후 각 노드의 가상 객체 메쉬 생성
+
+	// 디버그용, 시간 측정
+	/*
+	auto   fakeBuildEnd    = std::chrono::high_resolution_clock::now();
+	double fakeBuildMicros = std::chrono::duration<double, std::micro>(fakeBuildEnd - fakeBuildStart).count();
+	TCHAR buf[256];
+	_stprintf_s(buf, _T("시간 간격: %.1f\n"), fakeBuildMicros);
+	OutputDebugString(buf);
+	*/
+
+	//ReDraw(); // 다시 그리기
+}
+
+
+// 트리 빌드 후 각 노드의 LOD 메쉬 생성
+void Renderer::BuildFakeMeshes()
+{
+	if (m_layer.m_shapeType != 5) return;
+
+	m_fakeIndices.clear();
+	BuildConvexHullNode(m_quadTree.m_nodes[0]); // 루트 노드부터 재귀적으로 가상 객체 생성 (자식 노드가 없으면 객체 중심점으로, 있으면 자식 노드의 LOD 점들로 볼록껍질 생성)
+	if (m_fakeIndices.empty()) return; // 데이터 없으면 업로드 스킵
+	
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_fakeIndices.size(), m_fakeIndices.data(), GL_STATIC_DRAW);
+
+	//m_fakeVisibleIndices.reserve(m_fakeIndices.size());
+	m_fakeIndices.shrink_to_fit();
+}
+
+// hull 계산에 쓸 점: 좌표 + m_polygonVertices에서의 원래 인덱스
+struct HullPoint {
+	double   x, y;
+	uint32_t originalIndex; // m_polygonVertices 인덱스
+};
+
+bool ComparePointXY(const HullPoint& a, const HullPoint& b) {
+	return a.x < b.x || (a.x == b.x && a.y < b.y);
+}
+
+// 노드의 객체 중심점들을 이용한 가상 객체 생성, 폴리곤일때만
+void Renderer::BuildConvexHullNode(QuadTreeNode& node)
+{
+	std::vector<HullPoint> inputPoints;
+	bool isLeaf = (node.m_childNodes[0] == -1 && node.m_childNodes[1] == -1 && node.m_childNodes[2] == -1 && node.m_childNodes[3] == -1); // 리프노드인지 여부
+
+	if (isLeaf) { // 객체가 3개 이하이면 생략
+		if (node.m_objectIds.size() < 3) {
+			node.m_lodVertexOffset = -1;
+			node.m_lodIndexOffset  = -1;
+			node.m_lodVertexCount  = 0;
+			node.m_lodIndexCount   = 0;
+			return;
+		}
+		inputPoints.reserve(node.m_objectIds.size());
+
+		for (int32_t objectId : node.m_objectIds) { // 정점 수집
+			if (objectId >= static_cast<int32_t>(m_polygonDrawInfos.size())) continue;
+
+			const DrawInfo& info = m_polygonDrawInfos[objectId];
+			if (info.vertexCount == 0) continue;
+
+			// 지붕 정점만 수집
+			for (uint32_t num = info.vertexOffset; num < info.vertexOffset + info.vertexCount; num++) {
+				const Vertex& vertex = m_polygonVertices[num];
+
+				if (vertex.z < 0.05f) continue;
+				inputPoints.push_back({ vertex.x, vertex.y, num });
+			}
+		}
+	}
+	else {
+		// 내부 노드: 자식 먼저 재귀
+		for (int childIdx = 0; childIdx < 4; childIdx++) {
+			int32_t childNodeId = node.m_childNodes[childIdx];
+			if (childNodeId == -1) continue;
+			BuildConvexHullNode(m_quadTree.m_nodes[childNodeId]);
+		}
+
+		// 자식 hull이 참조하는 m_lodIndices 슬롯에서 원래 정점 인덱스 수집
+		for (int childIdx = 0; childIdx < 4; childIdx++) {
+			int32_t childNodeId = node.m_childNodes[childIdx];
+			if (childNodeId == -1) continue;
+			const QuadTreeNode& child = m_quadTree.m_nodes[childNodeId];
+			if (child.m_lodIndexCount == 0) continue;
+
+			// child.m_lodIndexOffset ~ +m_lodVertexCount 범위가 m_lodIndices에서 hull 정점 인덱스를 저장한 위치
+			for (uint32_t i = child.m_lodVertexOffset;
+				i < child.m_lodVertexOffset + child.m_lodVertexCount; i++) {
+				uint32_t polygonVertexIndex = m_fakeIndices[i]; // 원래 폴리곤 정점 인덱스
+				const Vertex& v = m_polygonVertices[polygonVertexIndex];
+				inputPoints.push_back({ v.x, v.y, polygonVertexIndex });
+			}
+		}
+
+		if (inputPoints.size() < 3) {
+			node.m_lodVertexOffset = -1; node.m_lodIndexOffset = -1;
+			node.m_lodVertexCount = 0;  node.m_lodIndexCount = 0;
+			return;
+		}
+	}
+
+	// 정렬 (x, 그다음 y)
+	std::sort(inputPoints.begin(), inputPoints.end(), ComparePointXY);
+
+	// 로컬 벡터에서 monotone chain (전역 m_lodVertices를 직접 조작하지 않음)
+	size_t num = inputPoints.size();
+	std::vector<HullPoint> hull(2 * num);
+	int hullPointCount = 0; // hull에 쌓인 점 개수
+
+	// cross product (HullPoint용)
+	auto cross = [](const HullPoint& O, const HullPoint& A, const HullPoint& B) { return (A.x - O.x) * (B.y - O.y) - (A.y - O.y) * (B.x - O.x);	};
+
+	// 아래쪽 체인
+	for (size_t i = 0; i < num; i++) {
+		while (hullPointCount >= 2 && cross(hull[hullPointCount - 2], hull[hullPointCount - 1], inputPoints[i]) <= 0) hullPointCount--;
+		hull[hullPointCount++] = inputPoints[i];
+	}
+	// 위쪽 체인
+	for (int i = (int)num - 2, t = hullPointCount + 1; i >= 0; i--) {
+		while (hullPointCount >= t && cross(hull[hullPointCount - 2], hull[hullPointCount - 1], inputPoints[i]) <= 0) hullPointCount--;
+		hull[hullPointCount++] = inputPoints[i];
+	}
+	// 마지막 점은 시작점과 중복이므로 제거
+	hullPointCount--;
+
+	if (hullPointCount < 3) { // 일직선 등 → hull 실패
+		node.m_lodVertexOffset = -1; node.m_lodIndexOffset = -1;
+		node.m_lodVertexCount  = 0;  node.m_lodIndexCount  = 0;
+		return;
+	}
+
+	fakeObjCount++;
+
+	// m_lodVertexOffset = hull 정점 인덱스들이 시작되는 m_lodIndices 위치
+	node.m_lodVertexOffset = (uint32_t)m_fakeIndices.size();
+	node.m_lodVertexCount  = (uint32_t)hullPointCount;
+
+	for (int i = 0; i < hullPointCount; i++)
+		m_fakeIndices.push_back(hull[i].originalIndex); // 폴리곤 정점 인덱스
+
+	// fan 삼각분할: 정점 0을 중심으로 (0, i, i+1) 삼각형 생성
+	node.m_lodIndexOffset = (uint32_t)m_fakeIndices.size();
+	uint32_t base = node.m_lodVertexOffset;
+	for (int i = 1; i < hullPointCount - 1; i++) {
+		m_fakeIndices.push_back(m_fakeIndices[base]);         // 실제 폴리곤 정점 인덱스
+		m_fakeIndices.push_back(m_fakeIndices[base + i]);
+		m_fakeIndices.push_back(m_fakeIndices[base + i + 1]);
+	}
+	node.m_lodIndexCount = (uint32_t)m_fakeIndices.size() - node.m_lodIndexOffset;
+}
+
+// 객체 MBR 박스 그리기 (보이는 객체만)
+void Renderer::DrawObjectMBR()
+{
+	m_objMbrBoxVertices.clear();
+	m_objMbrBoxVertices.reserve(m_renderObjectIds.size() * 24);
+
+	int32_t polygonCount = static_cast<int32_t>(m_layer.polygonObjects.size());
+	for (int32_t objectId : m_renderObjectIds) {
+		if (objectId < 0) continue;
+
+		// 폴리곤이면 polygonObjects, 폴리라인이면 polyLineObjects 참조
+		const BoundingBox* mbrBox = nullptr;
+		if (objectId < polygonCount && objectId < static_cast<int32_t>(m_layer.polygonObjects.size())) {
+			mbrBox = &m_layer.polygonObjects[objectId].mbrBox;
+		}
+		else {
+			int32_t lineIdx = objectId - polygonCount;
+			if (lineIdx >= 0 && lineIdx < static_cast<int32_t>(m_layer.polyLineObjects.size()))
+				mbrBox = &m_layer.polyLineObjects[lineIdx].mbrBox;
+		}
+		if (!mbrBox) continue;
+
+		int32_t level = (objectId < static_cast<int32_t>(m_quadTree.m_objectLevels.size())) ? m_quadTree.m_objectLevels[objectId] : 0;
+		unsigned char r, g, b;
+		GetLevelColor(level, r, g, b);
+		PushBoundingBoxLine(*mbrBox, m_objMbrBoxVertices, r, g, b, true);
+	}
+
+	if (m_objMbrBoxVertices.empty()) return;
+
+	UploadAndDraw(m_mbrVAO, m_mbrVBO, m_objMbrBoxVertices, GL_LINES);
+
+	m_objMbrBoxVertices.clear();
+	m_objMbrBoxVertices.shrink_to_fit();
+}
+
+// 노드 MBR 박스 그리기 (컬링에서 통과한 노드만)
+void Renderer::DrawQuadTreeNodeMBR()
+{
+	m_nodeMbrBoxVertices.clear();
+	m_nodeMbrBoxVertices.reserve(m_quadTree.m_visibleNodeIds.size() * 8);
+
+	for (int32_t nodeId : m_quadTree.m_visibleNodeIds) {
+		if (nodeId < 0) continue;
+		const QuadTreeNode& node = m_quadTree.m_nodes[nodeId];
+		unsigned char r, g, b;
+		GetLevelColor(node.m_level, r, g, b);
+		PushBoundingBoxLine(node.m_boundingBox, m_nodeMbrBoxVertices, r, g, b, true);
+	}
+
+	if (m_nodeMbrBoxVertices.empty()) return;
+
+	UploadAndDraw(m_mbrVAO, m_mbrVBO, m_nodeMbrBoxVertices, GL_LINES);
+
+	m_nodeMbrBoxVertices.clear();
+	m_nodeMbrBoxVertices.shrink_to_fit();
+}
+
+// 카메라 절두체 시각화 (지면과 교차하는 4개 변), NDC 모서리 4개를 unproject해서 z=0 평면과의 교차점을 구해 라인으로 표시
+void Renderer::DrawCameraFrustum(CameraController& camera)
+{
+	if (!m_drawedFrustum)
+	{
+		m_frustumLineVertices.clear();
+		m_frustumLineVertices.reserve(16); // 지면 투영 4개 라인(8개 정점) + AABB 4개 라인(8개 정점)
+
+		// TODO: screenToWorld 함수 사용
+		// 카메라 시야의 4개 NDC 모서리가 지면(z=0)과 만나는 실제 좌표 계산 (사다리꼴/사각형)
+		glm::mat4 inverseViewProjectionMatrix = glm::inverse(camera.GetMatrix());
+		glm::vec2 ndcCorners[4] = { {-1.0f, -1.0f}, { 1.0f, -1.0f}, { 1.0f,  1.0f}, {-1.0f,  1.0f} };
+		glm::dvec3 hitPoints[4];
+
+		for (int dataId = 0; dataId < 4; ++dataId) {
+			glm::vec4 nearPoint = inverseViewProjectionMatrix * glm::vec4(ndcCorners[dataId], -1.0f, 1.0f);
+			glm::vec4 farPoint  = inverseViewProjectionMatrix * glm::vec4(ndcCorners[dataId],  1.0f, 1.0f);
+			if (nearPoint.w != 0.0f) nearPoint /= nearPoint.w;
+			if (farPoint.w  != 0.0f) farPoint  /= farPoint.w;
+
+			glm::dvec3 rayOrigin = glm::dvec3(nearPoint);
+			glm::dvec3 rayDir = glm::dvec3(farPoint) - glm::dvec3(nearPoint);
+
+			if (std::abs(rayDir.z) > 1e-6) {
+				double t = -rayOrigin.z / rayDir.z;
+				if (t >= 0.0 && t <= 1.0) {
+					hitPoints[dataId].x = static_cast<float>(rayOrigin.x + t * rayDir.x);
+					hitPoints[dataId].y = static_cast<float>(rayOrigin.y + t * rayDir.y);
+				}
+				else {
+					hitPoints[dataId] = glm::dvec3(farPoint);
+				}
+			}
+			else {
+				hitPoints[dataId] = glm::dvec3(farPoint);
+			}
+		}
+
+		// 지면과 교차하는 실제 절두체 라인 조립
+		float r1 = 1.0f, g1 = 0.0f, b1 = 1.0f;
+		for (int dataId = 0; dataId < 4; ++dataId) {
+			int next = (dataId + 1) % 4;
+			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[dataId].x), static_cast<float>(hitPoints[dataId].y), 0.0f, 0, 0, 0, 255});
+			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[next].x),   static_cast<float>(hitPoints[next].y),   0.0f, 0, 0, 0, 255 });
+
+			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[dataId].x), static_cast<float>(hitPoints[dataId].y), 0.0f, 25, 25, 100, 255 });
+			m_frustumLineVertices.push_back({ static_cast<float>(camera.transform.position.x), static_cast<float>(camera.transform.position.y), static_cast<float>(camera.transform.position.z), 25, 25, 100, 255 });
+		}
+
+		m_drawedFrustum = true;
+	}
+
+	if (m_frustumLineVertices.empty()) return;
+
+	// GPU 업로드 및 렌더링
+	UploadAndDraw(m_mbrVAO, m_mbrVBO, m_frustumLineVertices, GL_LINES);
+}
+
+// MBR 박스 출력에 사용
+void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<Vertex>& vertices, unsigned char r, unsigned char g, unsigned char b, bool hasHeight)
+{
+	unsigned char alpha = 255;
+	Vertex v0{ (float)boundingBox.minX, (float)boundingBox.minY, 0.0f, r, g, b, alpha };
+	Vertex v1{ (float)boundingBox.maxX, (float)boundingBox.minY, 0.0f, r, g, b, alpha };
+	Vertex v2{ (float)boundingBox.maxX, (float)boundingBox.maxY, 0.0f, r, g, b, alpha };
+	Vertex v3{ (float)boundingBox.minX, (float)boundingBox.maxY, 0.0f, r, g, b, alpha };
+
+	vertices.push_back(v0); vertices.push_back(v1);
+	vertices.push_back(v1); vertices.push_back(v2);
+	vertices.push_back(v2); vertices.push_back(v3);
+	vertices.push_back(v3); vertices.push_back(v0);
+
+	if (hasHeight) {
+		Vertex v5{ (float)boundingBox.minX, (float)boundingBox.minY, boundingBox.height, r, g, b, alpha };
+		Vertex v6{ (float)boundingBox.maxX, (float)boundingBox.minY, boundingBox.height, r, g, b, alpha };
+		Vertex v7{ (float)boundingBox.maxX, (float)boundingBox.maxY, boundingBox.height, r, g, b, alpha };
+		Vertex v8{ (float)boundingBox.minX, (float)boundingBox.maxY, boundingBox.height, r, g, b, alpha };
+
+		vertices.push_back(v0); vertices.push_back(v5);
+		vertices.push_back(v1); vertices.push_back(v6);
+		vertices.push_back(v2); vertices.push_back(v7);
+		vertices.push_back(v3); vertices.push_back(v8);
+
+		vertices.push_back(v5); vertices.push_back(v6);
+		vertices.push_back(v6); vertices.push_back(v7);
+		vertices.push_back(v7); vertices.push_back(v8);
+		vertices.push_back(v8); vertices.push_back(v5);
+	}
+}
+
+// 라인/면의 모든 vertex 색상을 다시 칠하고 GPU에 부분 업데이트
+// useLevelColor=true: 객체별 트리 레벨 색상, useLevelColor=false: 라인=회색, 면=연회색
+// 면은 z값으로 위/아래 명도 자동 보정 (벽 그라디언트)
+// glBufferSubData로 vertex 좌표는 유지, 색상만 GPU 갱신
+void Renderer::ApplyLevelColors(bool useLevelColor)
+{
+	// 라인 색상
+	/*
+	int32_t polygonCount = (int32_t)m_quadTree.m_objectLevels.size();
+	for (int32_t dataId = 0; dataId < (int32_t)m_lineDrawInfos.size(); dataId++) {
+		const DrawInfo& info = m_lineDrawInfos[dataId];
+		if (info.indexCount == 0) continue;
+
+		float r, g, b;
+		if (useLevelColor && dataId < (int32_t)m_quadTree.m_objectLevels.size()) {
+			GetLevelColor(m_quadTree.m_objectLevels[dataId], r, g, b);
+		}
+		else {
+			r = 0.5f; g = 0.5f; b = 0.5f; // 기본 라인 색
+		}
+
+		uint32_t end = info.indexOffset + info.indexCount;
+		for (uint32_t ii = info.indexOffset; ii < end; ii++) {
+			Vertex& v = m_lineVertices[m_lineIndices[ii]];
+			v.r = r; v.g = g; v.b = b; v.a = 1.0f;
+		}
+	}
+	*/
+
+	// 면 색상
+	int32_t polygonCount = static_cast<int32_t>(m_polygonDrawInfos.size());
+	for (int32_t dataId = 0; dataId < polygonCount; dataId++) {
+		const DrawInfo& info = m_polygonDrawInfos[dataId];
+		if (info.indexCount == 0) continue;
+
+		unsigned char r, g, b;
+		if (useLevelColor) GetLevelColor(m_quadTree.m_objectLevels[dataId], r, g, b);
+		else               { r = 190; g = 190; b = 220; }
+
+		uint32_t end = info.indexOffset + info.indexCount;
+		for (uint32_t ii = info.indexOffset; ii < end; ii++) {
+			uint32_t vertexIndex = m_polygonIndices[ii];
+			if (vertexIndex >= m_polygonVertices.size()) continue;
+			Vertex& vertex = m_polygonVertices[vertexIndex];
+
+			// z = 0 → 벽 하단 (어둡게), z = 1 → 지붕/벽 상단 (밝게)
+			// GPU가 두 점 사이를 자동 보간 → 벽에 자연스러운 그라디언트 생김
+			int32_t shade = (vertex.z < 0.5f) ? 2 : 1;
+			vertex.r = r / shade;
+			vertex.g = g / shade;
+			vertex.b = b / shade;
+			vertex.a = 255;
+		}
+	}
+
+	// GPU 재업로드 (BufferSubData)
+	if (!m_polygonVertices.empty()) {
+		glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Vertex) * m_polygonVertices.size(), m_polygonVertices.data());
+	}
+}
+
+// 트리 레벨에 따른 색상 설정
+void Renderer::GetLevelColor(int32_t level, unsigned char& r, unsigned char& g, unsigned char& b)
+{
+	int32_t levelToColor = level % (sizeof(palette) / sizeof(palette[0]));
+	r = palette[levelToColor].red; 
+	g = palette[levelToColor].green;
+	b = palette[levelToColor].blue;
+}
+
+void Renderer::SetSelectedObject(int32_t objectId, UIState& uiState)
+{
+	// 이전 선택 객체 색상 복원
+	if (m_selectedObjectId >= 0)
+		RestoreObjectColor(m_selectedObjectId, uiState);
+
+	m_selectedObjectId = objectId;
+
+	if (objectId < 0) return;
+
+	// 새 선택 객체 색상 강조
+	HighlightObjectColor(objectId);
+	//ReDraw();
+}
+
+// 피킹 객체 색상 강조
+void Renderer::HighlightObjectColor(int32_t objectId)
+{
+	const DrawInfo& info = m_polygonDrawInfos[objectId];
+	if (info.vertexCount == 0) return;
+
+	// CPU 버퍼에서 해당 vertex 범위만 색상 변경
+	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
+		Vertex& v = m_polygonVertices[i];
+		v.r = 20; 
+		v.g = 230; 
+		v.b = 50;
+	}
+
+	// GPU의 해당 위치만 덮어쓰기
+	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
+	glBufferSubData(GL_ARRAY_BUFFER, info.vertexOffset * sizeof(Vertex), info.vertexCount * sizeof(Vertex), m_polygonVertices.data() + info.vertexOffset);
+}
+
+// 강조했던 색상 복구
+void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState)
+{
+	const DrawInfo& info = m_polygonDrawInfos[objectId];
+	if (info.vertexCount == 0) return;
+
+	// CPU 버퍼에서 원래 색상으로 복원
+	// ApplyLevelColors와 동일한 로직
+	bool useLevelColor = uiState.isShowLevelColor; // 현재 토글 상태
+	unsigned char r, g, b;
+	if (useLevelColor && objectId < static_cast<int32_t>(m_quadTree.m_objectLevels.size()))
+		GetLevelColor(m_quadTree.m_objectLevels[objectId], r, g, b);
+	else
+		r = 190; g = 190; b = 220;
+
+	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
+		Vertex& v = m_polygonVertices[i];
+		int32_t shade = (v.z < 0.5f) ? 2 : 1;
+		v.r = r / shade; 
+		v.g = g / shade; 
+		v.b = b / shade;
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
+	glBufferSubData(GL_ARRAY_BUFFER, info.vertexOffset * sizeof(Vertex), info.vertexCount * sizeof(Vertex), m_polygonVertices.data() + info.vertexOffset);
+}
+
+void Renderer::DrawDebugRect(const glm::dvec3& center, float size)
+{
+	float halfSize = size * 0.5f;
+
+	std::vector<Vertex> vertices(4);
+
+	vertices[0] = { static_cast<float>(center.x - halfSize), static_cast<float>(center.y - halfSize), static_cast<float>(center.z), 255,0,0,255 };
+	vertices[1] = { static_cast<float>(center.x + halfSize), static_cast<float>(center.y - halfSize), static_cast<float>(center.z), 255,0,0,255 };
+	vertices[2] = { static_cast<float>(center.x + halfSize), static_cast<float>(center.y + halfSize), static_cast<float>(center.z), 255,0,0,255 };
+	vertices[3] = { static_cast<float>(center.x - halfSize), static_cast<float>(center.y + halfSize), static_cast<float>(center.z), 255,0,0,255 };
+
+	UploadAndDraw(m_mbrVAO, m_mbrVBO, vertices, GL_LINE_LOOP);
+}
+
+
+#pragma once
+#include "QuadTree.h"
+#include "Render/Renderer.h"
+#include <string>
+#include <variant>
+
+// 레이어 수가 늘어도 유연하게 대응하기 위해 레이어별 데이터 위치 정보를 담는 구조체 (어느 벡터에 어디부터 어디까지 들어있는지)
+// 현재는 하나의 레이어만 들어가기에 layerDatas[0]에만 데이터가 들어있다.
+// TODO: 아직 멀티 레이어 미구현
+class Layer
+{
+	// shapeType에 따른 objects벡터에서 startIndex부터 length만큼이 해당 레이어의 objects(객체)
+public:
+	std::string m_name;        // 레이어 이름 (파일명과 동일)
+	uint32_t    m_shapeType;   // 객체 타입   (1: Point, 3: PolyLine, 5: Polygon, 8: MultiPoint, 31: MultiPatch)
+	int32_t     m_startIndex;  // 시작 인덱스 (pointObjects, polyLineObjects, polygonObjects, multiPointObjects, multiPatchObjects 중 하나의 벡터에서)
+	int32_t     m_length;      // 데이터 개수 (startIndex부터 m_length 개의 데이터가 해당 레이어에 속함)
+	float	    m_objSize = 0.01; // 객체 크기   (선 객체 -> 너비, 점 객체 -> 반지름)
+	std::unique_ptr<Renderer> m_renderer;
+	std::unique_ptr<QuadTree> m_quadTree;
+	BoundingBox m_boundingBox; // 레이어 전체 MBR
+	bool m_isVisible  = false; // 레이어 가시 상태
+	bool m_isBuilding = false;
+	bool m_hasShx     = false; // .shx 파일 존재 여부
+	bool m_hasDbf     = false; // .dbf 파일 존재 여부
+
+	std::vector<PointObject>      pointObjects;      // Point      객체 배열
+	std::vector<PolyObject>       polyLineObjects;   // PolyLine   객체 배열
+	std::vector<PolyObject>       polygonObjects;    // Polygon    객체 배열
+	std::vector<MultiPointObject> multiPointObjects; // MultiPoint 객체 배열
+	std::vector<MultiPatchObject> multiPatchObjects; // MultiPatch 객체 배열
+
+	DBFTable    dbfTable;
+
+	//void CleanPoints();
+};
+
+class LayerManager
+{
+public:
+	std::vector<std::unique_ptr<Layer>> layers;
+	std::vector<int32_t>  visibleLayers; // 현재 보이는 레이어들
+
+	/*
+	std::vector<PointObject>      pointObjects;      // Point      객체 배열
+	std::vector<PolyObject>       polyLineObjects;   // PolyLine   객체 배열
+	std::vector<PolyObject>       polygonObjects;    // Polygon    객체 배열
+	std::vector<MultiPointObject> multiPointObjects; // MultiPoint 객체 배열
+	std::vector<MultiPatchObject> multiPatchObjects; // MultiPatch 객체 배열
+	*/
+
+	// EGL
+	EGLDisplay m_display = EGL_NO_DISPLAY; // GPU 드라이버 연결 핸들
+	EGLSurface m_surface = EGL_NO_SURFACE; // 그림이 실제로 그려질 표면 (윈도우와 연결)
+	EGLContext m_context = EGL_NO_CONTEXT; // EGL 컨텍스트 핸들
+	HDC m_deviceContext  = nullptr; // 윈도우 디바이스 컨텍스트 핸들
+
+	bool m_needRedraw = true; // true면 다음 Render에서 컬링/업로드 수행
+	BoundingBox boundingBox; // 전체 MBR
+
+	Layer& CreateLayer(std::string name, uint32_t shpType, BoundingBox& layerBox);
+	bool InitRenderer(HWND hWnd);
+	bool InitEGL(HWND hwnd);
+	void Shutdown(HWND hWnd);
+	void Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft);
+	void Resize(int32_t width, int32_t height, int32_t panelWidthLeft);
+	void Refresh();
+	void ReDraw() { m_needRedraw = true; } // 토글 시 캐시 강제 무효화용
+
+	void ApplyObjectColorWithLevel(bool useLevelColor);
+	//void CleanPoints();
+};
+
+
+#include <pch.h>
+#include <Layer.h>
+
+Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox& layerBox)
+{
+
+    layers.emplace_back(std::make_unique<Layer>());
+    Layer& newLayer = *layers.back();
+    newLayer.m_name = name;
+    newLayer.m_shapeType   = shpType;
+    newLayer.m_quadTree    = std::make_unique<QuadTree>(newLayer);
+    newLayer.m_boundingBox = layerBox;
+	if (layers.size() == 1) newLayer.m_isBuilding = true; // 첫 번째 레이어(건물 정보)일 시 표시, 높이값 적용을 위해
+
+    boundingBox = boundingBox.CombineBox(layerBox);
+    visibleLayers.push_back(layers.size() - 1);
+    return newLayer;
+}
+
+// 렌더 초기화, 레이어별 Renderer 생성
+bool LayerManager::InitRenderer(HWND hWnd)
+{
+    if (!InitEGL(hWnd)) return false;
+    for (std::unique_ptr<Layer>& layer : layers) layer->m_renderer = std::make_unique<Renderer>(hWnd, *layer, *layer->m_quadTree);
+    return true;
+}
+
+// EGL 컨텍스트 생성
+bool LayerManager::InitEGL(HWND hwnd)
+{
+    // EGL 연결
+    m_deviceContext = GetDC(hwnd);
+    m_display = eglGetDisplay(m_deviceContext); // GPU 드라이버 연결 핸들, gpu 시스템
+    if (m_display == EGL_NO_DISPLAY) return false;
+
+    // EGL 초기화
+    EGLint majorVersion, minorVersion;
+    if (!eglInitialize(m_display, &majorVersion, &minorVersion)) return false;
+
+    // GPU 렌더링 옵션 선택
+    EGLConfig eglConfig; // gpu 렌더링 설정
+    EGLint configCount;
+    const EGLint configAttributes[] = {
+        EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,	 // 윈도우 화면에 출력
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, // OpenGL ES 3.x 사용
+        EGL_RED_SIZE, 8,  EGL_GREEN_SIZE, 8,  EGL_BLUE_SIZE, 8,  EGL_ALPHA_SIZE, 8, // RGBA 각각 8비트, 32비트 컬러 사용
+        EGL_DEPTH_SIZE, 24,	// 깊이 버퍼
+        EGL_NONE
+    };
+
+    // 조건에 만는 설정 선택
+    if (!eglChooseConfig(m_display, configAttributes, &eglConfig, 1, &configCount)) return false;
+
+    // 그림 그릴 표면(Surface) 생성
+    m_surface = eglCreateWindowSurface(m_display, eglConfig, hwnd, nullptr);
+    if (m_surface == EGL_NO_SURFACE) return false;
+
+    // 작업 환경(Context) 생성 - OpenGLES 3.x Context 생성
+    const EGLint contextAttributes[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+    m_context = eglCreateContext(m_display, eglConfig, EGL_NO_CONTEXT, contextAttributes);
+    if (m_context == EGL_NO_CONTEXT) return false;
+
+    // 현재 스레드와 context 연결, 지금부터 이 GPU 작업환경을 사용하겠다 선언
+    if (!eglMakeCurrent(m_display, m_surface, m_surface, m_context)) return false;
+
+    return true;
+}
+
+// 메모리 해제, EGL 종료
+void LayerManager::Shutdown(HWND hWnd)
+{
+    for (std::unique_ptr<Layer>& layer : layers)
+        layer->m_renderer->Shutdown(hWnd);
+
+    if (m_display != EGL_NO_DISPLAY) {
+        eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        if (m_context != EGL_NO_CONTEXT) eglDestroyContext(m_display, m_context);
+        if (m_surface != EGL_NO_SURFACE) eglDestroySurface(m_display, m_surface);
+        eglTerminate(m_display);
+    }
+
+    m_display = EGL_NO_DISPLAY;
+    m_surface = EGL_NO_SURFACE;
+    m_context = EGL_NO_CONTEXT;
+
+    if (m_deviceContext) {
+        ReleaseDC(hWnd, m_deviceContext);
+        m_deviceContext = nullptr;
+    }
+}
+
+void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft)
+{
+    // render여부 체크 -> 변화 없으면 그냥 return (CPU/GPU idle, 화면은 이전 프레임 유지)
+    bool needRebuild = camera.GetCameraChange() || m_needRedraw;
+    if (!needRebuild) return;
+
+    // 실제 EGL surface 크기 (윈도우와 다를 수 있음 - 리사이즈 중 한 프레임 지연)
+    EGLint surficeWidth = 0, surficeHeight = 0;
+    eglQuerySurface(m_display, m_surface, EGL_WIDTH, &surficeWidth);
+    eglQuerySurface(m_display, m_surface, EGL_HEIGHT, &surficeHeight);
+    if (surficeWidth <= 0 || surficeHeight <= 0) { surficeWidth = screenWidth; surficeHeight = screenHeight; }
+
+    // 전체 회색 클리어
+    glDisable(GL_SCISSOR_TEST);
+    glViewport(0, 0, screenWidth, screenHeight);
+    glClearColor(0.94f, 0.94f, 0.94f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // 3D 영역만 viewport + scissor (둘 다 동일 좌표 = surface 기준)
+    glViewport(panelWidthLeft, 0, screenWidth - panelWidthLeft, screenHeight);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(panelWidthLeft, 0, screenWidth - panelWidthLeft, screenHeight);
+    glClearColor(0.8f, 0.8f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // 레이어 별 렌더링
+    for (int32_t visibleLayerId : visibleLayers)
+    {
+        if (visibleLayerId < 0 || visibleLayerId >= layers.size()) continue;
+        Renderer* renderer = layers[visibleLayerId]->m_renderer.get();
+        if (renderer != nullptr && !(!uiState.isShowBuilding && layers[visibleLayerId]->m_isBuilding))
+            renderer->Render(camera, uiState, screenWidth, screenHeight, panelWidthLeft);
+    }
+
+    glDisable(GL_SCISSOR_TEST);           // UI 패널 제외한 영역에만 그리기 설정 해제
+    eglSwapBuffers(m_display, m_surface); // 화면에 그려진 결과 출력 (더블 버퍼링에서 백 버퍼와 프론트 버퍼 교체, 실제로는 GPU가 알아서 최적화해서 처리)
+
+    // surface가 아직 윈도우 크기를 못 따라잡았으면 다음 프레임에 다시 그림
+    if (surficeWidth != screenWidth || surficeHeight != screenHeight) ReDraw();
+    else { m_needRedraw = false; camera.SetCameraChange(); }
+}
+
+void LayerManager::Resize(int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft)
+{
+    glViewport(panelWidthLeft, 0, screenWidth - panelWidthLeft, screenHeight);
+    ReDraw();
+}
+
+void LayerManager::Refresh()
+{
+    for (std::unique_ptr<Layer>& layer : layers) {
+        layer->m_renderer->BuildMesh();
+        layer->m_renderer->RebuildQuadTree();
+    }
+	ReDraw();
+}
+
+void LayerManager::ApplyObjectColorWithLevel(bool useLevelColor)
+{
+    for (int32_t visibleLayerId : visibleLayers)
+        layers[visibleLayerId]->m_renderer->ApplyLevelColors(useLevelColor);
+}
+
+/*
+void LayerManager::CleanPoints()
+{
+    // TODO: 현재 폴리곤만 있음
+    // 사용한 정점 정보 정리
+    for (PolyObject& polygonObject : polygonObjects)
+        polygonObject.ClearData();
+}
+*/
+
+
