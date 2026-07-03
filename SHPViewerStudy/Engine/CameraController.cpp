@@ -3,12 +3,12 @@
 #include "CameraController.h"
 
 // 카메라 초기화
-void CameraController::InitCamera(const BoundingBox& boundingBox, int screenWidth, int screenHeight)
+void CameraController::Init(const BoundingBox& boundingBox, int screenWidth, int screenHeight)
 {
     // 카메라 위치 설정 (넣은 파일의 객체가 보이도록 위치 이동)
-    double centerX   = (boundingBox.minX + boundingBox.maxX) * 0.5;
-    double centerY   = (boundingBox.minY + boundingBox.maxY) * 0.5;
-    double maxExtent = std::max(boundingBox.maxX - boundingBox.minX, boundingBox.maxY - boundingBox.minY);
+    double centerX     = (boundingBox.minX + boundingBox.maxX) * 0.5;
+    double centerY     = (boundingBox.minY + boundingBox.maxY) * 0.5;
+    double maxExtent   = std::max(boundingBox.maxX - boundingBox.minX, boundingBox.maxY - boundingBox.minY);
 
     transform.position = glm::dvec3(centerX, centerY, maxExtent);
     transform.rotation = glm::angleAxis(glm::radians(0.0), glm::dvec3(1, 0, 0));

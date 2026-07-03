@@ -1,5 +1,6 @@
 #include <pch.h>
 #include "ShpParser.h"
+#include "SHPLoader.h"
 #include "SwapEndian.h"
 #include "Layer.h"
 #include <fstream>
@@ -17,11 +18,13 @@ void ShpRecordHeader::Read(const uint8_t*& ptr)
 }
 
 // .shp 파싱
-void ShpParser::ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxIndex, uint32_t shapeType, Layer& layer)
+void ShpParser::ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxIndex, ShpfileHeader fileHeader, Layer& layer)
 {
     // 레코드 순차적으로 읽기
     const uint8_t* ptr = buffer.data(); // 시작점
+    const uint8_t* end = buffer.data() + buffer.size();
     size_t recordCount = shxIndex.size();
+
 
     auto parseLoop = [&]<typename TObject>(std::vector<TObject>&objects, auto readFunc)
     {
@@ -33,9 +36,18 @@ void ShpParser::ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxInd
             recordHeader.Read(ptr);
             readFunc(ptr, objects[objectsOffset + recordNum]);
         }
+
+
+        if (recordCount < 1) {
+            while (ptr < end) {
+                ShpRecordHeader recordHeader;
+                recordHeader.Read(ptr);
+                readFunc(ptr, objects[objectsOffset + recordCount]);
+			}
+        }
     };
 
-    switch (shapeType) {
+    switch (fileHeader.shapeType) {
     case 1:  parseLoop(layer.pointObjects,      [&](const uint8_t*& ptr, PointObject& obj)      { ReadPoint (ptr, obj); });      break;
     case 11: parseLoop(layer.pointObjects,      [&](const uint8_t*& ptr, PointObject& obj)      { ReadPointZ(ptr, obj); });      break;
     case 21: parseLoop(layer.pointObjects,      [&](const uint8_t*& ptr, PointObject& obj)      { ReadPointM(ptr, obj); });      break;

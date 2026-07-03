@@ -8,38 +8,11 @@
 #include "ShaderLoadAndUse.h"
 #include "CameraController.h"
 #include "Triangulate.h"
-#include "UI/Palette.h"
+#include "UI/UIState.h"
 
 class Layer;
 class QuadTree;
 class QuadTreeNode;
-
-// 정점 - 색상 포함
-struct Vertex
-{
-	float x, y, z;
-	unsigned char r, g, b, a;
-};
-
-// 각 폴리곤별 IBO 위치 정보를 담을 구조체
-struct DrawInfo
-{
-	uint32_t indexOffset;  // 인덱스 시작 위치
-	uint32_t indexCount;   // 그려야 할 인덱스 개수
-	uint32_t vertexOffset; // 인덱스 시작 위치
-	uint32_t vertexCount;  // 그려야 할 인덱스 개수
-};
-
-// UI 토글 상태 관리
-struct UIState
-{
-	bool isShowObjectMBR   = false;
-	bool isShowNodeMBR     = false;
-	bool isShowLevelColor  = false;
-	bool isShowFrustumView = false;
-	bool isShowColorLegend = false;
-	bool isShowFakeObject  = false;
-};
 
 class Renderer
 {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "framework.h"
-#include "Palette.h"
+#include "UIState.h"
 #include <functional>
 
 struct VisibilityCallbacks

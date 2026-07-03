@@ -3,34 +3,29 @@
 
 Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox& layerBox)
 {
-    layers.emplace_back();
-    Layer& newLayer = layers.back();
 
+    layers.emplace_back(std::make_unique<Layer>());
+    Layer& newLayer = *layers.back();
     newLayer.m_name = name;
-    newLayer.m_shapeType = shpType;
-    newLayer.m_quadTree = std::make_unique<QuadTree>(newLayer);
+    newLayer.m_shapeType   = shpType;
+    newLayer.m_quadTree    = std::make_unique<QuadTree>(newLayer);
     newLayer.m_boundingBox = layerBox;
-
-    boundingBox = boundingBox.CombineBox(layerBox);
+	if (layers.size() == 1) newLayer.m_isBuilding = true; // 첫 번째 레이어(건물 정보)일 시 표시, 높이값 적용을 위해
 
     TCHAR buf[256];
-    _stprintf_s(buf, _T("[layerBox] min(%.3f, %.3f), max(%.3f, %.3f)\n"), boundingBox.minX, boundingBox.minY, boundingBox.maxX, boundingBox.maxY);
+    _stprintf_s(buf, _T("[Create Layer] 레이어 번호 = %d\n"), layers.size());
     OutputDebugString(buf);
 
-
+    boundingBox = boundingBox.CombineBox(layerBox);
     visibleLayers.push_back(layers.size() - 1);
-
     return newLayer;
 }
 
+// 렌더 초기화, 레이어별 Renderer 생성
 bool LayerManager::InitRenderer(HWND hWnd)
 {
     if (!InitEGL(hWnd)) return false;
-
-    for (Layer& layer : layers) {
-        layer.m_renderer = std::make_unique<Renderer>(hWnd, layer, *layer.m_quadTree);
-    }
-
+    for (std::unique_ptr<Layer>& layer : layers) layer.get()->m_renderer = std::make_unique<Renderer>(hWnd, *layer.get(), *layer.get()->m_quadTree);
     return true;
 }
 
@@ -75,10 +70,11 @@ bool LayerManager::InitEGL(HWND hwnd)
     return true;
 }
 
+// 메모리 해제, EGL 종료
 void LayerManager::Shutdown(HWND hWnd)
 {
-    for (Layer& layer : layers)
-        layer.m_renderer.get()->Shutdown(hWnd);
+    for (std::unique_ptr<Layer>& layer : layers)
+        layer.get()->m_renderer.get()->Shutdown(hWnd);
 
     if (m_display != EGL_NO_DISPLAY) {
         eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
@@ -109,7 +105,6 @@ void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t sc
     eglQuerySurface(m_display, m_surface, EGL_HEIGHT, &surficeHeight);
     if (surficeWidth <= 0 || surficeHeight <= 0) { surficeWidth = screenWidth; surficeHeight = screenHeight; }
 
-
     // 전체 회색 클리어
     glDisable(GL_SCISSOR_TEST);
     glViewport(0, 0, screenWidth, screenHeight);
@@ -123,15 +118,14 @@ void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t sc
     glClearColor(0.8f, 0.8f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
+    // 레이어 별 렌더링
     for (int32_t visibleLayerId : visibleLayers)
     {
         if (visibleLayerId < 0 || visibleLayerId >= layers.size()) continue;
-        Renderer* pRenderer = layers[visibleLayerId].m_renderer.get();
-        if (pRenderer != nullptr)
-            pRenderer->Render(camera, uiState, screenWidth, screenHeight, panelWidthLeft);
+        Renderer* renderer = layers[visibleLayerId].get()->m_renderer.get();
+        if (renderer != nullptr)
+            renderer->Render(camera, uiState, screenWidth, screenHeight, panelWidthLeft);
     }
-
 
     glDisable(GL_SCISSOR_TEST);           // UI 패널 제외한 영역에만 그리기 설정 해제
     eglSwapBuffers(m_display, m_surface); // 화면에 그려진 결과 출력 (더블 버퍼링에서 백 버퍼와 프론트 버퍼 교체, 실제로는 GPU가 알아서 최적화해서 처리)
@@ -149,9 +143,9 @@ void LayerManager::Resize(int32_t screenWidth, int32_t screenHeight, int32_t pan
 
 void LayerManager::Refresh()
 {
-    for (Layer& layer : layers) {
-        layer.m_renderer.get()->BuildMesh();
-        layer.m_renderer.get()->RebuildQuadTree();
+    for (std::unique_ptr<Layer>& layer : layers) {
+        layer.get()->m_renderer.get()->BuildMesh();
+        layer.get()->m_renderer.get()->RebuildQuadTree();
     }
 	ReDraw();
 }
@@ -159,7 +153,7 @@ void LayerManager::Refresh()
 void LayerManager::ApplyObjectColorWithLevel(bool useLevelColor)
 {
     for (int32_t visibleLayerId : visibleLayers)
-        layers[visibleLayerId].m_renderer.get()->ApplyLevelColors(useLevelColor);
+        layers[visibleLayerId].get()->m_renderer.get()->ApplyLevelColors(useLevelColor);
 }
 
 /*

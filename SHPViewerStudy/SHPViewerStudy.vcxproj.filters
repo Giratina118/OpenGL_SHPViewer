@@ -145,7 +145,7 @@
     <ClInclude Include="App\UI\CPickingPage.h">
       <Filter>App\UI</Filter>
     </ClInclude>
-    <ClInclude Include="App\UI\Palette.h">
+    <ClInclude Include="App\UI\UIState.h">
       <Filter>App\UI</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Layer.h">

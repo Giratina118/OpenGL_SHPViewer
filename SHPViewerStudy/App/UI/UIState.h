@@ -19,3 +19,14 @@ constexpr LevelColor palette[9]
     {150, 20,  255},
     {240, 80,  150},
 };
+
+// UI 토글 상태 관리
+struct UIState
+{
+    bool isShowObjectMBR = false;
+    bool isShowNodeMBR = false;
+    bool isShowLevelColor = false;
+    bool isShowFrustumView = false;
+    bool isShowColorLegend = false;
+    bool isShowFakeObject = false;
+};

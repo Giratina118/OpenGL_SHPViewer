@@ -25,5 +25,5 @@ class SHPLoader
 {
 public:
     std::vector<uint8_t> OpenFile(const std::filesystem::path& filePath); // 파일 열기
-	void Parse(const std::filesystem::path& shpPath, const std::filesystem::path& shxPath, const std::filesystem::path& dbfPath, LayerManager& layerManager);
+	void Parse(std::filesystem::path filePath, LayerManager& layerManager);
 };

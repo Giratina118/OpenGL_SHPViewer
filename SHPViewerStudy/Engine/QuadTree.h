@@ -63,7 +63,7 @@ public:
 public:
 	void BuildQuadTree(); // 트리 빌드(생성)
 	void CreateNode(int32_t level, BoundingBox& boundingBox) { m_nodes.emplace_back(level, boundingBox); } // 노드 생성
-	void InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& dataMbrBox, bool isPolygon); // 노드 삽입
+	void InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& dataMbrBox, bool isBuilding); // 노드 삽입
 	int32_t DivideNode  (int32_t currentNodeId, int32_t childNodeType); // 노드 분할
 	double SettingHeight(int32_t currentNodeId);
 

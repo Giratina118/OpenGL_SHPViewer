@@ -24,17 +24,14 @@ BEGIN_MESSAGE_MAP(CSHPViewerStudyView, CView)
 	ON_WM_SIZE()		// OnSize
 	ON_WM_ERASEBKGND()	// OnEraseBkgnd
 	ON_WM_DESTROY()		// OnDestroy
-
 	ON_WM_LBUTTONDOWN()	// OnLButtonDown
 	ON_WM_LBUTTONUP()	// OnLButtonUp
 	ON_WM_RBUTTONDOWN()	// OnRButtonDown
 	ON_WM_RBUTTONUP()	// OnRButtonUp
 	ON_WM_MOUSEMOVE()	// OnMouseMove
 	ON_WM_MOUSEWHEEL()	// OnMouseWheel
-
 	ON_WM_KEYDOWN()		// OnKeyDown
 	ON_WM_KEYUP()		// OnKeyUp
-
 	ON_WM_DROPFILES()	// OnDropFiles
 	ON_COMMAND(ID_FILE_OPEN_SHP,    &CSHPViewerStudyView::OnFileOpenShp)
 	ON_COMMAND(ID_FILE_OPEN_FOLDER, &CSHPViewerStudyView::OnFileOpenFolder)
@@ -69,6 +66,25 @@ void CSHPViewerStudyView::OnDraw(CDC* pDc)
 	//m_renderer.Render(m_camera, m_layerManager, m_uiState);
 }
 
+void CSHPViewerStudyView::LinkCallbacksToUI()
+{
+	LeftPanelCallbacks callback;
+	callback.visibilityCallbacks.onObjectMBR   = [this](bool value) { m_uiState.isShowObjectMBR   = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onNodeMBR     = [this](bool value) { m_uiState.isShowNodeMBR     = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(value); m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; /*m_renderer.SetDrawFrustum(!value);*/  m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onFakeObject  = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
+	callback.visibilityCallbacks.onMap         = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onTriangulate = [this](bool value) { /*m_renderer.m_isCDTTriangluate = value;*/ SetFocus(); };
+	callback.visibilityCallbacks.onViewRange   = [this](int  value) { m_camera.SetViewRange(value);      m_layerManager.ReDraw(); SetFocus(); };
+
+	callback.pickingCallbacks.onPicking        = [this](bool value) { m_isPickingMode     = value; SetFocus(); };
+	callback.pickingCallbacks.onPicking        = [this](bool value) { m_isPickingMode     = value; SetFocus(); };
+	callback.pickingCallbacks.onThirdMode      = [this](bool value) { m_isCameraThirdMode = value; SetFocus(); };
+	m_panelLeft.SetCallbacks(callback);
+}
+
 // 파일 열리면 화면 갱신
 void CSHPViewerStudyView::RefreshMap()
 {
@@ -76,7 +92,7 @@ void CSHPViewerStudyView::RefreshMap()
 
 	CRect rect;
 	GetClientRect(&rect);
-	m_camera.InitCamera(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
 
 	m_layerManager.Refresh();
 	//m_renderer.BuildMesh(m_layerManager);
@@ -174,7 +190,7 @@ void CSHPViewerStudyView::PickingObj(CPoint clientPos)
 
 	// 레이와 객체의 충돌 검사, 쿼드트리를 이용한 피킹
 	double collisionDistance = std::numeric_limits<double>::max();
-	pickingDataId = m_layerManager.layers[0].m_quadTree.get()->SearchPickingData(m_rayStart, m_rayDir, 0, collisionDistance, m_layerManager.layers[0].m_renderer.get()->GetPolygonDrawInfo(), m_layerManager.layers[0].m_renderer.get()->GetPolygonIndices(), m_layerManager.layers[0].m_renderer.get()->GetPolygonVertices());
+	pickingDataId = m_layerManager.layers[0].get()->m_quadTree.get()->SearchPickingData(m_rayStart, m_rayDir, 0, collisionDistance, m_layerManager.layers[0].get()->m_renderer.get()->GetPolygonDrawInfo(), m_layerManager.layers[0].get()->m_renderer.get()->GetPolygonIndices(), m_layerManager.layers[0].get()->m_renderer.get()->GetPolygonVertices());
 
 	auto cullEnd = std::chrono::high_resolution_clock::now();
 	double cullMicros = std::chrono::duration<double, std::micro>(cullEnd - cullStart).count();
@@ -184,14 +200,14 @@ void CSHPViewerStudyView::PickingObj(CPoint clientPos)
 	OutputDebugString(buf);
 
 
-	if (pickingDataId   == -1)            { m_layerManager.layers[0].m_renderer.get()->SetSelectedObject(-1, m_uiState);  return; } // 객체가 없는 빈 공간 선택
+	if (pickingDataId   == -1)            { m_layerManager.layers[0].get()->m_renderer.get()->SetSelectedObject(-1, m_uiState);  return; } // 객체가 없는 빈 공간 선택
 	if (beforePickingId == pickingDataId) { m_panelRight.Show(false); pickingDataId = -1; return; } // 이전과 같은 객체 선택
 
 	// 피킹된 객체 정보 얻기, TODO: 폴리곤 데이터만 일단 적용
-	if (m_layerManager.layers[0].polygonObjects.size() < 1) return;
+	if (m_layerManager.layers[0].get()->polygonObjects.size() < 1) return;
 
-	m_layerManager.layers[0].m_renderer.get()->SetSelectedObject(pickingDataId, m_uiState); // 선택 객체 색상 적용
-	m_panelRight.SetPickingInfo(m_layerManager.layers[0].dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
+	m_layerManager.layers[0].get()->m_renderer.get()->SetSelectedObject(pickingDataId, m_uiState); // 선택 객체 색상 적용
+	m_panelRight.SetPickingInfo(m_layerManager.layers[0].get()->dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
 
 	m_layerManager.ReDraw();
 	Invalidate(FALSE);
@@ -205,11 +221,8 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	// TODO: 처음에 파일 안 들어 있도록 바꾸기
 	// shapefile 파싱
-	std::filesystem::path base = std::filesystem::current_path();
-	std::filesystem::path shpPath = base / "Resource" / "BusanBuilding" / "F_FAC_BUILDING_26_202505.shp";
-	std::filesystem::path shxPath = base / "Resource" / "BusanBuilding" / "F_FAC_BUILDING_26_202505.shx";
-	std::filesystem::path dbfPath = base / "Resource" / "BusanBuilding" / "F_FAC_BUILDING_26_202505.dbf";
-	m_shpLoader.Parse(shpPath, shxPath, dbfPath, m_layerManager);
+	std::filesystem::path busanBuildingPath = std::filesystem::current_path() / "Resource" / "ShpFile" / "BusanBuilding" / "F_FAC_BUILDING_26_202505.shp";
+	m_shpLoader.Parse(busanBuildingPath, m_layerManager);
 
 	// UI 패널 생성
 	CRect rect;
@@ -219,26 +232,11 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	// 콜백 연결 (람다로 View 멤버에 접근)
 	// TODO: render에 레이어마다 그려야 하는 것들(객체)만 남기고 전체에 하나만 그리는 것들(절두체)은 밖으로 빼기
-	LeftPanelCallbacks callback;
-	callback.visibilityCallbacks.onObjectMBR   = [this](bool value) { m_uiState.isShowObjectMBR   = value; m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onNodeMBR     = [this](bool value) { m_uiState.isShowNodeMBR     = value; m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(value); m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; /*m_renderer.SetDrawFrustum(!value);*/  m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onFakeObject  = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
-	callback.visibilityCallbacks.onMap         = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onTriangulate = [this](bool value) { /*m_renderer.m_isCDTTriangluate = value;*/ SetFocus(); };
-	callback.visibilityCallbacks.onViewRange   = [this](int  value) { m_camera.SetViewRange(value);      m_layerManager.ReDraw(); SetFocus(); };
-	
-	callback.pickingCallbacks.onPicking        = [this](bool value) { m_isPickingMode     = value; SetFocus(); };
-	callback.pickingCallbacks.onThirdMode      = [this](bool value) { m_isCameraThirdMode = value; SetFocus(); };
-	m_panelLeft.SetCallbacks(callback);
+	LinkCallbacksToUI();
 	
 	// 카메라 초기화, UI 패널 부분 남기기
-	m_camera.InitCamera(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
-
+	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
 	m_layerManager.InitRenderer(m_hWnd); // 렌더 초기화
-	//m_renderer.Initialize(m_hWnd, m_layerManager, rect, m_panelLeft.GetWidth());
 
 	m_lastTime = std::chrono::steady_clock::now();
 	SetTimer(1, 8, nullptr); // 8ms마다 WM_TIMER -> OnTimer함수 호출
@@ -543,31 +541,13 @@ void CSHPViewerStudyView::OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
 // 파일 끌어다 놓기
 void CSHPViewerStudyView::OnDropFiles(HDROP hDropInfo)
 {
-	UINT fileCount = DragQueryFile(hDropInfo, 0xFFFFFFFF, nullptr, 0);
-
-	m_layerManager = LayerManager();  // 초기화
-
-	for (UINT i = 0; i < fileCount; i++)
-	{
-		TCHAR filePath[MAX_PATH];
-		DragQueryFile(hDropInfo, i, filePath, MAX_PATH);
-
-		std::filesystem::path shpPath = filePath;
-		if (shpPath.extension() != ".shp")     continue;
-
-		std::filesystem::path shxPath = shpPath;
-		shxPath.replace_extension(".shx");
-		if (!std::filesystem::exists(shxPath)) continue;
-
-		std::filesystem::path dbfPath = shpPath;
-		dbfPath.replace_extension(".dbf");
-		if (!std::filesystem::exists(dbfPath)) continue;
-
-		m_shpLoader.Parse(shpPath, shxPath, dbfPath, m_layerManager);
-	}
+	TCHAR filePath[MAX_PATH];
+	DragQueryFile(hDropInfo, 0, filePath, MAX_PATH);
+	m_shpLoader.Parse(filePath, m_layerManager);
 
 	DragFinish(hDropInfo);
-	RefreshMap();
+	m_layerManager.layers.back().get()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back().get(), *m_layerManager.layers.back().get()->m_quadTree);
+	m_layerManager.ReDraw();
 }
 
 // SHP 파일 직접 선택
@@ -578,17 +558,10 @@ void CSHPViewerStudyView::OnFileOpenShp()
 
 	std::filesystem::path shpPath = dlg.GetPathName().GetString();
 
-	std::filesystem::path shxPath = shpPath;  // shx 열기
-	shxPath.replace_extension(".shx");
-	if (!std::filesystem::exists(shxPath)) { AfxMessageBox(_T("같은 폴더에 .shx 파일이 없습니다.")); return; }
-
-	std::filesystem::path dbfPath = shpPath;  // dbf 열기
-	dbfPath.replace_extension(".dbf");
-	if (!std::filesystem::exists(dbfPath)) { AfxMessageBox(_T("같은 폴더에 .dbf 파일이 없습니다.")); return; }
-
-	m_layerManager = LayerManager();
-	m_shpLoader.Parse(shpPath, shxPath, dbfPath, m_layerManager);
-	RefreshMap();
+	//m_layerManager = LayerManager();
+	m_shpLoader.Parse(shpPath, m_layerManager);
+	m_layerManager.layers.back().get()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back().get(), *m_layerManager.layers.back().get()->m_quadTree);
+	m_layerManager.ReDraw();
 }
 
 // 폴더 선택 -> 안에 있는 shp 전부 읽기
@@ -616,21 +589,13 @@ void CSHPViewerStudyView::OnFileOpenFolder()
 	pDialog->Release();
 
 	// 폴더 안 .shp 파일 전부 수집
-	m_layerManager = LayerManager();  // 초기화
-	for (const auto& entry : std::filesystem::directory_iterator(folder))
-	{
+	//m_layerManager = LayerManager();  // 초기화
+	for (const auto& entry : std::filesystem::directory_iterator(folder)) {
 		if (entry.path().extension() != ".shp") continue;
-
-		std::filesystem::path shxPath = entry.path();
-		shxPath.replace_extension(".shx");
-		if (!std::filesystem::exists(shxPath)) continue;
-
-		std::filesystem::path dbfPath = entry.path();
-		dbfPath.replace_extension(".dbf");
-		if (!std::filesystem::exists(dbfPath)) continue;
-
-		m_shpLoader.Parse(entry.path(), shxPath, dbfPath, m_layerManager);
+		m_shpLoader.Parse(entry.path(), m_layerManager);
 	}
 
-	RefreshMap();
+	m_layerManager.layers.back().get()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back().get(), *m_layerManager.layers.back().get()->m_quadTree);
+	m_layerManager.ReDraw();
+	//RefreshMap();
 }

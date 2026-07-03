@@ -48,7 +48,7 @@ public:
 	glm::dvec3 m_thirdMovePos;
 	int32_t m_viewRangeRate = 40; // LOD 기준 거리 배율 (180m 길이의 노드가 있을 때 이 배율이 10이라면 카메라와 노드 중심의 거리가 1800m보다 가깝다면 보이도록 한다.)
 
-    void InitCamera(const BoundingBox& boundingBox, int screenWidth, int screenHeight); // 카메라 초기화
+    void Init(const BoundingBox& boundingBox, int screenWidth, int screenHeight); // 카메라 초기화
     void UpdateAspect(int screenWidth, int screenHeight); // 종횡비 설정
 
 	void MoveLocal(double deltaX, double deltaY); // 로컬 이동

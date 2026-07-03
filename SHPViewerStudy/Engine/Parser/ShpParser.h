@@ -10,6 +10,7 @@
 using namespace std;
 
 class Layer;
+struct ShpfileHeader;
 
 // .shp 레코드 헤더 (8 Bytes)
 struct ShpRecordHeader {
@@ -23,7 +24,7 @@ struct ShpRecordHeader {
 class ShpParser
 {
 public:
-    void ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxIndex, uint32_t shapeType, Layer& layer);
+    void ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxIndex, ShpfileHeader fileHeader, Layer& layer);
 
 private:
     // .shp 레코드 콘텐츠 (8 Bytes)

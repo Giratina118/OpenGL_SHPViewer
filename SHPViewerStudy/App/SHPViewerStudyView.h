@@ -30,7 +30,6 @@ class CSHPViewerStudyView : public CView
 private:
 	CLeftPanel       m_panelLeft;    // 좌측 패널
 	CRightPanel      m_panelRight;   // 우측 패널
-	//Renderer         m_renderer;     // 렌더러 클래스
 	SHPLoader        m_shpLoader;    // shp로더 클래스
 	LayerManager	 m_layerManager; // 레이어 클래스
 	CameraController m_camera;       // 카메라 클래스
@@ -100,6 +99,7 @@ public:
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
 	virtual void OnDraw(CDC* pDC);
 	
+	void LinkCallbacksToUI();  // 좌측 패널 콜백 연결
 	void RefreshMap();                             // 파일 열기 시 화면 갱신
 	void InputKey(float deltaTime);                // 키 입력
 	glm::dvec3 ClientToWorldPos(CPoint clientPos); // 피킹 위치

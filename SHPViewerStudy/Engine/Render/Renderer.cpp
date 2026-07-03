@@ -35,16 +35,8 @@ bool Renderer::Initialize(HWND hWnd)
 	glGenBuffers(1, &m_fakeIBO);           // 가상 객체 인덱스 버퍼
 	glGenBuffers(1, &m_fakeIBOVisible);	   // 가시 가상 객체 인덱스 버퍼
 
-	//m_quadTree.BuildQuadTree(layer); // 쿼드트리 생성
-	//m_needRedraw = true; // 가시 인덱스 구성 필요
-
-	//m_layer = layer;
-
 	RebuildQuadTree(); // 쿼드트리 생성
 	BuildMesh();
-	//Resize(rect.Width(), rect.Height(), leftPanelWidth);
-
-	//layer.CleanPoints(); // 파싱 데이터로 렌더를 위한 정점을 만들었으면 파싱 정점 정보 정리
 
 	return true;
 }
@@ -109,10 +101,6 @@ void Renderer::Shutdown(HWND m_hWnd)
 // 메인 렌더 함수
 void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft)
 {
-	TCHAR buf[256];
-	_stprintf_s(buf, _T("[Render_First] m_renderObjectIds.size() = %d\n"), (int)m_renderObjectIds.size());
-	OutputDebugString(buf);
-
 	// 쿼드트리에서 가시 객체 검색 (컬링, LOD)
 	if (!uiState.isShowFrustumView) {
 		m_renderObjectIds.clear();
@@ -121,11 +109,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screen
 
 		double halfFovRad = glm::radians(camera.fov * 0.5);
 		double lodFactor  = std::max(screenHeight, 1) / (2.0 * std::tan(halfFovRad));
-
 		m_quadTree.SearchRenderingData(m_renderObjectIds, 0, camera, camera.transform.position, lodFactor);
-
-		_stprintf_s(buf, _T("[Render_Search] m_renderObjectIds.size() = %d\n"), (int)m_renderObjectIds.size());
-		OutputDebugString(buf);
 
 		m_currentRenderCount     = static_cast<int32_t>(m_renderObjectIds.size());
 		m_currentRenderFakeCount = static_cast<int32_t>(m_quadTree.m_visibleNodeFakeObjIds.size());

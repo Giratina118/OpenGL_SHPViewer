@@ -9,6 +9,22 @@
 
 double CrossCheck(glm::dvec2 p1, glm::dvec2 p2, glm::dvec2 p3, glm::dvec2 p4); // 선분 교차 검사
 
+// 정점 - 색상 포함
+struct Vertex
+{
+	float x, y, z;
+	unsigned char r, g, b, a;
+};
+
+// 각 폴리곤별 IBO 위치 정보를 담을 구조체
+struct DrawInfo
+{
+	uint32_t indexOffset;  // 인덱스 시작 위치
+	uint32_t indexCount;   // 그려야 할 인덱스 개수
+	uint32_t vertexOffset; // 인덱스 시작 위치
+	uint32_t vertexCount;  // 그려야 할 인덱스 개수
+};
+
 struct BoundingBox
 {
     double minX = std::numeric_limits<double>::max();

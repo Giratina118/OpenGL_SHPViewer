@@ -12,44 +12,30 @@ QuadTreeNode::QuadTreeNode(int32_t level, BoundingBox& mbrBox)
 // 쿼드트리 빌드
 void QuadTree::BuildQuadTree()
 {
-	TCHAR buf[512];
-	_stprintf_s(buf,
-		_T("LayerBox : min=(%d, %d) max=(%d, %d)\n"),
-		m_layer.m_boundingBox.minX, m_layer.m_boundingBox.minY,
-		m_layer.m_boundingBox.maxX, m_layer.m_boundingBox.maxY);
-	OutputDebugString(buf);
-
-
-
 	int32_t rootNodeId = 0;
 	CreateNode(rootNodeId, m_layer.m_boundingBox); // 루트노드 생성
 
 	// 데이터 삽입
-	// 객체 레벨 매핑 초기화 (현재는 한 가지 shape만 들어간다고 가정)
 	m_objectLevels.assign(std::max({ m_layer.pointObjects.size(), m_layer.polyLineObjects.size(), m_layer.polygonObjects.size() }), 0);
 
 	int32_t objectsCount = static_cast<int32_t>(m_layer.pointObjects.size()); // 포인트 객체 삽입
-	for (int objectNum = 0; objectNum < objectsCount; objectNum++)
-		InsertData(rootNodeId, objectNum, m_layer.pointObjects[objectNum].mbrBox,    false);
+	for (int objectNum = 0; objectNum < objectsCount; objectNum++) InsertData(rootNodeId, objectNum, m_layer.pointObjects[objectNum].mbrBox,    false);
 
 	objectsCount = static_cast<int32_t>(m_layer.polyLineObjects.size());      // 폴리라인 객체 삽입
-	for (int objectNum = 0; objectNum < objectsCount; objectNum++)
-		InsertData(rootNodeId, objectNum, m_layer.polyLineObjects[objectNum].mbrBox, false);
+	for (int objectNum = 0; objectNum < objectsCount; objectNum++) InsertData(rootNodeId, objectNum, m_layer.polyLineObjects[objectNum].mbrBox, false);
 
 	objectsCount = static_cast<int32_t>(m_layer.polygonObjects.size());       // 폴리곤 객체 삽입
-	for (int objectNum = 0; objectNum < objectsCount; objectNum++)
-		InsertData(rootNodeId, objectNum, m_layer.polygonObjects[objectNum].mbrBox,  true);
+	for (int objectNum = 0; objectNum < objectsCount; objectNum++) InsertData(rootNodeId, objectNum, m_layer.polygonObjects[objectNum].mbrBox,  m_layer.m_isBuilding);
 
 	std::vector<std::vector<int>> levelInfo(m_maxLevel + 1, std::vector<int>(2, 0));
 	SettingHeight(0); // 노드 높이 설정
 
-	for (auto& node : m_nodes)
-		node.m_objectIds.shrink_to_fit();
+	for (auto& node : m_nodes) node.m_objectIds.shrink_to_fit();
 	m_nodes.shrink_to_fit();
 }
 
 // 데이터 삽입
-void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& dataMbrBox, bool isPolygon)
+void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& dataMbrBox, bool isBuilding)
 {
 	QuadTreeNode& curNode    = m_nodes[currentNodeId]; // 현재 노드
 	BoundingBox&  curNodeBox = curNode.m_boundingBox;  // 현재 노드 mbr박스
@@ -61,15 +47,9 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	if (curNode.m_level == m_maxLevel) {
 		curNode.m_objectIds.push_back(dataId);
 
-		if (isPolygon) 
-			curObjBox.SetHeight(m_layer.dbfTable.intColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.intColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
-
-		if (curObjBox.height > curNodeBox.height)
-			curNodeBox.height = curObjBox.height;
-
-		// 객체가 들어간 레벨 기록 (레벨 색상)
-		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size()))
-			m_objectLevels[dataId] = curNode.m_level;
+		if (isBuilding) curObjBox.SetHeight(m_layer.dbfTable.intColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.intColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
+		if (curObjBox.height > curNodeBox.height) curNodeBox.height = curObjBox.height;
+		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상)
 		return;
 	}
 
@@ -79,19 +59,12 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 		nodeCenter.y - dataMbrBox.minY > curNodeBox.GetMaxExtent() * 0.075 && dataMbrBox.maxY - nodeCenter.y > curNodeBox.GetMaxExtent() * 0.075) {
 		curNode.m_objectIds.push_back(dataId);
 
-		if (isPolygon)
-			curObjBox.SetHeight(m_layer.dbfTable.intColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.intColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
-
-		if (curObjBox.height > curNodeBox.height)
-			curNodeBox.height = curObjBox.height;
-
-		// 객체가 들어간 레벨 기록 (레벨 색상용)
-		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size()))
-			m_objectLevels[dataId] = curNode.m_level;
+		if (isBuilding) curObjBox.SetHeight(m_layer.dbfTable.intColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.intColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
+		if (curObjBox.height > curNodeBox.height) curNodeBox.height = curObjBox.height;
+		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상용)
 		return;
 	}
 	
-
 	// 자식 노드에 넣어야 하는 경우
 	int32_t childNodeType; // 어느 위치의 자식노드인지
 
@@ -104,11 +77,11 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 		else							  childNodeType = static_cast<int32_t>(NodeChild::SouthEast);
 	}
 
-	int32_t childNodeId = curNode.m_childNodes[childNodeType];    // 목표 자식 노드 id
-	if (childNodeId == -1)										  // 자식노드가 없다면 (-1: 초기값, 자식 없음을 의미)
-		childNodeId = DivideNode(currentNodeId, childNodeType);   // 분할, 생성된 자식노드 Id 반환
+	int32_t childNodeId = curNode.m_childNodes[childNodeType];  // 목표 자식 노드 id
+	if (childNodeId == -1)										// 자식노드가 없다면 (-1: 초기값, 자식 없음을 의미)
+		childNodeId = DivideNode(currentNodeId, childNodeType); // 분할, 생성된 자식노드 Id 반환
 
-	InsertData(childNodeId, dataId, dataMbrBox, isPolygon); // 재귀 분할
+	InsertData(childNodeId, dataId, dataMbrBox, isBuilding); // 재귀 분할
 }
 
 // 분할

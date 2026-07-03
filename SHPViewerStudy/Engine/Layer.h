@@ -20,6 +20,8 @@ public:
 	BoundingBox m_boundingBox; // 레이어 전체 MBR
 	bool m_isVisible  = false; // 레이어 가시 상태
 	bool m_isBuilding = false;
+	bool m_hasShx     = false; // .shx 파일 존재 여부
+	bool m_hasDbf     = false; // .dbf 파일 존재 여부
 
 	std::vector<PointObject>      pointObjects;      // Point      객체 배열
 	std::vector<PolyObject>       polyLineObjects;   // PolyLine   객체 배열
@@ -35,7 +37,7 @@ public:
 class LayerManager
 {
 public:
-	std::vector<Layer>    layers;        // 어느 벡터에 어디부터 어디까지 들어있는지
+	std::vector<std::unique_ptr<Layer>> layers;
 	std::vector<int32_t>  visibleLayers; // 현재 보이는 레이어들
 
 	/*
