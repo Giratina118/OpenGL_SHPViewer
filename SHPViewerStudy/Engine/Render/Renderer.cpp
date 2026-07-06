@@ -99,7 +99,7 @@ void Renderer::Shutdown(HWND m_hWnd)
 }
 
 // 메인 렌더 함수
-void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft)
+void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft, glm::dvec3 hitPoint)
 {
 	// 쿼드트리에서 가시 객체 검색 (컬링, LOD)
 	if (!uiState.isShowFrustumView) {
@@ -117,7 +117,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screen
 
 	// 셰이더 설정
 	m_shader.UseProgram();
-	glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(camera.GetMatrix()));
+	glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(camera.GetMatrix())));
 	glUniform1f(m_colorMultiplierLocation, 1.0f); // 기본값
 
 	// TODO: 면, 라인, fake 그리는 함수를 한데 묶어 처리
@@ -213,19 +213,8 @@ void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screen
 	if (uiState.isShowObjectMBR)   DrawObjectMBR();           // 객체 MBR 그리기
 	if (uiState.isShowNodeMBR)     DrawQuadTreeNodeMBR();     // 노드 MBR 그리기
 	if (uiState.isShowFrustumView) DrawCameraFrustum(camera); // 카메라 절두체 라인 그리기
+	DrawDebugRect(hitPoint, 10.0f);
 }
-
-// 윈도우 크기 변경 시 호출되는 viewport 갱신
-/*
-void Renderer::Resize(int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft)
-{
-	m_viewportWidth    = screenWidth;
-	m_viewportHeight   = screenHeight;
-	m_uiPanelWidthLeft = panelWidthLeft; // 3D 렌더링 영역은 UI 패널 오른쪽 부분만
-	glViewport(panelWidthLeft, 0, screenWidth - panelWidthLeft, screenHeight);
-	ReDraw(); // 다시 그리기
-}
-*/
 
 // 메쉬 빌드 진입점, 파일이 열리면 실행
 void Renderer::BuildMesh()
@@ -301,8 +290,8 @@ void Renderer::BuildPolyLineMesh()
 		m_lineIndices.reserve    (m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
 
 		for (int32_t partNum = 0; partNum < polyLine.parts.size(); partNum++) {
-			size_t startPoint = polyLine.parts[partNum];
-			size_t endPoint = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : polyLine.points.size();
+			int32_t startPoint = polyLine.parts[partNum];
+			int32_t endPoint = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : static_cast<int32_t>(polyLine.points.size());
 			for (int32_t pointNum = startPoint; pointNum < endPoint - 1; pointNum++) {
 				glm::dvec2 pointOrigin1 = polyLine.points[pointNum];     //+(polyLine.points[pointNum] - polyLine.mbrBox.GetCenter()) * 100.0;
 				glm::dvec2 pointOrigin2 = polyLine.points[pointNum + 1]; //+(polyLine.points[pointNum + 1] - polyLine.mbrBox.GetCenter()) * 100.0;
@@ -697,6 +686,8 @@ void Renderer::DrawQuadTreeNodeMBR()
 // 카메라 절두체 시각화 (지면과 교차하는 4개 변), NDC 모서리 4개를 unproject해서 z=0 평면과의 교차점을 구해 라인으로 표시
 void Renderer::DrawCameraFrustum(CameraController& camera)
 {
+	if (!m_layer.m_isBuilding) return;
+
 	if (!m_drawedFrustum)
 	{
 		m_frustumLineVertices.clear();
@@ -704,7 +695,7 @@ void Renderer::DrawCameraFrustum(CameraController& camera)
 
 		// TODO: screenToWorld 함수 사용
 		// 카메라 시야의 4개 NDC 모서리가 지면(z=0)과 만나는 실제 좌표 계산 (사다리꼴/사각형)
-		glm::mat4 inverseViewProjectionMatrix = glm::inverse(camera.GetMatrix());
+		glm::dmat4 inverseViewProjectionMatrix = glm::inverse(camera.GetMatrix());
 		glm::vec2 ndcCorners[4] = { {-1.0f, -1.0f}, { 1.0f, -1.0f}, { 1.0f,  1.0f}, {-1.0f,  1.0f} };
 		glm::dvec3 hitPoints[4];
 
@@ -767,10 +758,10 @@ void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<V
 	vertices.push_back(v3); vertices.push_back(v0);
 
 	if (hasHeight) {
-		Vertex v5{ (float)boundingBox.minX, (float)boundingBox.minY, boundingBox.height, r, g, b, alpha };
-		Vertex v6{ (float)boundingBox.maxX, (float)boundingBox.minY, boundingBox.height, r, g, b, alpha };
-		Vertex v7{ (float)boundingBox.maxX, (float)boundingBox.maxY, boundingBox.height, r, g, b, alpha };
-		Vertex v8{ (float)boundingBox.minX, (float)boundingBox.maxY, boundingBox.height, r, g, b, alpha };
+		Vertex v5{ (float)boundingBox.minX, (float)boundingBox.minY, (float)boundingBox.height, r, g, b, alpha };
+		Vertex v6{ (float)boundingBox.maxX, (float)boundingBox.minY, (float)boundingBox.height, r, g, b, alpha };
+		Vertex v7{ (float)boundingBox.maxX, (float)boundingBox.maxY, (float)boundingBox.height, r, g, b, alpha };
+		Vertex v8{ (float)boundingBox.minX, (float)boundingBox.maxY, (float)boundingBox.height, r, g, b, alpha };
 
 		vertices.push_back(v0); vertices.push_back(v5);
 		vertices.push_back(v1); vertices.push_back(v6);
@@ -790,29 +781,6 @@ void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<V
 // glBufferSubData로 vertex 좌표는 유지, 색상만 GPU 갱신
 void Renderer::ApplyLevelColors(bool useLevelColor)
 {
-	// 라인 색상
-	/*
-	int32_t polygonCount = (int32_t)m_quadTree.m_objectLevels.size();
-	for (int32_t dataId = 0; dataId < (int32_t)m_lineDrawInfos.size(); dataId++) {
-		const DrawInfo& info = m_lineDrawInfos[dataId];
-		if (info.indexCount == 0) continue;
-
-		float r, g, b;
-		if (useLevelColor && dataId < (int32_t)m_quadTree.m_objectLevels.size()) {
-			GetLevelColor(m_quadTree.m_objectLevels[dataId], r, g, b);
-		}
-		else {
-			r = 0.5f; g = 0.5f; b = 0.5f; // 기본 라인 색
-		}
-
-		uint32_t end = info.indexOffset + info.indexCount;
-		for (uint32_t ii = info.indexOffset; ii < end; ii++) {
-			Vertex& v = m_lineVertices[m_lineIndices[ii]];
-			v.r = r; v.g = g; v.b = b; v.a = 1.0f;
-		}
-	}
-	*/
-
 	// 면 색상
 	int32_t polygonCount = static_cast<int32_t>(m_polygonDrawInfos.size());
 	for (int32_t dataId = 0; dataId < polygonCount; dataId++) {
@@ -918,14 +886,16 @@ void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState)
 
 void Renderer::DrawDebugRect(const glm::dvec3& center, float size)
 {
+	if (!m_layer.m_isBuilding) return;
+
 	float halfSize = size * 0.5f;
 
 	std::vector<Vertex> vertices(4);
 
-	vertices[0] = { static_cast<float>(center.x - halfSize), static_cast<float>(center.y - halfSize), static_cast<float>(center.z), 255,0,0,255 };
-	vertices[1] = { static_cast<float>(center.x + halfSize), static_cast<float>(center.y - halfSize), static_cast<float>(center.z), 255,0,0,255 };
-	vertices[2] = { static_cast<float>(center.x + halfSize), static_cast<float>(center.y + halfSize), static_cast<float>(center.z), 255,0,0,255 };
-	vertices[3] = { static_cast<float>(center.x - halfSize), static_cast<float>(center.y + halfSize), static_cast<float>(center.z), 255,0,0,255 };
+	vertices[0] = { static_cast<float>(center.x - halfSize), static_cast<float>(center.y - halfSize), static_cast<float>(center.z) + 1.0f, 255,0,0,255 };
+	vertices[1] = { static_cast<float>(center.x + halfSize), static_cast<float>(center.y - halfSize), static_cast<float>(center.z) + 1.0f, 255,0,0,255 };
+	vertices[2] = { static_cast<float>(center.x + halfSize), static_cast<float>(center.y + halfSize), static_cast<float>(center.z) + 1.0f, 255,0,0,255 };
+	vertices[3] = { static_cast<float>(center.x - halfSize), static_cast<float>(center.y + halfSize), static_cast<float>(center.z) + 1.0f, 255,0,0,255 };
 
 	UploadAndDraw(m_mbrVAO, m_mbrVBO, vertices, GL_LINE_LOOP);
 }

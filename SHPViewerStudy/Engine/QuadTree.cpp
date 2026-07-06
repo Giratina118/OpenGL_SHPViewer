@@ -61,9 +61,9 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	}
 
 	// 특정 크기 이상만 현재 노드에 데이터 삽입
-	if (curNodeBox.GetMaxExtent() * 0.25 < dataMbrBox.GetMaxExtent() ||
-		nodeCenter.x - dataMbrBox.minX > curNodeBox.GetMaxExtent() * 0.075 && dataMbrBox.maxX - nodeCenter.x > curNodeBox.GetMaxExtent() * 0.075 ||
-		nodeCenter.y - dataMbrBox.minY > curNodeBox.GetMaxExtent() * 0.075 && dataMbrBox.maxY - nodeCenter.y > curNodeBox.GetMaxExtent() * 0.075) {
+	if (curNodeBox.GetMaxExtent() * m_limitSizeRate < dataMbrBox.GetMaxExtent() ||
+		nodeCenter.x - dataMbrBox.minX > curNodeBox.GetLengthX() * m_looseBoxRate && dataMbrBox.maxX - nodeCenter.x > curNodeBox.GetLengthX() * m_looseBoxRate ||
+		nodeCenter.y - dataMbrBox.minY > curNodeBox.GetLengthY() * m_looseBoxRate && dataMbrBox.maxY - nodeCenter.y > curNodeBox.GetLengthY() * m_looseBoxRate) {
 		curNode.m_objectIds.push_back(dataId);
 
 		if (isBuilding) curObjBox->SetHeight(m_layer.dbfTable.intColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.intColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
@@ -138,7 +138,7 @@ void QuadTree::SearchRenderingData(std::vector<int32_t>& renderObjectIds, int32_
 	//m_visitedNodeCount++; // 노드를 방문 수
 	//m_frustumTestCount++; // 노드 절두체 판정 수
 
-	FrustumState nodeFrustumState = camera.GetFrustumState(node.m_boundingBox);
+	FrustumState nodeFrustumState = camera.GetFrustumState(node.m_boundingBox.GetLooseBox(m_looseBoxRate));
 	// 조금이라도 겹치는가, 전혀 안 겹치면 return (컬링)
 	if (nodeFrustumState == FrustumState::OUTSIDE)
 		return;
@@ -182,7 +182,6 @@ void QuadTree::SearchRenderingData(std::vector<int32_t>& renderObjectIds, int32_
 	}
 
 	// 현재 노드 데이터 검사 (카메라 안에 들어오는지)
-	// 현재는 한 번에 하나의 파일 데이터만 들어감
 	int32_t pointObjCount   = static_cast<int32_t>(m_layer.pointObjects.size());
 	int32_t lineObjCount    = static_cast<int32_t>(m_layer.polyLineObjects.size());
 	int32_t polygonObjCount = static_cast<int32_t>(m_layer.polygonObjects.size());
@@ -333,8 +332,7 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 
 			double collisionRation = polygon.OnCollisionRay(rayStart, rayDir, m_nodes[0].m_boundingBox.height); // 폴리곤 mbr 검사
 
-
-			for (int indicesId = polygonDrawInfos[dataId].indexOffset; indicesId < polygonDrawInfos[dataId].indexOffset + polygonDrawInfos[dataId].indexCount; indicesId += 3) {
+			for (uint32_t indicesId = polygonDrawInfos[dataId].indexOffset; indicesId < polygonDrawInfos[dataId].indexOffset + polygonDrawInfos[dataId].indexCount; indicesId += 3) {
 				uint32_t index0 = polygonIndices[indicesId + 0];
 				uint32_t index1 = polygonIndices[indicesId + 1];
 				uint32_t index2 = polygonIndices[indicesId + 2];
@@ -418,14 +416,15 @@ double QuadTree::OnCollisionRayTriangle(glm::dvec3& rayStart, glm::dvec3& rayDir
 
 }
 
+// 뮐러 - 트럼보어 교차 알고리즘 (Muller-Trumbore intersection algorithm)
 double QuadTree::RayTriangle(const glm::dvec3& rayStart, const glm::dvec3& rayDir, const glm::dvec3& trianglePoint1, const glm::dvec3& trianglePoint2, const glm::dvec3& trianglePoint3)
 {
 	glm::dvec3 edge1  = trianglePoint2 - trianglePoint1;
 	glm::dvec3 edge2  = trianglePoint3 - trianglePoint1;
 	glm::dvec3 normal = glm::cross(rayDir, edge2); // 평면의 법선벡터
 
-	double det = glm::dot(edge1, normal); // 레이와 평면이 평행하면 충돌X
-	if (fabs(det) < 1e-8)       return -1.0;
+	double det = glm::dot(edge1, normal); // 스칼라 삼중곱을 이용한 행렬식
+	if (fabs(det) < 1e-8)       return -1.0; // 0에 가까우면 평행, 교차하지 않음
 
 	double invDet = 1.0 / det;
 	glm::dvec3 tvec = rayStart - trianglePoint1; // 한 꼭짓점 -> 광선 시작점 벡터

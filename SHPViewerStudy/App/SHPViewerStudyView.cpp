@@ -62,7 +62,7 @@ void CSHPViewerStudyView::OnDraw(CDC* pDc)
 	CRect rect;
 	GetClientRect(&rect);
 
-	m_layerManager.Render(m_camera, m_uiState, rect.Width(), rect.Height(), m_panelLeft.GetWidth());
+	m_layerManager.Render(m_camera, m_uiState, rect.Width(), rect.Height(), m_panelLeft.GetWidth(), m_hitPoint);
 	//m_renderer.Render(m_camera, m_layerManager, m_uiState);
 }
 
@@ -72,7 +72,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	callback.visibilityCallbacks.onObjectMBR   = [this](bool value) { m_uiState.isShowObjectMBR   = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onNodeMBR     = [this](bool value) { m_uiState.isShowNodeMBR     = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(value); m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; /*m_renderer.SetDrawFrustum(!value);*/  m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; m_layerManager.layers[0]->m_renderer->SetDrawFrustum(!value);  m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onFakeObject  = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_uiState.isShowBuilding    = value; m_layerManager.ReDraw(); SetFocus(); }; 
 	callback.visibilityCallbacks.onMap         = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
@@ -154,7 +154,7 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 // 마우스 커서 world 좌표 획득
 glm::dvec3 CSHPViewerStudyView::ClientToWorldPos(CPoint clientPos)
 {
-	glm::mat4 inverseViewProjection = glm::inverse(m_camera.GetMatrix());
+	glm::dmat4 inverseViewProjection = glm::inverse(m_camera.GetMatrix());
 	CRect rect;
 	GetClientRect(&rect);
 
@@ -171,12 +171,18 @@ glm::dvec3 CSHPViewerStudyView::ClientToWorldPos(CPoint clientPos)
 	m_rayStart = glm::dvec3(nearWorld);
 	m_rayDir   = glm::normalize(glm::dvec3(farWorld) - m_rayStart);
 
-	if (m_rayStart.z > 0.0 && m_rayDir.z > -0.01 || m_rayStart.z < 0.0 && m_rayDir.z < 0.01 )
-		return glm::dvec3(); // 수평 방향이면 교차 없음
+	if (std::abs(m_rayDir.z) < 1e-6)
+		return glm::dvec3(std::numeric_limits<double>::quiet_NaN()); // 수평 방향이면 교차 없음
 
 	// rayOrigin에서 rayDir 방향으로 쏘았을 때 * correctionValue만큼 가면 z = 0에 도달,  origin.z + dir.z * cor = 0 -> cor = -origin.z / dir.z
 	double correctionValue = -m_rayStart.z / m_rayDir.z;
-	return m_rayStart + correctionValue * m_rayDir;
+
+	// 교차점이 카메라 뒤에 있으면 유효하지 않음
+	if (correctionValue < 0.0)
+		return glm::dvec3(std::numeric_limits<double>::quiet_NaN());
+
+	glm::dvec3 hit = m_rayStart + correctionValue * m_rayDir;
+	return hit;
 }
 
 // 객체 선택 (픽킹)
@@ -258,7 +264,7 @@ void CSHPViewerStudyView::OnSize(UINT nType, int clientWidth, int clientHeight)
 	m_panelRight.Resize(m_clientWidth, m_clientHeight);
 
 	// 가운데 렌더링 영역 사이즈, 카메라 종횡비 재지정
-	m_camera.UpdateAspect(m_clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_clientHeight);
+	m_camera.UpdateAspect(m_clientWidth - m_panelLeft.GetWidth(), m_clientHeight);
 	m_layerManager.Resize(m_clientWidth, m_clientHeight, m_panelLeft.GetWidth());
 }
 
@@ -342,7 +348,13 @@ void CSHPViewerStudyView::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	if (IsInUIPanel(point))  return; // UI 패널 위에서는 카메라가 반응하지 않도록 차단
 	if (m_isPickingMode)     { PickingObj(point); m_panelLeft.UpdatePickingInfo(m_hitPoint); } // 피킹 모드
-	if (m_isCameraThirdMode) { m_hitPoint = ClientToWorldPos(point); m_camera.m_thirdMovePos = m_camera.transform.position; } // 3인칭 카메라 조작 모드
+	if (m_isCameraThirdMode) { 
+		glm::dvec3 hit = ClientToWorldPos(point);
+		if (std::isfinite(hit.x) && std::isfinite(hit.y)) { // nan 체크
+			m_hitPoint = hit;
+			m_camera.m_thirdMovePos = m_camera.transform.position;
+		} 
+	} // 3인칭 카메라 조작 모드
 
 	m_isLButtonDragging = true;
 	m_mouseClientPos    = point;
@@ -363,7 +375,10 @@ void CSHPViewerStudyView::OnLButtonUp(UINT nFlags, CPoint point)
 void CSHPViewerStudyView::OnRButtonDown(UINT nFlags, CPoint point)
 {
 	if (IsInUIPanel(point))  return;
-	if (m_isCameraThirdMode) { m_hitPoint = ClientToWorldPos(point); }
+	if (m_isCameraThirdMode) { 
+		glm::dvec3 hit = ClientToWorldPos(point);
+		if (std::isfinite(hit.x) && std::isfinite(hit.y)) m_hitPoint = hit;
+	}
 
 	m_isRButtonDragging = true;
 	m_mouseClientPos    = point;
@@ -394,15 +409,18 @@ void CSHPViewerStudyView::OnMouseMove(UINT nFlags, CPoint point)
 			m_camera.UpdateMatrix();
 
 			glm::dvec3 hitPoint = ClientToWorldPos(point);
+			if (!std::isfinite(hitPoint.x) || !std::isfinite(hitPoint.y)) return; // nan이면 이동 안 함
 			glm::dvec3 deltaPos = m_hitPoint - hitPoint;
 			m_camera.transform.position += deltaPos;
 			m_camera.UpdateMatrix();
 		}
 		else m_camera.MoveLocal(static_cast<float>(mouseDelta.x), static_cast<float>(mouseDelta.y)); // 1인칭 이동
+		m_layerManager.ReDraw();
 	}
 	if (m_isRButtonDragging) { // 우클릭
 		if (m_isCameraThirdMode) m_camera.RotateThird(static_cast<float>(mouseDelta.x), static_cast<float>(mouseDelta.y), 0.0f, m_hitPoint); // 3인칭 회전
 		else                     m_camera.RotateFirst(static_cast<float>(mouseDelta.x), static_cast<float>(mouseDelta.y), 0.0f);             // 1인칭 회전
+		m_layerManager.ReDraw();
 	}
 }
 
@@ -416,8 +434,15 @@ BOOL CSHPViewerStudyView::OnMouseWheel(UINT nFlags, short zDelta, CPoint point)
 	// 일반 휠: 줌
 	double factor = (zDelta > 0) ? 1.0 : -1.0;
 
-	if (m_isCameraThirdMode) { m_hitPoint = ClientToWorldPos(point); m_camera.ZoomThird(factor, m_hitPoint); }
-	else                     m_camera.ZoomLocal(factor);
+	if (m_isCameraThirdMode) { 
+		glm::dvec3 hit = ClientToWorldPos(point);
+		if (std::isfinite(hit.x) && std::isfinite(hit.y)) {
+			m_hitPoint = hit;
+			m_camera.ZoomThird(factor, m_hitPoint);
+		}
+	}
+	else m_camera.ZoomLocal(factor);
+	m_layerManager.ReDraw();
 
 	return TRUE;
 }
@@ -549,7 +574,7 @@ void CSHPViewerStudyView::OnDropFiles(HDROP hDropInfo)
 
 	CRect rect;
 	GetClientRect(&rect);
-	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
 	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 }
@@ -567,7 +592,7 @@ void CSHPViewerStudyView::OnFileOpenShp()
 
 	CRect rect;
 	GetClientRect(&rect);
-	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
 	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 }
@@ -605,7 +630,7 @@ void CSHPViewerStudyView::OnFileOpenFolder()
 
 	CRect rect;
 	GetClientRect(&rect);
-	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
 	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 	//RefreshMap();

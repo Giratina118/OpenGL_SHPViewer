@@ -13,6 +13,16 @@ void BoundingBox::SetHeight(int32_t heightData, int32_t floorData, double nodeLe
         height = std::min((GetLengthX() + GetLengthY()) * 0.5, nodeLength * 0.1);
 }
 
+BoundingBox BoundingBox::GetLooseBox(double looseBoxRate) const
+{
+	double looseX = GetLengthX() * looseBoxRate;
+	double looseY = GetLengthY() * looseBoxRate;
+
+    BoundingBox box{minX - looseX, minY - looseY, maxX + looseX, maxY + looseY, 0 };
+
+    return box;
+}
+
 // 자식 박스 반환
 BoundingBox BoundingBox::ChildBox(int32_t child)
 {

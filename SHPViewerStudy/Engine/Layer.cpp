@@ -13,7 +13,7 @@ Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox
 	if (layers.size() == 1) newLayer.m_isBuilding = true; // 첫 번째 레이어(건물 정보)일 시 표시, 높이값 적용을 위해
 
     boundingBox = boundingBox.CombineBox(layerBox);
-    visibleLayers.push_back(layers.size() - 1);
+    visibleLayers.push_back(static_cast<int32_t>(layers.size()) - 1);
     return newLayer;
 }
 
@@ -89,7 +89,7 @@ void LayerManager::Shutdown(HWND hWnd)
     }
 }
 
-void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft)
+void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft, glm::dvec3 hitPoint)
 {
     // render여부 체크 -> 변화 없으면 그냥 return (CPU/GPU idle, 화면은 이전 프레임 유지)
     bool needRebuild = camera.GetCameraChange() || m_needRedraw;
@@ -120,7 +120,7 @@ void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t sc
         if (visibleLayerId < 0 || visibleLayerId >= layers.size()) continue;
         Renderer* renderer = layers[visibleLayerId]->m_renderer.get();
         if (renderer != nullptr && !(!uiState.isShowBuilding && layers[visibleLayerId]->m_isBuilding))
-            renderer->Render(camera, uiState, screenWidth, screenHeight, panelWidthLeft);
+            renderer->Render(camera, uiState, screenWidth, screenHeight, panelWidthLeft, hitPoint);
     }
 
     glDisable(GL_SCISSOR_TEST);           // UI 패널 제외한 영역에만 그리기 설정 해제

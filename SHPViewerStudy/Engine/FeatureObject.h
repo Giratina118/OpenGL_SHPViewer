@@ -43,12 +43,14 @@ struct BoundingBox
 	double GetMaxExtent()  const { return std::max(GetLengthX(), GetLengthY()); } // LOD용 최대 변 길이
 	void SetHeight(int32_t heightData, int32_t floorData, double nodeLength);
     
-    BoundingBox ChildBox   (int32_t child);         // 자식 박스 반환
-    BoundingBox CombineBox (BoundingBox& otherBox); // 박스 결합
+
+	BoundingBox GetLooseBox(double looseBoxRate) const; // 느슨한 박스 크기 계산
+    BoundingBox ChildBox   (int32_t child);             // 자식 박스 반환
+    BoundingBox CombineBox (BoundingBox& otherBox);     // 박스 결합
     bool IsOnCollisionBox  (BoundingBox& otherBox)  const; // 박스 접촉 체크
 	bool IsOnCollisionPoint(glm::dvec3& otherPoint) const; // 점 접촉 체크
 	bool IsOnCollisionRay  (glm::dvec3& startPoint, glm::dvec3& dir) const; // 선 접촉 체크
-    bool IsInclude(BoundingBox& otherBox) const;    // 박스 포함 체크 (other이 자신 안에 완전히 포함되는지)
+    bool IsInclude(BoundingBox& otherBox) const; // 박스 포함 체크 (other이 자신 안에 완전히 포함되는지)
 };
 
 

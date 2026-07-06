@@ -144,6 +144,8 @@ void CameraController::UpdateMatrix()
 {
     double safeAspect = (aspect <= 0.0f) ? 1.0f : aspect;
 
+	if (transform.position.z < 1.1) transform.position.z = 1.1; // 카메라가 지면 아래로 내려가지 않도록 제한
+
     // 뷰행렬
     glm::dvec3 eye    = transform.position;
     glm::dvec3 target = transform.position + transform.GetForward();
@@ -151,8 +153,8 @@ void CameraController::UpdateMatrix()
     viewMatrix = glm::lookAt(eye, target, up);
 
 	// 투영행렬 (원근 투영)
-    double nearPlane  = 0.0001;
-    double farPlane   = 10000000.0;
+    double nearPlane  = 1.0;
+    double farPlane   = 1000000.0;
     projectionMatrix  = glm::perspective(glm::radians(fov), safeAspect, nearPlane, farPlane);
     
     viewProjectionMatrix = projectionMatrix * viewMatrix;
@@ -248,7 +250,7 @@ BoundingBox CameraController::GetCameraViewBox()
 {
     if (!m_viewBoxReset) return m_viewBox; // 카메라가 움직인 경우에만 재계산
 
-    glm::mat4 inverseViewProjectionMatrix = glm::inverse(viewProjectionMatrix);
+    glm::dmat4 inverseViewProjectionMatrix = glm::inverse(viewProjectionMatrix);
 
     // 화면 네 모서리에서 광선을 쏘아 z=0 지면과 교차한 4개 점의 AABB를 시야 박스로 사용
     glm::vec2 ndcCorners[4] = { {-1.0f, -1.0f}, { 1.0f, -1.0f}, { 1.0f,  1.0f}, {-1.0f,  1.0f} };

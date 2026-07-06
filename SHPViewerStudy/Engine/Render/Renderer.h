@@ -95,7 +95,7 @@ public:
 	void UploadAndDraw(GLuint& vao, GLuint& vbo, std::vector<Vertex>& vertices, int drawType);
 	void Shutdown(HWND hWnd);	   // GPU 리소스 해제
 
-	void Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft); // 메인 렌더 함수
+	void Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft, glm::dvec3 hitPoint); // 메인 렌더 함수
 	//void Resize(int32_t width, int32_t height, int32_t panelWidthLeft); // 윈도우 크기 변경 시 viewport 갱신
 
 	// 그리기 정보 빌드, 파일 열때 호출되는 함수들

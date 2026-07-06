@@ -68,7 +68,7 @@ public:
 	FrustumState GetFrustumState(const BoundingBox& box) const;
 
     BoundingBox GetCameraViewBox(); // 카메라 시야 박스 반환
-	const glm::mat4 GetMatrix() { return glm::mat4(viewProjectionMatrix); } // 뷰-투영 행렬 반환
+	const glm::dmat4 GetMatrix() const { return viewProjectionMatrix; } // 뷰-투영 행렬 반환
 
 	void SetCameraChange() { m_isCameraChanged = false; }      // 카메라 변경 표시 초기화 (렌더러가 처리 후 호출)
 	bool GetCameraChange() const { return m_isCameraChanged; } // 카메라 변경 여부 반환

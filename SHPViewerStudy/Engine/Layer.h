@@ -15,7 +15,7 @@ public:
 	uint32_t    m_shapeType;   // 객체 타입   (1: Point, 3: PolyLine, 5: Polygon, 8: MultiPoint, 31: MultiPatch)
 	int32_t     m_startIndex;  // 시작 인덱스 (pointObjects, polyLineObjects, polygonObjects, multiPointObjects, multiPatchObjects 중 하나의 벡터에서)
 	int32_t     m_length;      // 데이터 개수 (startIndex부터 m_length 개의 데이터가 해당 레이어에 속함)
-	float	    m_objSize = 0.01; // 객체 크기   (선 객체 -> 너비, 점 객체 -> 반지름)
+	float	    m_objSize = 0.01f; // 객체 크기   (선 객체 -> 너비, 점 객체 -> 반지름)
 	std::unique_ptr<Renderer> m_renderer;
 	std::unique_ptr<QuadTree> m_quadTree;
 	BoundingBox m_boundingBox; // 레이어 전체 MBR
@@ -41,14 +41,6 @@ public:
 	std::vector<std::unique_ptr<Layer>> layers;
 	std::vector<int32_t>  visibleLayers; // 현재 보이는 레이어들
 
-	/*
-	std::vector<PointObject>      pointObjects;      // Point      객체 배열
-	std::vector<PolyObject>       polyLineObjects;   // PolyLine   객체 배열
-	std::vector<PolyObject>       polygonObjects;    // Polygon    객체 배열
-	std::vector<MultiPointObject> multiPointObjects; // MultiPoint 객체 배열
-	std::vector<MultiPatchObject> multiPatchObjects; // MultiPatch 객체 배열
-	*/
-
 	// EGL
 	EGLDisplay m_display = EGL_NO_DISPLAY; // GPU 드라이버 연결 핸들
 	EGLSurface m_surface = EGL_NO_SURFACE; // 그림이 실제로 그려질 표면 (윈도우와 연결)
@@ -62,7 +54,7 @@ public:
 	bool InitRenderer(HWND hWnd);
 	bool InitEGL(HWND hwnd);
 	void Shutdown(HWND hWnd);
-	void Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft);
+	void Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft, glm::dvec3 hitPoint);
 	void Resize(int32_t width, int32_t height, int32_t panelWidthLeft);
 	void Refresh();
 	void ReDraw() { m_needRedraw = true; } // 토글 시 캐시 강제 무효화용
