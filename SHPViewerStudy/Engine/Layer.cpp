@@ -6,11 +6,13 @@ Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox
 
     layers.emplace_back(std::make_unique<Layer>());
     Layer& newLayer = *layers.back();
+	newLayer.m_id   = static_cast<int32_t>(layers.size()) - 1;
     newLayer.m_name = name;
     newLayer.m_shapeType   = shpType;
     newLayer.m_quadTree    = std::make_unique<QuadTree>(newLayer);
     newLayer.m_boundingBox = layerBox;
 	if (layers.size() == 1) newLayer.m_isBuilding = true; // 첫 번째 레이어(건물 정보)일 시 표시, 높이값 적용을 위해
+
 
     boundingBox = boundingBox.CombineBox(layerBox);
     visibleLayers.push_back(static_cast<int32_t>(layers.size()) - 1);

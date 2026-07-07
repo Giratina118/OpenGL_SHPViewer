@@ -201,11 +201,6 @@ void CSHPViewerStudyView::PickingObj(CPoint clientPos)
 	auto cullEnd = std::chrono::high_resolution_clock::now();
 	double cullMicros = std::chrono::duration<double, std::micro>(cullEnd - cullStart).count();
 
-	TCHAR buf[256];
-	_stprintf_s(buf, _T("[Picking] 객체 선택 시간 = %f\n"), cullMicros);
-	OutputDebugString(buf);
-
-
 	if (pickingDataId   == -1)            { m_layerManager.layers[0]->m_renderer->SetSelectedObject(-1, m_uiState);  return; } // 객체가 없는 빈 공간 선택
 	if (beforePickingId == pickingDataId) { m_panelRight.Show(false); pickingDataId = -1; return; } // 이전과 같은 객체 선택
 
@@ -227,7 +222,7 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	// TODO: 처음에 파일 안 들어 있도록 바꾸기
 	// shapefile 파싱
-	std::filesystem::path busanBuildingPath = std::filesystem::current_path() / "Resource" / "ShpFile" / "BusanBuilding" / "F_FAC_BUILDING_26_202505.shp";
+	std::filesystem::path busanBuildingPath = std::filesystem::current_path() / "Resource" / "ShpFile" / "BusanBuilding" / "F_FAC_BUILDING_26_202606.shp";
 	m_shpLoader.Parse(busanBuildingPath, m_layerManager);
 
 	// UI 패널 생성
@@ -408,9 +403,9 @@ void CSHPViewerStudyView::OnMouseMove(UINT nFlags, CPoint point)
 			m_camera.transform.position = m_camera.m_thirdMovePos;
 			m_camera.UpdateMatrix();
 
-			glm::dvec3 hitPoint = ClientToWorldPos(point);
-			if (!std::isfinite(hitPoint.x) || !std::isfinite(hitPoint.y)) return; // nan이면 이동 안 함
-			glm::dvec3 deltaPos = m_hitPoint - hitPoint;
+			glm::dvec3 hit = ClientToWorldPos(point);
+			if (!std::isfinite(hit.x) || !std::isfinite(hit.y)) return; // nan이면 이동 안 함
+			glm::dvec3 deltaPos = m_hitPoint - hit;
 			m_camera.transform.position += deltaPos;
 			m_camera.UpdateMatrix();
 		}

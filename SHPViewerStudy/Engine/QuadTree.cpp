@@ -37,6 +37,15 @@ void QuadTree::BuildQuadTree()
 // 데이터 삽입
 void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& dataMbrBox, bool isBuilding)
 {
+	assert(currentNodeId >= 0);
+	assert(currentNodeId < m_nodes.size());
+
+	assert(dataId >= 0);
+	assert(dataId < m_layer.polygonObjects.size());
+
+	assert(dataMbrBox.minX <= dataMbrBox.maxX);
+	assert(dataMbrBox.minY <= dataMbrBox.maxY);
+
 	QuadTreeNode& curNode    = m_nodes[currentNodeId]; // 현재 노드
 	BoundingBox&  curNodeBox = curNode.m_boundingBox;  // 현재 노드 mbr박스
 	BoundingBox*  curObjBox  = nullptr; // 현재 데이터 mbr박스
@@ -54,7 +63,7 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	if (curNode.m_level == m_maxLevel) {
 		curNode.m_objectIds.push_back(dataId);
 
-		if (isBuilding) curObjBox->SetHeight(m_layer.dbfTable.intColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.intColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
+		if (isBuilding) curObjBox->SetHeight(m_layer.dbfTable.doubleColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.doubleColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
 		if (curObjBox->height > curNodeBox.height) curNodeBox.height = curObjBox->height;
 		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상)
 		return;
@@ -66,7 +75,7 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 		nodeCenter.y - dataMbrBox.minY > curNodeBox.GetLengthY() * m_looseBoxRate && dataMbrBox.maxY - nodeCenter.y > curNodeBox.GetLengthY() * m_looseBoxRate) {
 		curNode.m_objectIds.push_back(dataId);
 
-		if (isBuilding) curObjBox->SetHeight(m_layer.dbfTable.intColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.intColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
+		if (isBuilding) curObjBox->SetHeight(m_layer.dbfTable.doubleColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.doubleColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
 		if (curObjBox->height > curNodeBox.height) curNodeBox.height = curObjBox->height;
 		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상용)
 		return;

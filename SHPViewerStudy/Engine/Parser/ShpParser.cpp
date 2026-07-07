@@ -74,6 +74,8 @@ void ShpParser::ReadPoint(const uint8_t*& ptr, PointObject& object)
     memcpy(&object.shapeType, ptr, 4);
     ptr += 4;
 
+    if (object.shapeType == 0) return;
+
     memcpy(&object.point, ptr, sizeof(glm::dvec2));
     ptr += sizeof(glm::dvec2);
 
@@ -101,6 +103,8 @@ void ShpParser::ReadPoly(const uint8_t*& ptr, PolyObject& object)
 {
     memcpy(&object.shapeType, ptr, 4);
     ptr += 4;
+
+    if (object.shapeType == 0) return;
 
     memcpy(&object.mbrBox, ptr, 32);
     ptr += 32;
@@ -138,6 +142,8 @@ void ShpParser::ReadMultiPoint(const uint8_t*& ptr, MultiPointObject& object)
     memcpy(&object.shapeType, ptr, 4);
     ptr += 4;
 
+    if (object.shapeType == 0) return;
+
     memcpy(&object.mbrBox, ptr, 32);
     ptr += 32;
 
@@ -165,6 +171,8 @@ void ShpParser::ReadMultiPatch(const uint8_t*& ptr, MultiPatchObject& object)
 {
     memcpy(&object.shapeType, ptr, 4);
     ptr += 4;
+
+    if (object.shapeType == 0) return;
 
     memcpy(&object.mbrBox, ptr, 32);
     ptr += 32;

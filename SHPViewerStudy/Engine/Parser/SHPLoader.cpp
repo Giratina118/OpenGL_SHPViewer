@@ -91,5 +91,7 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     if (hasDbf) dbfParser.DbfParse(dbfBuffer, newLayer.dbfTable);                // dbf 헤더 + 레코드 파싱, layer.dbfTable에 저장
                 shpParser.ShpParse(shpBuffer, shxRecords, shpHeader, newLayer);  // shp 레코드 파싱,        layer에 저장
 
+    if (newLayer.dbfTable.floorPos != -1 || newLayer.dbfTable.heightPos != -1) newLayer.m_isBuilding = true; // 높이/층수 정보가 있으면 건물 레이어로 간주
+
 	newLayer.m_quadTree->BuildQuadTree(); // 쿼드트리 빌드
 }

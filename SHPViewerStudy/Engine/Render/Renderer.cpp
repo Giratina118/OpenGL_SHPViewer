@@ -686,7 +686,7 @@ void Renderer::DrawQuadTreeNodeMBR()
 // 카메라 절두체 시각화 (지면과 교차하는 4개 변), NDC 모서리 4개를 unproject해서 z=0 평면과의 교차점을 구해 라인으로 표시
 void Renderer::DrawCameraFrustum(CameraController& camera)
 {
-	if (!m_layer.m_isBuilding) return;
+	if (m_layer.m_id != 0) return;
 
 	if (!m_drawedFrustum)
 	{
@@ -886,7 +886,7 @@ void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState)
 
 void Renderer::DrawDebugRect(const glm::dvec3& center, float size)
 {
-	if (!m_layer.m_isBuilding) return;
+	if (m_layer.m_id != 0) return;
 
 	float halfSize = size * 0.5f;
 
