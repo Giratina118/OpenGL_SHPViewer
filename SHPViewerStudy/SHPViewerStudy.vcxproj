@@ -232,6 +232,7 @@ copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     <ClInclude Include="App\UI\CPickingPage.h" />
     <ClInclude Include="App\UI\CVisibilityPage.h" />
     <ClInclude Include="App\UI\UIState.h" />
+    <ClInclude Include="CLayerListCtrl.h" />
     <ClInclude Include="Engine\CameraController.h" />
     <ClInclude Include="Engine\DBFTable.h" />
     <ClInclude Include="Engine\FeatureObject.h" />
@@ -261,6 +262,7 @@ copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     <ClCompile Include="App\UI\CPanelRight.cpp" />
     <ClCompile Include="App\UI\CPickingPage.cpp" />
     <ClCompile Include="App\UI\CVisibilityPage.cpp" />
+    <ClCompile Include="CLayerListCtrl.cpp" />
     <ClCompile Include="Engine\CameraController.cpp" />
     <ClCompile Include="Engine\DBFTable.cpp" />
     <ClCompile Include="Engine\FeatureObject.cpp" />

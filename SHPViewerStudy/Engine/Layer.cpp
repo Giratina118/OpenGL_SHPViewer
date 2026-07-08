@@ -121,9 +121,18 @@ void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t sc
     {
         if (visibleLayerId < 0 || visibleLayerId >= layers.size()) continue;
         Renderer* renderer = layers[visibleLayerId]->m_renderer.get();
-        if (renderer != nullptr && !(!uiState.isShowBuilding && layers[visibleLayerId]->m_isBuilding))
+        if (renderer != nullptr && !(!uiState.isShowBuilding && layers[visibleLayerId]->m_isBuilding)) {
+            //glEnable(GL_POLYGON_OFFSET_FILL);
+            //glPolygonOffset(0.5f, 4.0f);
             renderer->Render(camera, uiState, screenWidth, screenHeight, panelWidthLeft, hitPoint);
+        }
+        else {
+            //glEnable(GL_POLYGON_OFFSET_FILL);
+            //glPolygonOffset(1.0f, 4.0f);
+        }
     }
+    //glDisable(GL_POLYGON_OFFSET_FILL);
+
 
     glDisable(GL_SCISSOR_TEST);           // UI 패널 제외한 영역에만 그리기 설정 해제
     eglSwapBuffers(m_display, m_surface); // 화면에 그려진 결과 출력 (더블 버퍼링에서 백 버퍼와 프론트 버퍼 교체, 실제로는 GPU가 알아서 최적화해서 처리)

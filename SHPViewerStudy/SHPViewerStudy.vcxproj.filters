@@ -151,6 +151,9 @@
     <ClInclude Include="Engine\Layer.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="CLayerListCtrl.h">
+      <Filter>App\UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Render\Renderer.cpp">
@@ -221,6 +224,9 @@
     </ClCompile>
     <ClCompile Include="Engine\Layer.cpp">
       <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="CLayerListCtrl.cpp">
+      <Filter>App\UI</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

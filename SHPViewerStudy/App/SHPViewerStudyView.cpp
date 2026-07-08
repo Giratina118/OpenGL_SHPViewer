@@ -193,14 +193,9 @@ glm::dvec3 CSHPViewerStudyView::PickingObj(CPoint clientPos)
 	m_hitPoint = ClientToWorldPos(clientPos);
 	glm::dvec3 hit = m_hitPoint;
 
-	auto cullStart = std::chrono::high_resolution_clock::now();
-
 	// 레이와 객체의 충돌 검사, 쿼드트리를 이용한 피킹
 	double collisionDistance = std::numeric_limits<double>::max();
 	pickingDataId = m_layerManager.layers[0]->m_quadTree->SearchPickingData(m_rayStart, m_rayDir, 0, collisionDistance, m_layerManager.layers[0]->m_renderer->GetPolygonDrawInfo(), m_layerManager.layers[0]->m_renderer->GetPolygonIndices(), m_layerManager.layers[0]->m_renderer->GetPolygonVertices(), hit);
-
-	auto cullEnd = std::chrono::high_resolution_clock::now();
-	double cullMicros = std::chrono::duration<double, std::micro>(cullEnd - cullStart).count();
 
 	if (pickingDataId   == -1)            { m_layerManager.layers[0]->m_renderer->SetSelectedObject(-1, m_uiState);  return hit; } // 객체가 없는 빈 공간 선택
 	if (beforePickingId == pickingDataId) { m_panelRight.Show(false); pickingDataId = -1; return hit; } // 이전과 같은 객체 선택
@@ -395,6 +390,8 @@ void CSHPViewerStudyView::OnRButtonUp(UINT nFlags, CPoint point)
 // 마우스 이동
 void CSHPViewerStudyView::OnMouseMove(UINT nFlags, CPoint point)
 {
+	//PickingObj(point); // 마우스 이동 시에도 피킹 체크
+
 	if (!m_isLButtonDragging && !m_isRButtonDragging) return;
 
 	// 화면 픽셀 이동량 -> 세계 좌표 이동량으로 변환

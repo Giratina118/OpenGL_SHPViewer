@@ -27,8 +27,15 @@
 #define ID_PANNEL_LEFT_PAGE1		2002
 #define ID_PANNEL_LEFT_PAGE2		2003
 #define ID_PANNEL_LEFT_PAGE3		2004
+
 #define ID_TAB_LEFT					3000
 #define ID_SLIDER_VIEW_RANGE		3001
+#define ID_LISTCTRL_LAYER			3002
+
+#define IDC_LAYER_LIST				4000
+#define IDI_ICON_POINT				4001
+#define IDI_ICON_LINE				4002
+#define IDI_ICON_POLYGON			4003
 
 // Next default values for new objects
 // 
