@@ -37,8 +37,8 @@ void CVisibilityPage::CreateTabControls()
     m_buttonFakeObject.Create (_T("가상 객체"),   tog, CRect(0, 0, 10, 10), this, ID_BTN_FAKE_OBJECT);
     m_buttonBuilding.Create   (_T("건물"),        tog, CRect(0, 0, 10, 10), this, ID_BTN_BUILDING);
     m_buttonMap.Create        (_T("지도"),        tog, CRect(0, 0, 10, 10), this, ID_BTN_MAP);
-    m_radioCDT.Create         (_T("CDT"),         rad, CRect(0, 0, 10, 10), this, ID_BTN_TRIANGULATE_CDT);
-    m_radioEarClipping.Create (_T("Ear"),         rad, CRect(0, 0, 10, 10), this, ID_BTN_TRIANGULATE_EAR);
+    //m_radioCDT.Create         (_T("CDT"),         rad, CRect(0, 0, 10, 10), this, ID_BTN_TRIANGULATE_CDT);
+    //m_radioEarClipping.Create (_T("Ear"),         rad, CRect(0, 0, 10, 10), this, ID_BTN_TRIANGULATE_EAR);
     m_radioCDT.GetCheck();
 
     m_staticViewRange.Create  (_T("가시거리 배율: 40"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this);
@@ -80,8 +80,8 @@ void CVisibilityPage::Resize(int width, int height)
         CWnd* btns[] = { &m_buttonObjectMBR,&m_buttonNodeMBR, &m_buttonLevelColor,&m_buttonFrustumView, &m_buttonFakeObject, &m_buttonBuilding, &m_buttonMap };
         btns[i]->MoveWindow(0, i * (buttonHeight + gapHeight), buttonWidth, buttonHeight);
     }
-    m_radioCDT.MoveWindow            (0,                   7.0 * (buttonHeight + gapHeight), buttonWidth / 2, buttonHeight);
-    m_radioEarClipping.MoveWindow    (buttonWidth / 2,     7.0 * (buttonHeight + gapHeight), buttonWidth / 2, buttonHeight);
+    //m_radioCDT.MoveWindow            (0,                   7.0 * (buttonHeight + gapHeight), buttonWidth / 2, buttonHeight);
+    //m_radioEarClipping.MoveWindow    (buttonWidth / 2,     7.0 * (buttonHeight + gapHeight), buttonWidth / 2, buttonHeight);
     m_staticViewRange.MoveWindow     (0, 8.0 * (buttonHeight + gapHeight), buttonWidth, buttonHeight * 0.5);
     m_sliderViewRange.MoveWindow     (0, 8.5 * (buttonHeight + gapHeight), buttonWidth, buttonHeight * 0.5);
     m_staticSliderValueMin.MoveWindow(0,                   9.0 * (buttonHeight + gapHeight), buttonWidth / 3, buttonHeight * 0.5);
@@ -110,8 +110,8 @@ void CVisibilityPage::Resize(int width, int height)
     applyFont(m_buttonFakeObject,  m_font);
     applyFont(m_buttonBuilding,    m_font);
     applyFont(m_buttonMap,         m_font);
-    applyFont(m_radioCDT,          m_font);
-    applyFont(m_radioEarClipping,  m_font);
+    //applyFont(m_radioCDT,          m_font);
+    //applyFont(m_radioEarClipping,  m_font);
     applyFont(m_staticViewRange,   m_font);
     applyFont(m_staticColorInfo,   m_font);
 

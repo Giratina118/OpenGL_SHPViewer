@@ -8,7 +8,7 @@ void BoundingBox::SetHeight(int32_t heightData, int32_t floorData, double nodeLe
     if (heightData != -1)
         height = heightData;
     if (floorData != -1 && (height == 0 || height > floorData * trashHeightDataLimit))
-        height = floorData * 4; // 1층 높아질 때마다 4미터 올라간다고 가정
+        height = floorData * 3; // 1층 높아질 때마다 4미터 올라간다고 가정
     if (height == 0)
         height = std::min((GetLengthX() + GetLengthY()) * 0.5, nodeLength * 0.1);
 }

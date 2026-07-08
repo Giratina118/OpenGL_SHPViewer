@@ -38,7 +38,7 @@ void CControlPage::Resize(int width, int height)
 void CControlPage::UpdateInfo(float fps, int total, int rendered, int fake, int cameraAltitude, double scalePerCm)
 {
     CString text;
-    text.Format(_T("FPS : %.1f\r\n¿¸√º ∞¥√º: %d\r\n∑ª¥ı ∞¥√º: %d\r\n∞°ªÛ ∞¥√º: %d\r\n«ˆ¿Á ∞Ìµµ: %dm\r\n√‡√¥: 1cm ¥Á %.1f m"), fps, total, rendered, fake, cameraAltitude, scalePerCm);
+    text.Format(_T("FPS : %.1f\r\n¿¸√º ∞¥√º: %d\r\n∑ª¥ı ∞¥√º: %d\r\n∞°ªÛ ∞¥√º: %d\r\n«ˆ¿Á ∞Ìµµ: %dm\r\n"), fps, total, rendered, fake, cameraAltitude);
     if (m_staticChangeInfo.GetSafeHwnd()) {
         m_staticChangeInfo.SetWindowText(text);
         m_staticChangeInfo.Invalidate(FALSE);

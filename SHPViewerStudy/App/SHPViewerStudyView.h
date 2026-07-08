@@ -103,7 +103,7 @@ public:
 	void RefreshMap();                             // 파일 열기 시 화면 갱신
 	void InputKey(float deltaTime);                // 키 입력
 	glm::dvec3 ClientToWorldPos(CPoint clientPos); // 피킹 위치
-	void PickingObj(CPoint clientPos);             // 피킹 객체
+	glm::dvec3 PickingObj(CPoint clientPos);       // 피킹 객체
 	bool IsInUIPanel(const CPoint& mousePoint) const { return mousePoint.x < m_panelLeft.GetWidth() || mousePoint.x > m_clientWidth - m_panelRight.GetWidth(); } // UI 마우스 이벤트가 3D 영역인지 판별
 };
 

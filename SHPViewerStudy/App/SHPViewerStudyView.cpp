@@ -187,31 +187,34 @@ glm::dvec3 CSHPViewerStudyView::ClientToWorldPos(CPoint clientPos)
 
 // 객체 선택 (픽킹)
 // TODO: 현재는 0번 레이어만 피킹 체크 중
-void CSHPViewerStudyView::PickingObj(CPoint clientPos)
+glm::dvec3 CSHPViewerStudyView::PickingObj(CPoint clientPos)
 {
 	int32_t beforePickingId = pickingDataId;
 	m_hitPoint = ClientToWorldPos(clientPos);
+	glm::dvec3 hit = m_hitPoint;
 
 	auto cullStart = std::chrono::high_resolution_clock::now();
 
 	// 레이와 객체의 충돌 검사, 쿼드트리를 이용한 피킹
 	double collisionDistance = std::numeric_limits<double>::max();
-	pickingDataId = m_layerManager.layers[0]->m_quadTree->SearchPickingData(m_rayStart, m_rayDir, 0, collisionDistance, m_layerManager.layers[0]->m_renderer->GetPolygonDrawInfo(), m_layerManager.layers[0]->m_renderer->GetPolygonIndices(), m_layerManager.layers[0]->m_renderer->GetPolygonVertices());
+	pickingDataId = m_layerManager.layers[0]->m_quadTree->SearchPickingData(m_rayStart, m_rayDir, 0, collisionDistance, m_layerManager.layers[0]->m_renderer->GetPolygonDrawInfo(), m_layerManager.layers[0]->m_renderer->GetPolygonIndices(), m_layerManager.layers[0]->m_renderer->GetPolygonVertices(), hit);
 
 	auto cullEnd = std::chrono::high_resolution_clock::now();
 	double cullMicros = std::chrono::duration<double, std::micro>(cullEnd - cullStart).count();
 
-	if (pickingDataId   == -1)            { m_layerManager.layers[0]->m_renderer->SetSelectedObject(-1, m_uiState);  return; } // 객체가 없는 빈 공간 선택
-	if (beforePickingId == pickingDataId) { m_panelRight.Show(false); pickingDataId = -1; return; } // 이전과 같은 객체 선택
+	if (pickingDataId   == -1)            { m_layerManager.layers[0]->m_renderer->SetSelectedObject(-1, m_uiState);  return hit; } // 객체가 없는 빈 공간 선택
+	if (beforePickingId == pickingDataId) { m_panelRight.Show(false); pickingDataId = -1; return hit; } // 이전과 같은 객체 선택
 
 	// 피킹된 객체 정보 얻기, TODO: 폴리곤 데이터만 일단 적용
-	if (m_layerManager.layers[0]->polygonObjects.size() < 1) return;
+	if (m_layerManager.layers[0]->polygonObjects.size() < 1) return hit;
 
 	m_layerManager.layers[0]->m_renderer->SetSelectedObject(pickingDataId, m_uiState); // 선택 객체 색상 적용
 	m_panelRight.SetPickingInfo(m_layerManager.layers[0]->dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
 
 	m_layerManager.ReDraw();
 	Invalidate(FALSE);
+
+	return hit;
 }
 
 // WM_CREATE 시 호출, 초기 설정

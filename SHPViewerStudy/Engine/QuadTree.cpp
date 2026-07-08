@@ -317,7 +317,7 @@ void QuadTree::InputRenderingDataAll(std::vector<int32_t>& renderObjectIds, int3
 }
 
 // 피킹 데이터 탐색 및 반환
-int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, int32_t currentNodeId, double& minDistance, std::vector<DrawInfo>& polygonDrawInfos, std::vector<uint32_t>& polygonIndices, std::vector<Vertex>& polygonVertices)
+int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, int32_t currentNodeId, double& minDistance, std::vector<DrawInfo>& polygonDrawInfos, std::vector<uint32_t>& polygonIndices, std::vector<Vertex>& polygonVertices, glm::dvec3& hitPoint)
 {
 	// 루트노드 높이 접촉점 -> z=0 라인
 	// 자신 노드 데이터와 비교
@@ -331,7 +331,7 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 	QuadTreeNode& node = m_nodes[currentNodeId];
 
 	if (!node.m_isVisibleNode) return selectDataId; // 노드가 안 보이면 넘기기 -> 화면에 보이는 객체만 클릭할 수 있도록
-	if (!node.m_boundingBox.IsOnCollisionRay(rayStart, rayDir)) return selectDataId; // TODO: 카메라와 노드 접촉점의 거리가 minDistanceRation 보가 작으면 그냥 노드 넘기도록
+	if (!node.m_boundingBox.IsOnCollisionRay(rayStart, rayDir)) return selectDataId; // TODO: 카메라와 노드 접촉점의 거리가 minDistance 보ek 작으면 그냥 노드 넘기도록
 	
 	// 노드 자신의 안에 있는 데이터들이 충돌하는지
 	if (node.m_objectIds.size() > 0) {
@@ -339,7 +339,7 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 			PolyObject& polygon = m_layer.polygonObjects[dataId];
 			if (!polygon.mbrBox.IsOnCollisionRay(rayStart, rayDir)) continue; // 접하지 않으면 넘기기
 
-			double collisionRation = polygon.OnCollisionRay(rayStart, rayDir, m_nodes[0].m_boundingBox.height); // 폴리곤 mbr 검사
+			//double collisionRation = polygon.OnCollisionRay(rayOrigin, rayDir, m_nodes[0].m_boundingBox.height); // 폴리곤 mbr 검사
 
 			for (uint32_t indicesId = polygonDrawInfos[dataId].indexOffset; indicesId < polygonDrawInfos[dataId].indexOffset + polygonDrawInfos[dataId].indexCount; indicesId += 3) {
 				uint32_t index0 = polygonIndices[indicesId + 0];
@@ -350,10 +350,11 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 				glm::dvec3 v2 = glm::dvec3(polygonVertices[index2].x, polygonVertices[index2].y, polygonVertices[index2].z);
 
 				
-				double triCollisionRation = RayTriangle(rayStart, rayDir, v0, v1, v2);
-				if (triCollisionRation >= 0.0 && triCollisionRation < minDistance) {
-					minDistance = triCollisionRation;
+				double triCollisionDistance = RayTriangle(rayStart, rayDir, v0, v1, v2);
+				if (triCollisionDistance >= 0.0 && triCollisionDistance < minDistance) {
+					minDistance = triCollisionDistance;
 					selectDataId = dataId;
+					hitPoint = rayStart + rayDir * triCollisionDistance;
 				}
 			}
 
@@ -372,7 +373,7 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 		QuadTreeNode& childNode = m_nodes[childNodeId];
 		if (!childNode.m_boundingBox.IsOnCollisionRay(rayStart, rayDir)) continue; // 자식노드와 접하지 않으면 넘기기
 
-		int32_t childPickingId = SearchPickingData(rayStart, rayDir, childNodeId, minDistance, polygonDrawInfos, polygonIndices, polygonVertices);
+		int32_t childPickingId = SearchPickingData(rayStart, rayDir, childNodeId, minDistance, polygonDrawInfos, polygonIndices, polygonVertices, hitPoint);
 		if (childPickingId != -1) selectDataId = childPickingId;
 	}
 	
@@ -399,7 +400,7 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 	// 자식 노드로 재귀 탐색
 	for (int32_t childNodeId : m_nodes[currentNodeId].m_childNodes) {
 		if (childNodeId != -1) {
-			int32_t dataId = SearchPickingData(layer, rayStart, hitPoint, rayDir, childNodeId, minDistanceRation);
+			int32_t dataId = SearchPickingData(layer, rayOrigin, hitPoint, rayDir, childNodeId, minDistanceRation);
 			if (dataId != -1) selectDataId = dataId; // 충돌하는 데이터가 있다면 반환
 		}
 	}
@@ -426,23 +427,24 @@ double QuadTree::OnCollisionRayTriangle(glm::dvec3& rayStart, glm::dvec3& rayDir
 }
 
 // 뮐러 - 트럼보어 교차 알고리즘 (Muller-Trumbore intersection algorithm)
-double QuadTree::RayTriangle(const glm::dvec3& rayStart, const glm::dvec3& rayDir, const glm::dvec3& trianglePoint1, const glm::dvec3& trianglePoint2, const glm::dvec3& trianglePoint3)
+double QuadTree::RayTriangle(const glm::dvec3& rayOrigin, const glm::dvec3& rayDir, 
+	const glm::dvec3& trianglePoint1, const glm::dvec3& trianglePoint2, const glm::dvec3& trianglePoint3)
 {
 	glm::dvec3 edge1  = trianglePoint2 - trianglePoint1;
 	glm::dvec3 edge2  = trianglePoint3 - trianglePoint1;
-	glm::dvec3 normal = glm::cross(rayDir, edge2); // 평면의 법선벡터
+	glm::dvec3 normal = glm::cross(rayDir, edge2);
 
-	double det = glm::dot(edge1, normal); // 스칼라 삼중곱을 이용한 행렬식
-	if (fabs(det) < 1e-8)       return -1.0; // 0에 가까우면 평행, 교차하지 않음
+	double det = glm::dot(edge1, normal);		   // 스칼라 삼중곱을 이용한 행렬식
+	if (fabs(det) < 1e-8)       return -1.0;	   // 0에 가까우면 평행, 교차하지 않음
 
 	double invDet = 1.0 / det;
-	glm::dvec3 tvec = rayStart - trianglePoint1; // 한 꼭짓점 -> 광선 시작점 벡터
-	double u = glm::dot(tvec, normal) * invDet;  // u 좌표 계산 및 검사 (U는 0.0 ~ 1.0 사이여야 함)
-	if (u < 0.0 || u > 1.0)     return -1.0;
+	glm::dvec3 tVec = rayOrigin - trianglePoint1;  // O - A = T
+	double u = glm::dot(tVec, normal) * invDet;    // u 계산 및 검사 
+	if (u < 0.0 || u > 1.0)     return -1.0;	   // U는 0.0 ~ 1.0 사이여야 함
 
-	glm::dvec3 qvec = glm::cross(tvec, edge1);   // V 좌표 계산 및 검사 (V는 0.0 ~ 1.0 사이고, U+V <= 1.0 이어야 함)
-	double v = glm::dot(rayDir, qvec) * invDet;
-	if (v < 0.0 || u + v > 1.0)	return -1.0;
+	glm::dvec3 qVec = glm::cross(tVec, edge1);     // V 계산 및 검사
+	double v = glm::dot(rayDir, qVec) * invDet;
+	if (v < 0.0 || u + v > 1.0)	return -1.0;       // V는 0.0 ~ 1.0 사이이고, U+V <= 1.0 이어야 함
 
-	return glm::dot(edge2, qvec) * invDet;   // 거리 계산
+	return glm::dot(edge2, qVec) * invDet;         // 거리 계산
 }
