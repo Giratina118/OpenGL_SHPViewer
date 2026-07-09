@@ -25,19 +25,19 @@ void CPickingPage::CreateTabControls()
     m_staticPickingInfo.Create(_T(""), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
 }
 
-void CPickingPage::Resize(int width, int height)
+void CPickingPage::Resize(UISize& uiSize)
 {
-    int marginX = width * 0.05, buttonWidth = width - marginX * 2;
-    int buttonHeight = height * 0.07, gapHeight = height * 0.01;
+	int32_t halfButtonWidth = uiSize.buttonWidth / 2 - uiSize.gapHeight;
+    int32_t btnHeightGap    = uiSize.buttonHeight + uiSize.gapHeight;
 
     // ÅÇ3 ³»ºÎ
-    m_buttonPicking.MoveWindow(0, 0, buttonWidth, buttonHeight);
-    m_radioFirstPerson.MoveWindow(0, buttonHeight + gapHeight, buttonWidth / 2 - gapHeight, buttonHeight);
-    m_radioThirdPerson.MoveWindow(buttonWidth / 2 + gapHeight, buttonHeight + gapHeight, buttonWidth / 2 - gapHeight, buttonHeight);
-    m_staticPickingInfo.MoveWindow(0, (buttonHeight + gapHeight) * 2, buttonWidth, buttonHeight * 3);
+    m_buttonPicking.MoveWindow    (0,               0,                uiSize.buttonWidth, uiSize.buttonHeight);
+    m_radioFirstPerson.MoveWindow (0,               btnHeightGap,     halfButtonWidth,     uiSize.buttonHeight);
+    m_radioThirdPerson.MoveWindow (halfButtonWidth, btnHeightGap,     halfButtonWidth,     uiSize.buttonHeight);
+    m_staticPickingInfo.MoveWindow(0,               btnHeightGap * 2, uiSize.buttonWidth, uiSize.buttonHeight * 3);
 
     // ÆùÆ®
-    int fontSize = std::max(10, height / 32);
+    int32_t fontSize = std::max(10, uiSize.clientHeight / 32);
     m_font.DeleteObject();
     m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
 

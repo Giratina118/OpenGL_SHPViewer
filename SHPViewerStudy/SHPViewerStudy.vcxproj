@@ -99,6 +99,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>C:\Users\egis\dev\vcpkg\installed\x64-windows\include;$(ProjectDir)App;$(ProjectDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -178,6 +179,7 @@ copy /Y "$(ProjectDir)Resource\lib\libGLESv2.dll" "$(OutDir)."</Command>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>C:\Users\egis\dev\vcpkg\installed\x64-windows\include;$(ProjectDir)App;$(ProjectDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <DisableSpecificWarnings>4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -227,12 +229,12 @@ copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     <ClInclude Include="App\SHPViewerStudyView.h" />
     <ClInclude Include="App\targetver.h" />
     <ClInclude Include="App\UI\CControlPage.h" />
+    <ClInclude Include="App\UI\CLayerListCtrl.h" />
     <ClInclude Include="App\UI\CPanelLeft.h" />
     <ClInclude Include="App\UI\CPanelRight.h" />
     <ClInclude Include="App\UI\CPickingPage.h" />
     <ClInclude Include="App\UI\CVisibilityPage.h" />
     <ClInclude Include="App\UI\UIState.h" />
-    <ClInclude Include="CLayerListCtrl.h" />
     <ClInclude Include="Engine\CameraController.h" />
     <ClInclude Include="Engine\DBFTable.h" />
     <ClInclude Include="Engine\FeatureObject.h" />
@@ -258,11 +260,11 @@ copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     <ClCompile Include="App\SHPViewerStudyDoc.cpp" />
     <ClCompile Include="App\SHPViewerStudyView.cpp" />
     <ClCompile Include="App\UI\CControlPage.cpp" />
+    <ClCompile Include="App\UI\CLayerListCtrl.cpp" />
     <ClCompile Include="App\UI\CPanelLeft.cpp" />
     <ClCompile Include="App\UI\CPanelRight.cpp" />
     <ClCompile Include="App\UI\CPickingPage.cpp" />
     <ClCompile Include="App\UI\CVisibilityPage.cpp" />
-    <ClCompile Include="CLayerListCtrl.cpp" />
     <ClCompile Include="Engine\CameraController.cpp" />
     <ClCompile Include="Engine\DBFTable.cpp" />
     <ClCompile Include="Engine\FeatureObject.cpp" />

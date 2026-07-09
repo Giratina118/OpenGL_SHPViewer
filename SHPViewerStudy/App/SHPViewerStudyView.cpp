@@ -76,7 +76,6 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	callback.visibilityCallbacks.onFakeObject  = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_uiState.isShowBuilding    = value; m_layerManager.ReDraw(); SetFocus(); }; 
 	callback.visibilityCallbacks.onMap         = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
-	callback.visibilityCallbacks.onTriangulate = [this](bool value) { /*m_renderer.m_isCDTTriangluate = value;*/ SetFocus(); };
 	callback.visibilityCallbacks.onViewRange   = [this](int  value) { m_camera.SetViewRange(value);      m_layerManager.ReDraw(); SetFocus(); };
 
 	callback.pickingCallbacks.onPicking        = [this](bool value) { m_isPickingMode     = value; SetFocus(); };
@@ -249,16 +248,23 @@ void CSHPViewerStudyView::OnSize(UINT nType, int clientWidth, int clientHeight)
 	if (clientWidth <= 0 || clientHeight <= 0) return; // 최소화 방어
 
 	// 새로 변경된 화면 크기 정보
-	m_clientWidth  = clientWidth;
-	m_clientHeight = clientHeight;
+	m_uiSize.clientWidth  = clientWidth;
+	m_uiSize.clientHeight = clientHeight;
+	m_uiSize.panelWidth   = static_cast<int32_t>(clientWidth  * 0.2);
+	m_uiSize.marginX      = static_cast<int32_t>(m_uiSize.panelWidth * 0.05);
+	m_uiSize.gapHeight    = static_cast<int32_t>(clientHeight * 0.01);
+	m_uiSize.buttonWidth  = m_uiSize.panelWidth - m_uiSize.marginX * 2;
+	m_uiSize.buttonHeight = static_cast<int32_t>(clientHeight * 0.07);
+	//m_clientWidth  = clientWidth;
+	//m_clientHeight = clientHeight;
 
 	// 양쪽 패널 사이즈 재지정
-	m_panelLeft.Resize (m_clientWidth, m_clientHeight);
-	m_panelRight.Resize(m_clientWidth, m_clientHeight);
+	m_panelLeft.Resize ();
+	m_panelRight.Resize();
 
 	// 가운데 렌더링 영역 사이즈, 카메라 종횡비 재지정
-	m_camera.UpdateAspect(m_clientWidth - m_panelLeft.GetWidth(), m_clientHeight);
-	m_layerManager.Resize(m_clientWidth, m_clientHeight, m_panelLeft.GetWidth());
+	m_camera.UpdateAspect(m_uiSize.clientWidth - m_uiSize.panelWidth, m_uiSize.clientHeight);
+	m_layerManager.Resize(m_uiSize.clientWidth, m_uiSize.clientHeight, m_uiSize.clientWidth);
 }
 
 // WM_DESTROY 시 호출
@@ -570,6 +576,7 @@ void CSHPViewerStudyView::OnDropFiles(HDROP hDropInfo)
 	CRect rect;
 	GetClientRect(&rect);
 	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager);
 	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 }
@@ -588,6 +595,7 @@ void CSHPViewerStudyView::OnFileOpenShp()
 	CRect rect;
 	GetClientRect(&rect);
 	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager);
 	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 }
@@ -626,6 +634,7 @@ void CSHPViewerStudyView::OnFileOpenFolder()
 	CRect rect;
 	GetClientRect(&rect);
 	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager);
 	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 	//RefreshMap();

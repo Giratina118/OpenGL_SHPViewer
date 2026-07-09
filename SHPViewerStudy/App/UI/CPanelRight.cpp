@@ -4,15 +4,14 @@
 
 BEGIN_MESSAGE_MAP(CRightPanel, CWnd)
     ON_WM_CREATE()
-    //ON_WM_CTLCOLOR()
 END_MESSAGE_MAP()
 
 bool CRightPanel::Create(CWnd* pParent, UINT nID, CRect& rect)
 {
     //m_bgBrush.CreateSolidBrush(RGB(240, 240, 240));
     // WS_VISIBLE æ¯¿Ã Ω√¿€ = ¥›»˘ ªÛ≈¬
-    m_clientWidth  = rect.Width();
-    m_clientHeight = rect.Height();
+    //m_clientWidth  = rect.Width();
+    //m_clientHeight = rect.Height();
     return CWnd::Create(AfxRegisterWndClass(CS_HREDRAW | CS_VREDRAW, ::LoadCursor(nullptr, IDC_ARROW), (HBRUSH)(COLOR_BTNFACE + 1)), _T(""), WS_CHILD | WS_CLIPCHILDREN, CRect(0, 0, 10, 10), pParent, nID) == TRUE;
 }
 
@@ -23,17 +22,17 @@ int CRightPanel::OnCreate(LPCREATESTRUCT lp)
     return 0;
 }
 
-void CRightPanel::Resize(int32_t screenWidth, int32_t screenHeight)
+void CRightPanel::Resize()
 {
-    m_clientWidth  = screenWidth;
-    m_clientHeight = screenHeight;
+    //m_clientWidth  = screenWidth;
+    //m_clientHeight = screenHeight;
+    int32_t panelWidth = GetWidth();
+    int32_t marginX = static_cast<int32_t>(panelWidth * 0.05f);
 
-    int panelWidth = GetWidth();
-    int marginX = panelWidth * 0.05;
-    MoveWindow(screenWidth - panelWidth, 0, panelWidth, screenHeight);
-    m_staticInfo.MoveWindow(marginX, marginX, panelWidth - marginX * 2, screenHeight - marginX * 2);
-
-    int fontSize = std::max(10, screenHeight / 40);
+    MoveWindow(m_uiSize.clientWidth - panelWidth, 0, panelWidth, m_uiSize.clientHeight);
+    m_staticInfo.MoveWindow(marginX, marginX, panelWidth - marginX * 2, m_uiSize.clientHeight - marginX * 2);
+    
+    int32_t fontSize = std::max(10, m_uiSize.clientHeight / 40);
     m_font.DeleteObject();
     m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
     m_staticInfo.SetFont(&m_font);
@@ -52,14 +51,6 @@ void CRightPanel::Show(bool show)
     ShowWindow(show ? SW_SHOW : SW_HIDE);
     m_isShowPanel = show;
 
-    if (show) Resize(m_clientWidth, m_clientHeight);
-    else      Resize(m_clientWidth, m_clientHeight);
+    if (show) Resize();
+    else      Resize();
 }
-
-/*
-HBRUSH CRightPanel::OnCtlColor(CDC* pDC, CWnd*, UINT)
-{
-    pDC->SetBkColor(RGB(240, 240, 240));
-    return (HBRUSH)m_bgBrush;
-}
-*/

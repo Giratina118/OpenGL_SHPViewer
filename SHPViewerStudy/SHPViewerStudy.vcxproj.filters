@@ -151,7 +151,7 @@
     <ClInclude Include="Engine\Layer.h">
       <Filter>Engine</Filter>
     </ClInclude>
-    <ClInclude Include="CLayerListCtrl.h">
+    <ClInclude Include="App\UI\CLayerListCtrl.h">
       <Filter>App\UI</Filter>
     </ClInclude>
   </ItemGroup>
@@ -225,7 +225,7 @@
     <ClCompile Include="Engine\Layer.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
-    <ClCompile Include="CLayerListCtrl.cpp">
+    <ClCompile Include="App\UI\CLayerListCtrl.cpp">
       <Filter>App\UI</Filter>
     </ClCompile>
   </ItemGroup>

@@ -12,8 +12,8 @@ END_MESSAGE_MAP()
 bool CLeftPanel::Create(CWnd* pParent, UINT nID, CRect& rect)
 {
     m_bgBrush.CreateSolidBrush(RGB(240, 240, 240));
-    m_clientWidth = rect.Width();
-    m_clientHeight = rect.Height();
+    //m_clientWidth = rect.Width();
+    //m_clientHeight = rect.Height();
 
     return CWnd::Create(AfxRegisterWndClass(CS_HREDRAW | CS_VREDRAW, ::LoadCursor(nullptr, IDC_ARROW), (HBRUSH)(COLOR_BTNFACE + 1)), _T(""), WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, CRect(0, 0, 10, 10), pParent, nID) == TRUE;
 }
@@ -42,7 +42,7 @@ int CLeftPanel::OnCreate(LPCREATESTRUCT lp)
     return 0;
 }
 
-void CLeftPanel::ShowPage(int idx)
+void CLeftPanel::ShowPage(int32_t idx)
 {
     m_pageControl.ShowWindow   (idx == 0 ? SW_SHOW : SW_HIDE);
     m_pageVisibility.ShowWindow(idx == 1 ? SW_SHOW : SW_HIDE);
@@ -55,28 +55,26 @@ void CLeftPanel::OnTcnSelChange(NMHDR*, LRESULT* pResult)
     *pResult = 0;
 }
 
-void CLeftPanel::Resize(int screenWidth, int screenHeight)
+void CLeftPanel::Resize()
 {
-    m_clientWidth  = screenWidth;
-    m_clientHeight = screenHeight;
-    int32_t panelWidth = m_clientWidth * m_panelRate;
+    //m_uiSize = uiSize;
+    //m_clientWidth  = screenWidth;
+    //m_clientHeight = screenHeight;
+    //int32_t panelWidth = m_clientWidth * m_panelRate;
 
-    MoveWindow(0, 0, panelWidth, m_clientHeight);
+    MoveWindow(0, 0, m_uiSize.panelWidth, m_uiSize.clientHeight);
 
-    int marginX = panelWidth * 0.05;
-    int gapHeight = m_clientHeight * 0.01;
-    int tabHeight = std::max(10, m_clientHeight / 16);
-    int pageTop = tabHeight + 4;
-    int pageHeight = m_clientHeight - pageTop;
+    //int marginX    = panelWidth * 0.05;
+    //int gapHeight  = m_clientHeight * 0.01;
+    int32_t tabHeight  = std::max(10, m_uiSize.clientHeight / 16);
+    int32_t pageTop    = tabHeight + 4;
+    int32_t pageHeight = m_uiSize.clientHeight - pageTop;
 
-    m_tab.MoveWindow(0, 0, panelWidth, tabHeight + pageHeight);
-    CSize tabSize;
-    tabSize.cx = panelWidth;
-    tabSize.cy = tabHeight;
-    m_tab.SetItemSize(tabSize);
+    m_tab.MoveWindow(0, 0, m_uiSize.panelWidth, tabHeight + pageHeight);
+    m_tab.SetItemSize(CSize(m_uiSize.panelWidth, tabHeight));
 
     // 폰트
-    int fontSize = std::max(10, m_clientHeight / 36);
+    int32_t fontSize = std::max(10, m_uiSize.clientHeight / 36);
     m_font.DeleteObject();
     m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
 
@@ -84,14 +82,14 @@ void CLeftPanel::Resize(int screenWidth, int screenHeight)
     applyFont(m_tab);
 
     // 세 페이지 모두 같은 위치에 겹쳐 배치 (탭이 전환할 때 ShowWindow로 교체)
-    CRect pageRect(marginX, pageTop + gapHeight, panelWidth - marginX, pageTop + pageHeight - gapHeight);
+    CRect pageRect(m_uiSize.marginX, pageTop + m_uiSize.gapHeight, m_uiSize.panelWidth - m_uiSize.marginX, pageTop + pageHeight - m_uiSize.gapHeight);
     m_pageControl.MoveWindow(pageRect);
     m_pageVisibility.MoveWindow(pageRect);
     m_pagePicking.MoveWindow(pageRect);
 
-    m_pageControl.Resize(panelWidth, m_clientHeight);
-    m_pageVisibility.Resize(panelWidth, m_clientHeight);
-    m_pagePicking.Resize(panelWidth, m_clientHeight);
+    m_pageControl.Resize(m_uiSize);
+    m_pageVisibility.Resize(m_uiSize);
+    m_pagePicking.Resize(m_uiSize);
 }
 
 void CLeftPanel::SetCallbacks(const LeftPanelCallbacks& callbak)

@@ -31,3 +31,17 @@ struct UIState
     bool isShowFakeObject  = false;
     bool isShowBuilding    = false;
 };
+
+// UI 크기 정보
+struct UISize
+{
+	int32_t clientWidth;
+	int32_t clientHeight;
+	int32_t panelWidth;
+
+    int32_t marginX;
+    int32_t buttonWidth;
+    int32_t buttonHeight;
+    int32_t gapHeight;
+    int32_t fontSize;
+};

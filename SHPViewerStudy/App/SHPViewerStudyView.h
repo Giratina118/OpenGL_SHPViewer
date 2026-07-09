@@ -28,13 +28,14 @@ class CSHPViewerStudyDoc;
 class CSHPViewerStudyView : public CView
 {
 private:
-	CLeftPanel       m_panelLeft;    // 좌측 패널
-	CRightPanel      m_panelRight;   // 우측 패널
 	SHPLoader        m_shpLoader;    // shp로더 클래스
 	LayerManager	 m_layerManager; // 레이어 클래스
 	CameraController m_camera;       // 카메라 클래스
+	UISize		     m_uiSize;       // ui 크기 정보
 	UIState          m_uiState;      // ui버튼 눌림 상태
 	KeyState         m_keyState;     // 키보드 눌림 상태
+	CLeftPanel       m_panelLeft;    // 좌측 패널
+	CRightPanel      m_panelRight;   // 우측 패널
 
 	// 업데이트 주기 조절
 	std::chrono::steady_clock::time_point m_lastTime; // 측정 시간
@@ -43,8 +44,8 @@ private:
 	int32_t m_frameCount     = 0;    // 프레임 카운트
 
 	// 화면 길이 정보
-	int32_t m_clientWidth  = 1; // 윈도우 전체 좌우 길이
-	int32_t m_clientHeight = 1; // 윈도우 전체 상하 길이
+	//int32_t m_clientWidth  = 1; // 윈도우 전체 좌우 길이
+	//int32_t m_clientHeight = 1; // 윈도우 전체 상하 길이
 
 	// 마우스, 좌표 정보
 	bool    m_isCameraThirdMode = false; // 카메라 모드, false: 1인칭(기본), true: 3인칭
@@ -69,7 +70,7 @@ private:
 	void TestTimeAboutAltitude(double altitude); // 카메라 자동 이동 (동일 환경에서 디버그 데이터 수집)
 
 protected:
-	CSHPViewerStudyView() noexcept {}
+	CSHPViewerStudyView() noexcept : m_panelLeft(m_uiSize), m_panelRight(m_uiSize) {}
 	DECLARE_DYNCREATE(CSHPViewerStudyView)
 
 	afx_msg int  OnCreate(LPCREATESTRUCT lpCreateStruct);               // 초기 생성
@@ -104,7 +105,7 @@ public:
 	void InputKey(float deltaTime);                // 키 입력
 	glm::dvec3 ClientToWorldPos(CPoint clientPos); // 피킹 위치
 	glm::dvec3 PickingObj(CPoint clientPos);       // 피킹 객체
-	bool IsInUIPanel(const CPoint& mousePoint) const { return mousePoint.x < m_panelLeft.GetWidth() || mousePoint.x > m_clientWidth - m_panelRight.GetWidth(); } // UI 마우스 이벤트가 3D 영역인지 판별
+	bool IsInUIPanel(const CPoint& mousePoint) const { return mousePoint.x < m_panelLeft.GetWidth() || mousePoint.x > m_uiSize.clientWidth - m_panelRight.GetWidth(); } // UI 마우스 이벤트가 3D 영역인지 판별
 };
 
 /*

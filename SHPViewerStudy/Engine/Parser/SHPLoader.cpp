@@ -58,7 +58,7 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
 
 	bool hasShx = true, hasDbf = true;
     std::filesystem::path shpPath = filePath, shxPath = filePath, dbfPath = filePath;
-
+	
     auto ext = shpPath.extension();
     if (ext != ".shp" && ext != ".shx" && ext != ".dbf") return;
 
@@ -82,7 +82,7 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     if (hasShx) { shxPtr = shxBuffer.data(); shxHeader.ReadHeader(shxPtr); }
     
     // 레이어 생성
-    Layer& newLayer = layerManager.CreateLayer(shpPath.string(), shpHeader.shapeType, shpHeader.boundinBoxXY);
+    Layer& newLayer = layerManager.CreateLayer(shpPath.stem().string(), shpHeader.shapeType, shpHeader.boundinBoxXY);
     newLayer.m_hasShx = hasShx;
 	newLayer.m_hasDbf = hasDbf;
 

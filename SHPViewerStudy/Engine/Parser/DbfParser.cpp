@@ -24,24 +24,6 @@ void DbfHeader::Read(const uint8_t*& ptr) {
     ptr += 20;
 }
 
-// .dbf 문자열 관리
-void FixedStringColumn::Resize(int rows) {             // 초기화 없이
-    buffer.resize(rows * width);
-    rowCount = rows;
-}
-char* FixedStringColumn::GetRow(int row) {             // 문자열 반환
-    return &buffer[row * width];
-}
-string_view FixedStringColumn::GetView(int row) const {// 복사 없이 문자열 보기
-    return string_view(&buffer[row * width], width);
-}
-string_view FixedStringColumn::GetTrimmedView(int row) const {
-    const char* start = &buffer[row * width];
-    const char* end   = start + width;
-    while (end > start && end[-1] == ' ') end--;
-    return string_view(start, end - start);
-}
-
 // .dbf 파싱
 void DbfParser::DbfParse(vector<uint8_t>& buffer, DBFTable& dbfTable) {
     const uint8_t* ptr = buffer.data(); // 시작점

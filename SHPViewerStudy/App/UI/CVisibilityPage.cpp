@@ -16,8 +16,6 @@ BEGIN_MESSAGE_MAP(CVisibilityPage, CWnd)
     ON_BN_CLICKED(ID_BTN_FAKE_OBJECT,  &CVisibilityPage::OnBtnFakeObject)
     ON_BN_CLICKED(ID_BTN_BUILDING,     &CVisibilityPage::OnBtnBuilding)
     ON_BN_CLICKED(ID_BTN_MAP,          &CVisibilityPage::OnBtnMap)
-    ON_BN_CLICKED(ID_BTN_TRIANGULATE_CDT, &CVisibilityPage::OnBtnCDT)
-    ON_BN_CLICKED(ID_BTN_TRIANGULATE_EAR, &CVisibilityPage::OnBtnCDT)
 END_MESSAGE_MAP()
 
 bool CVisibilityPage::Create(CWnd* pParent, UINT nID)
@@ -37,8 +35,6 @@ void CVisibilityPage::CreateTabControls()
     m_buttonFakeObject.Create (_T("가상 객체"),   tog, CRect(0, 0, 10, 10), this, ID_BTN_FAKE_OBJECT);
     m_buttonBuilding.Create   (_T("건물"),        tog, CRect(0, 0, 10, 10), this, ID_BTN_BUILDING);
     m_buttonMap.Create        (_T("지도"),        tog, CRect(0, 0, 10, 10), this, ID_BTN_MAP);
-    //m_radioCDT.Create         (_T("CDT"),         rad, CRect(0, 0, 10, 10), this, ID_BTN_TRIANGULATE_CDT);
-    //m_radioEarClipping.Create (_T("Ear"),         rad, CRect(0, 0, 10, 10), this, ID_BTN_TRIANGULATE_EAR);
     m_radioCDT.GetCheck();
 
     m_staticViewRange.Create  (_T("가시거리 배율: 40"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this);
@@ -66,39 +62,37 @@ void CVisibilityPage::CreateTabControls()
 
     // 색상 범례 생성
     m_staticColorInfo.Create(_T("색상범례 (Lv 0 -> Lv 8)"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this);
-    for (int i = 0; i < kLegendCount; i++)
+    for (int32_t i = 0; i < kLegendCount; i++)
         m_legendSwatch[i].Create(_T(""), WS_CHILD | WS_VISIBLE | SS_NOTIFY, CRect(0, 0, 10, 10), this);
 }
 
-void CVisibilityPage::Resize(int width, int height)
+void CVisibilityPage::Resize(UISize& uiSize)
 {
-    int marginX = width * 0.05, buttonWidth = width - marginX * 2;
-    int buttonHeight = height * 0.07, gapHeight = height * 0.01;
-
+    int32_t btnHeightGap  = uiSize.buttonHeight + uiSize.gapHeight;
+	int32_t btnHeightHalf = uiSize.buttonHeight / 2;
+    
     // 탭2 내부
-    for (int i = 0; i < 7; i++) {
+    for (int32_t i = 0; i < 7; i++) {
         CWnd* btns[] = { &m_buttonObjectMBR,&m_buttonNodeMBR, &m_buttonLevelColor,&m_buttonFrustumView, &m_buttonFakeObject, &m_buttonBuilding, &m_buttonMap };
-        btns[i]->MoveWindow(0, i * (buttonHeight + gapHeight), buttonWidth, buttonHeight);
+        btns[i]->MoveWindow(0, i * (uiSize.buttonHeight + uiSize.gapHeight), uiSize.buttonWidth, uiSize.buttonHeight);
     }
-    //m_radioCDT.MoveWindow            (0,                   7.0 * (buttonHeight + gapHeight), buttonWidth / 2, buttonHeight);
-    //m_radioEarClipping.MoveWindow    (buttonWidth / 2,     7.0 * (buttonHeight + gapHeight), buttonWidth / 2, buttonHeight);
-    m_staticViewRange.MoveWindow     (0, 8.0 * (buttonHeight + gapHeight), buttonWidth, buttonHeight * 0.5);
-    m_sliderViewRange.MoveWindow     (0, 8.5 * (buttonHeight + gapHeight), buttonWidth, buttonHeight * 0.5);
-    m_staticSliderValueMin.MoveWindow(0,                   9.0 * (buttonHeight + gapHeight), buttonWidth / 3, buttonHeight * 0.5);
-    m_staticSliderValueMid.MoveWindow(buttonWidth / 3,     9.0 * (buttonHeight + gapHeight), buttonWidth / 3, buttonHeight * 0.5);
-    m_staticSliderValueMax.MoveWindow(buttonWidth / 3 * 2, 9.0 * (buttonHeight + gapHeight), buttonWidth / 3, buttonHeight * 0.5);
-    m_staticColorInfo.MoveWindow     (0, 10.0 * (buttonHeight + gapHeight), buttonWidth, buttonHeight * 0.5);
+    m_staticViewRange.MoveWindow     (0,                          static_cast<int32_t>(btnHeightGap * 8.0f),  uiSize.buttonWidth,     btnHeightHalf);
+    m_sliderViewRange.MoveWindow     (0,                          static_cast<int32_t>(btnHeightGap * 8.5f),  uiSize.buttonWidth,     btnHeightHalf);
+    m_staticSliderValueMin.MoveWindow(0,                          static_cast<int32_t>(btnHeightGap * 9.0f),  uiSize.buttonWidth / 3, btnHeightHalf);
+    m_staticSliderValueMid.MoveWindow(uiSize.buttonWidth / 3,     static_cast<int32_t>(btnHeightGap * 9.0f),  uiSize.buttonWidth / 3, btnHeightHalf);
+    m_staticSliderValueMax.MoveWindow(uiSize.buttonWidth / 3 * 2, static_cast<int32_t>(btnHeightGap * 9.0f),  uiSize.buttonWidth / 3, btnHeightHalf);
+    m_staticColorInfo.MoveWindow     (0,                          static_cast<int32_t>(btnHeightGap * 10.0f), uiSize.buttonWidth,     btnHeightHalf);
 
-    int legendY = 10.5 * (buttonHeight + gapHeight);
-    for (int i = 0; i < kLegendCount; i++) {
-        int sizeY = buttonHeight / 2;
-        int sizeX = buttonWidth  / kLegendCount;
+    int32_t legendY = static_cast<int32_t>(btnHeightGap * 10.5f);
+    for (int32_t i = 0; i < kLegendCount; i++) {
+        int32_t sizeY = uiSize.buttonHeight / 2;
+        int32_t sizeX = uiSize.buttonWidth  / kLegendCount;
         m_legendSwatch[i].MoveWindow(i * sizeX, legendY, sizeX, sizeY);
     }
     SetLegendColors();
 
     // 폰트
-    int fontSize = std::max(10, height / 32);
+    int fontSize = std::max(10, uiSize.clientHeight / 32);
     m_font.DeleteObject();
     m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
 
@@ -110,8 +104,6 @@ void CVisibilityPage::Resize(int width, int height)
     applyFont(m_buttonFakeObject,  m_font);
     applyFont(m_buttonBuilding,    m_font);
     applyFont(m_buttonMap,         m_font);
-    //applyFont(m_radioCDT,          m_font);
-    //applyFont(m_radioEarClipping,  m_font);
     applyFont(m_staticViewRange,   m_font);
     applyFont(m_staticColorInfo,   m_font);
 
@@ -151,14 +143,6 @@ void CVisibilityPage::OnBtnMap()
 {
     if (m_callback.onMap)         m_callback.onMap(m_buttonMap.GetCheck() == BST_CHECKED);
 }
-void CVisibilityPage::OnBtnCDT()
-{
-    if (m_callback.onTriangulate) m_callback.onTriangulate(true);
-}
-void CVisibilityPage::OnBtnEarClipping()
-{
-    if (m_callback.onTriangulate) m_callback.onTriangulate(false);
-}
 void CVisibilityPage::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pSB)
 {
     if (pSB->GetSafeHwnd() == m_sliderViewRange.GetSafeHwnd())
@@ -186,7 +170,7 @@ HBRUSH CVisibilityPage::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 
 void CVisibilityPage::SetLegendColors()
 {
-    for (int i = 0; i < 9; i++) {
+    for (int32_t i = 0; i < 9; i++) {
         m_legendBrush[i].DeleteObject();
         m_legendBrush[i].CreateSolidBrush(RGB(palette[i].red, palette[i].green, palette[i].blue));
     }

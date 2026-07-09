@@ -31,7 +31,7 @@ struct BoundingBox
     double minY = std::numeric_limits<double>::max();
     double maxX = std::numeric_limits<double>::lowest();
     double maxY = std::numeric_limits<double>::lowest();
-	double height = 0;
+	double height = 0.0;
 
 	glm::dvec2 GetCenter() const { return glm::dvec2{ (maxX + minX) * 0.5, (maxY + minY) * 0.5 }; } // 중점 좌표 계산
 	glm::dvec2 GetTop()    const { return glm::dvec2{ (maxX + minX) * 0.5, maxY }; }                // 중점 좌표 계산
@@ -41,7 +41,7 @@ struct BoundingBox
 	double GetLengthX()    const { return maxX - minX; } // X축 길이 계산
 	double GetLengthY()    const { return maxY - minY; } // Y축 길이 계산
 	double GetMaxExtent()  const { return std::max(GetLengthX(), GetLengthY()); } // LOD용 최대 변 길이
-	void SetHeight(int32_t heightData, int32_t floorData, double nodeLength);
+	void SetHeight(double heightData, double floorData, double nodeLength);
     
 
 	BoundingBox GetLooseBox(double looseBoxRate) const; // 느슨한 박스 크기 계산
@@ -50,7 +50,7 @@ struct BoundingBox
     bool IsOnCollisionBox  (BoundingBox& otherBox)  const; // 박스 접촉 체크
 	bool IsOnCollisionPoint(glm::dvec3& otherPoint) const; // 점 접촉 체크
 	bool IsOnCollisionRay  (glm::dvec3& startPoint, glm::dvec3& dir) const; // 선 접촉 체크
-    bool IsInclude(BoundingBox& otherBox) const; // 박스 포함 체크 (other이 자신 안에 완전히 포함되는지)
+    bool IsInclude         (BoundingBox& otherBox) const; // 박스 포함 체크 (other이 자신 안에 완전히 포함되는지)
 };
 
 
@@ -85,7 +85,7 @@ class PolyObject : public ObjectBase
 {
 public:
 	std::vector<glm::dvec2> points; // x, y 좌표
-	std::vector<int32_t> parts;  // parts 배열: 각 part의 시작점 인덱스 (0-based)
+	std::vector<int32_t>    parts;  // parts 배열: 각 part의 시작점 인덱스 (0-based)
 
 	//double z = 0.0; //  공통 z 좌표 (선택적)
 	std::optional<std::vector<double>> zValues; // z 좌표 (선택적)

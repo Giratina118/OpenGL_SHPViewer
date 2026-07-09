@@ -1,14 +1,14 @@
 #include <pch.h>
 #include "FeatureObject.h"
 
-void BoundingBox::SetHeight(int32_t heightData, int32_t floorData, double nodeLength)
+void BoundingBox::SetHeight(double heightData, double floorData, double nodeLength)
 {
     int32_t trashHeightDataLimit = 20;
 
     if (heightData != -1)
         height = heightData;
     if (floorData != -1 && (height == 0 || height > floorData * trashHeightDataLimit))
-        height = floorData * 3; // 1층 높아질 때마다 4미터 올라간다고 가정
+        height = floorData * 3; // 1층 높아질 때마다 3미터 올라간다고 가정
     if (height == 0)
         height = std::min((GetLengthX() + GetLengthY()) * 0.5, nodeLength * 0.1);
 }
@@ -18,7 +18,7 @@ BoundingBox BoundingBox::GetLooseBox(double looseBoxRate) const
 	double looseX = GetLengthX() * looseBoxRate;
 	double looseY = GetLengthY() * looseBoxRate;
 
-    BoundingBox box{minX - looseX, minY - looseY, maxX + looseX, maxY + looseY, 0 };
+    BoundingBox box{minX - looseX, minY - looseY, maxX + looseX, maxY + looseY, 0.0 };
 
     return box;
 }
@@ -68,22 +68,22 @@ bool BoundingBox::IsOnCollisionRay(glm::dvec3& start, glm::dvec3& dir) const
     glm::dvec3 targetPoint;
 
     if (std::abs(dir.x) > 0.01) {
-        if (std::abs(start.x - minX) < std::abs(start.x - maxX)) distance = (minX - start.x) / dir.x;
-        else                                                     distance = (maxX - start.x) / dir.x;
+        if (std::abs(start.x - minX) < std::abs(start.x - maxX))  distance = (minX - start.x) / dir.x;
+        else                                                      distance = (maxX - start.x) / dir.x;
         targetPoint = start + dir * distance;
-        if (minY < targetPoint.y && maxY > targetPoint.y && 0 < targetPoint.z && height > targetPoint.z)  return true;
+        if (minY < targetPoint.y && maxY > targetPoint.y && 0.0 < targetPoint.z && height > targetPoint.z) return true;
     }
     if (std::abs(dir.y) > 0.01) {
-        if (std::abs(start.y - minY) < std::abs(start.y - maxY)) distance = (minY - start.y) / dir.y;
-        else                                                     distance = (maxY - start.y) / dir.y;
+        if (std::abs(start.y - minY) < std::abs(start.y - maxY))  distance = (minY - start.y) / dir.y;
+        else                                                      distance = (maxY - start.y) / dir.y;
         targetPoint = start + dir * distance;
-        if (minX < targetPoint.x && maxX > targetPoint.x && 0 < targetPoint.z && height > targetPoint.z)  return true;
+        if (minX < targetPoint.x && maxX > targetPoint.x && 0.0 < targetPoint.z && height > targetPoint.z) return true;
     }
     if (std::abs(dir.z) > 0.01) {
-        if (std::abs(start.z - 0) < std::abs(start.z - height))  distance = (0      - start.z) / dir.z;
-        else                                                     distance = (height - start.z) / dir.z;
+        if (std::abs(start.z - 0.0) < std::abs(start.z - height)) distance = (0.0    - start.z) / dir.z;
+        else                                                      distance = (height - start.z) / dir.z;
         targetPoint = start + dir * distance;
-        if (minX < targetPoint.x && maxX > targetPoint.x && minY < targetPoint.y && maxY > targetPoint.y) return true;
+        if (minX < targetPoint.x && maxX > targetPoint.x && minY < targetPoint.y && maxY > targetPoint.y)  return true;
     }
 
     return false;
@@ -104,14 +104,14 @@ double PolyObject::OnCollisionRay(glm::dvec3& start, glm::dvec3& dir, double& ro
 
     // 벽과의 충돌 체크
     for (int32_t part = 0; part < parts.size(); part++) {
-        int32_t endPoint = (part == parts.size() - 1) ? points.size() : parts[part + 1];
+        int32_t endPoint = (part == parts.size() - 1) ? static_cast<int32_t>(points.size()) : parts[part + 1];
         for (int32_t point = parts[part]; point < endPoint; point++) {
             glm::dvec2 point1 = points[point];
             glm::dvec2 point2 = (point == endPoint) ? points[parts[part]] : points[point + 1];
             
             double ration = CrossCheck(start, rayEndPoint, point1, point2);
             glm::dvec3 raycastPoint = start + (rayEndPoint - start) * ration;
-            if (ration > 0.0 && ration < result && raycastPoint.z > 0 && raycastPoint.z < mbrBox.height) // 충돌하면 + 가장 가까운 충돌이면 저장
+            if (ration > 0.0 && ration < result && raycastPoint.z > 0.0 && raycastPoint.z < mbrBox.height) // 충돌하면 + 가장 가까운 충돌이면 저장
                 result = ration;
         }
     }
@@ -120,7 +120,7 @@ double PolyObject::OnCollisionRay(glm::dvec3& start, glm::dvec3& dir, double& ro
     glm::dvec3 hitPoint = start + (mbrBox.height - start.z) / dir.z * dir;
     rayEndPoint         = start + (0.0           - start.z) / dir.z * dir;
     double ration       = std::abs(mbrBox.height - start.z) / std::abs(rayEndPoint.z - start.z);
-    if (start.z > hitPoint.z && dir.z < 0 && ration < result && mbrBox.IsOnCollisionPoint(hitPoint))
+    if (start.z > hitPoint.z && dir.z < 0.0 && ration < result && mbrBox.IsOnCollisionPoint(hitPoint))
     {
         // 접촉점이 도형 안에 있는지 체크
         glm::dvec2 hitPoint2D = (glm::dvec2)hitPoint;
@@ -128,7 +128,7 @@ double PolyObject::OnCollisionRay(glm::dvec3& start, glm::dvec3& dir, double& ro
         bool  isInsidePolygon = false;
 
         for (int32_t part = 0; part < parts.size(); part++) {
-            int32_t partEndPoint = (part == parts.size() - 1) ? points.size() : parts[part + 1];
+            int32_t partEndPoint = (part == parts.size() - 1) ? static_cast<int32_t>(points.size()) : parts[part + 1];
             bool    isInsidePart = false;
             double  crossSum     = 0.0;
 
@@ -141,8 +141,8 @@ double PolyObject::OnCollisionRay(glm::dvec3& start, glm::dvec3& dir, double& ro
             }
 
             if (isInsidePart) {
-                if (crossSum <= 0) { isInsidePolygon = true; }         // 외곽선 안에 있을 때
-                else               { isInsidePolygon = false; break; } // 홀 안에 있을 때
+                if (crossSum <= 0.0) { isInsidePolygon = true; }         // 외곽선 안에 있을 때
+                else                 { isInsidePolygon = false; break; } // 홀 안에 있을 때
             }
         }
 

@@ -9,7 +9,7 @@ void ShxParser::ShxParse(const uint8_t* ptr, std::vector<ShxRecord>& records, ui
     uint32_t recordCount = (fileLength - 100) / 8;
     records.resize(recordCount);
 
-    for (int i = 0; i < recordCount; i++) ReadRecord(ptr, records[i]);
+    for (uint32_t recordId = 0; recordId < recordCount; recordId++) ReadRecord(ptr, records[recordId]);
 }
 
 // .shx ·¹ÄÚµå

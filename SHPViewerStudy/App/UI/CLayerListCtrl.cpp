@@ -8,13 +8,7 @@ END_MESSAGE_MAP()
 // 초기화
 void CLayerListCtrl::Init()
 {
-    // 컬럼 하나만 (Owner Draw라 헤더는 숨겨도 됨)
-    InsertColumn(0, _T(""), LVCFMT_LEFT, 2000);
-
-    // 헤더 숨기기 (선택사항)
-    // CHeaderCtrl* pHeader = GetHeaderCtrl();
-    // if (pHeader) pHeader->ShowWindow(SW_HIDE);
-
+    InsertColumn(0, _T(""), LVCFMT_LEFT, 2000); // 컬럼 하나만
     SetExtendedStyle(LVS_EX_FULLROWSELECT);
 }
 
@@ -23,20 +17,21 @@ void CLayerListCtrl::AddLayer(const CString& name, int iconType, bool isVisible)
 {
     int index = (int)m_items.size();
 
-    LayerItemData data;
-    data.name = name;
-    data.iconType = iconType;
-    data.isVisible = isVisible;
-    m_items.push_back(data);
+    LayerItemData itemData;
+    itemData.name      = name;
+    itemData.iconType  = iconType;
+    itemData.isVisible = isVisible;
+    m_items.push_back(itemData);
 
     // CListCtrl에 빈 아이템 삽입 (실제 그리기는 DrawItem에서)
-    LVITEM lvi = {};
-    lvi.mask = LVIF_TEXT;
-    lvi.iItem = index;
-    lvi.pszText = (LPTSTR)(LPCTSTR)name;
-    InsertItem(&lvi);
+    LVITEM lvItem  = {};
+    lvItem.mask    = LVIF_TEXT;
+    lvItem.iItem   = index;
+    lvItem.pszText = (LPTSTR)(LPCTSTR)name;
+    InsertItem(&lvItem);
 }
 
+// 레이어 체크 상태 변경
 void CLayerListCtrl::SetLayerVisible(int index, bool isVisible)
 {
     if (index < 0 || index >= (int)m_items.size()) return;
@@ -57,37 +52,37 @@ void CLayerListCtrl::MeasureItem(LPMEASUREITEMSTRUCT lpMIS)
 }
 
 // 영역 계산 헬퍼
-CRect CLayerListCtrl::GetCheckRect(const CRect& r) const
+CRect CLayerListCtrl::GetCheckRect(const CRect& rect) const
 {
     // 왼쪽 끝에 정사각형 체크박스
     int size = 18;
-    int cx = r.left + 10;
-    int cy = r.top + (r.Height() - size) / 2;
+    int cx   = rect.left + 10;
+    int cy   = rect.top + (rect.Height() - size) / 2;
     return CRect(cx, cy, cx + size, cy + size);
 }
 
-CRect CLayerListCtrl::GetIconRect(const CRect& r) const
+CRect CLayerListCtrl::GetIconRect(const CRect& rect) const
 {
     // 체크박스 오른쪽에 아이콘
-    CRect checkRect = GetCheckRect(r);
+    CRect checkRect = GetCheckRect(rect);
     int size = 20;
-    int cx = checkRect.right + 8;
-    int cy = r.top + (r.Height() - size) / 2;
+    int cx   = checkRect.right + 8;
+    int cy   = rect.top + (rect.Height() - size) / 2;
     return CRect(cx, cy, cx + size, cy + size);
 }
 
-CRect CLayerListCtrl::GetTextRect(const CRect& r) const
+CRect CLayerListCtrl::GetTextRect(const CRect& rect) const
 {
     // 아이콘 오른쪽에 텍스트
-    CRect iconRect = GetIconRect(r);
-    return CRect(iconRect.right + 8, r.top, r.right - 4, r.bottom);
+    CRect iconRect = GetIconRect(rect);
+    return CRect(iconRect.right + 8, rect.top, rect.right - 4, rect.bottom);
 }
 
 COLORREF CLayerListCtrl::GetIconColor(int iconType) const
 {
     switch (iconType) {
-    case 0:  return RGB(30, 144, 255);  // Point   파랑
-    case 1:  return RGB(60, 179, 113);  // Line    초록
+    case 0:  return RGB(30,  144, 255); // Point   파랑
+    case 1:  return RGB(60,  179, 113); // Line    초록
     case 2:  return RGB(220, 100, 60);  // Polygon 주황
     default: return RGB(150, 150, 150);
     }
@@ -96,9 +91,9 @@ COLORREF CLayerListCtrl::GetIconColor(int iconType) const
 CString CLayerListCtrl::GetIconLabel(int iconType) const
 {
     switch (iconType) {
-    case 0:  return _T("P");
-    case 1:  return _T("L");
-    case 2:  return _T("A");  // Area
+	case 0:  return _T(".");  // Point
+	case 1:  return _T("/");  // Line
+	case 2:  return _T("Δ"); // Polygon 
     default: return _T("?");
     }
 }
@@ -106,11 +101,11 @@ CString CLayerListCtrl::GetIconLabel(int iconType) const
 // 핵심: 아이템 그리기
 void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
 {
-    int   index = lpDIS->itemID;
+    int index = lpDIS->itemID;
     if (index < 0 || index >= (int)m_items.size()) return;
 
     CDC* pDC = CDC::FromHandle(lpDIS->hDC);
-    CRect rcItem = lpDIS->rcItem;
+    CRect rectItem = lpDIS->rcItem;
     const LayerItemData& item = m_items[index];
 
     bool isSelected = (lpDIS->itemState & ODS_SELECTED) != 0;
@@ -119,36 +114,36 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
     COLORREF bgColor = isSelected ? RGB(200, 220, 255) : RGB(245, 245, 245);
     if (index % 2 == 1 && !isSelected)
         bgColor = RGB(255, 255, 255); // 줄무늬 배경
-    pDC->FillSolidRect(rcItem, bgColor);
+    pDC->FillSolidRect(rectItem, bgColor);
 
     // 2. 체크박스
-    CRect rcCheck = GetCheckRect(rcItem);
+    CRect rectCheck = GetCheckRect(rectItem);
 
     // 체크박스 테두리
-    pDC->Draw3dRect(rcCheck, RGB(120, 120, 120), RGB(120, 120, 120));
+    pDC->Draw3dRect(rectCheck, RGB(120, 120, 120), RGB(120, 120, 120));
 
     if (item.isVisible) {
         // 체크 내부 채우기
-        CRect rcCheckInner = rcCheck;
-        rcCheckInner.DeflateRect(2, 2);
-        pDC->FillSolidRect(rcCheckInner, RGB(70, 130, 220));
+        CRect rectCheckInner = rectCheck;
+        rectCheckInner.DeflateRect(2, 2);
+        pDC->FillSolidRect(rectCheckInner, RGB(70, 130, 220));
 
         // 체크 표시 - 선으로 직접 그리기
         CPen checkPen(PS_SOLID, 2, RGB(255, 255, 255));
         CPen* pOldPen = pDC->SelectObject(&checkPen);
-        int cx = rcCheck.left, cy = rcCheck.top;
-        pDC->MoveTo(cx + 4, cy + 9);
-        pDC->LineTo(cx + 7, cy + 12);
+        int cx = rectCheck.left, cy = rectCheck.top;
+        pDC->MoveTo(cx + 4,  cy + 9);
+        pDC->LineTo(cx + 7,  cy + 12);
         pDC->LineTo(cx + 14, cy + 5);
         pDC->SelectObject(pOldPen);
     }
 
     // 3. 타입 아이콘
-    CRect rcIcon = GetIconRect(rcItem);
+    CRect    rectIcon  = GetIconRect(rectItem);
     COLORREF iconColor = GetIconColor(item.iconType);
 
     // 아이콘 배경 (둥근 사각형 효과를 직사각형으로)
-    pDC->FillSolidRect(rcIcon, iconColor);
+    pDC->FillSolidRect(rectIcon, iconColor);
 
     // 아이콘 레이블 (P / L / A)
     CString iconLabel = GetIconLabel(item.iconType);
@@ -156,31 +151,28 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
     pDC->SetBkMode(TRANSPARENT);
 
     CFont iconFont;
-    iconFont.CreateFont(
-        -(rcIcon.Height() - 4), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+    iconFont.CreateFont(-(rectIcon.Height() - 4), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
     CFont* pOldFont = pDC->SelectObject(&iconFont);
-    pDC->DrawText(iconLabel, rcIcon, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    pDC->DrawText(iconLabel, rectIcon, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     pDC->SelectObject(pOldFont);
 
     // 4. 레이어 이름
-    CRect rcText = GetTextRect(rcItem);
+    CRect rectText = GetTextRect(rectItem);
     pDC->SetTextColor(item.isVisible ? RGB(30, 30, 30) : RGB(160, 160, 160));
 
     // 현재 컨트롤에 설정된 폰트 사용
-    pDC->DrawText(item.name, rcText, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    pDC->DrawText(item.name, rectText, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
     // 5. 구분선
     CPen linePen(PS_SOLID, 1, RGB(210, 210, 210));
     CPen* pOldPen = pDC->SelectObject(&linePen);
-    pDC->MoveTo(rcItem.left, rcItem.bottom - 1);
-    pDC->LineTo(rcItem.right, rcItem.bottom - 1);
+    pDC->MoveTo(rectItem.left,  rectItem.bottom - 1);
+    pDC->LineTo(rectItem.right, rectItem.bottom - 1);
     pDC->SelectObject(pOldPen);
 
     // 6. 포커스 사각형
     if (lpDIS->itemState & ODS_FOCUS)
-        pDC->DrawFocusRect(rcItem);
+        pDC->DrawFocusRect(rectItem);
 }
 
 // 클릭: 체크박스 영역 클릭 시 토글
@@ -193,9 +185,9 @@ void CLayerListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
 
     if (index >= 0 && index < (int)m_items.size()) {
         // 해당 아이템의 체크박스 영역 계산
-        CRect rcItem;
-        GetItemRect(index, &rcItem, LVIR_BOUNDS);
-        CRect rcCheck = GetCheckRect(rcItem);
+        CRect rectItem;
+        GetItemRect(index, &rectItem, LVIR_BOUNDS);
+        CRect rcCheck = GetCheckRect(rectItem);
 
         if (rcCheck.PtInRect(point)) {
             // 체크박스 클릭 → 토글
@@ -204,9 +196,7 @@ void CLayerListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
             UpdateWindow();
 
             // 부모에게 알리기 (필요 시)
-            GetParent()->SendMessage(WM_COMMAND,
-                MAKEWPARAM(GetDlgCtrlID(), LVN_ITEMCHANGED),
-                (LPARAM)GetSafeHwnd());
+            GetParent()->SendMessage(WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(), LVN_ITEMCHANGED), (LPARAM)GetSafeHwnd());
             return;
         }
     }

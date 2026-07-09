@@ -523,8 +523,8 @@ void Renderer::BuildConvexHullNode(QuadTreeNode& node)
 		if (node.m_objectIds.size() < 3) {
 			node.m_lodVertexOffset = -1;
 			node.m_lodIndexOffset  = -1;
-			node.m_lodVertexCount  = 0;
-			node.m_lodIndexCount   = 0;
+			node.m_lodVertexCount  =  0;
+			node.m_lodIndexCount   =  0;
 			return;
 		}
 		inputPoints.reserve(node.m_objectIds.size());
@@ -546,14 +546,14 @@ void Renderer::BuildConvexHullNode(QuadTreeNode& node)
 	}
 	else {
 		// 내부 노드: 자식 먼저 재귀
-		for (int childIdx = 0; childIdx < 4; childIdx++) {
+		for (int32_t childIdx = 0; childIdx < 4; childIdx++) {
 			int32_t childNodeId = node.m_childNodes[childIdx];
 			if (childNodeId == -1) continue;
 			BuildConvexHullNode(m_quadTree.m_nodes[childNodeId]);
 		}
 
 		// 자식 hull이 참조하는 m_lodIndices 슬롯에서 원래 정점 인덱스 수집
-		for (int childIdx = 0; childIdx < 4; childIdx++) {
+		for (int32_t childIdx = 0; childIdx < 4; childIdx++) {
 			int32_t childNodeId = node.m_childNodes[childIdx];
 			if (childNodeId == -1) continue;
 			const QuadTreeNode& child = m_quadTree.m_nodes[childNodeId];
@@ -579,20 +579,20 @@ void Renderer::BuildConvexHullNode(QuadTreeNode& node)
 	std::sort(inputPoints.begin(), inputPoints.end(), ComparePointXY);
 
 	// 로컬 벡터에서 monotone chain (전역 m_lodVertices를 직접 조작하지 않음)
-	size_t num = inputPoints.size();
+	int32_t num = static_cast<int32_t>(inputPoints.size());
 	std::vector<HullPoint> hull(2 * num);
-	int hullPointCount = 0; // hull에 쌓인 점 개수
+	int32_t hullPointCount = 0; // hull에 쌓인 점 개수
 
 	// cross product (HullPoint용)
 	auto cross = [](const HullPoint& O, const HullPoint& A, const HullPoint& B) { return (A.x - O.x) * (B.y - O.y) - (A.y - O.y) * (B.x - O.x);	};
 
 	// 아래쪽 체인
-	for (size_t i = 0; i < num; i++) {
+	for (int32_t i = 0; i < num; i++) {
 		while (hullPointCount >= 2 && cross(hull[hullPointCount - 2], hull[hullPointCount - 1], inputPoints[i]) <= 0) hullPointCount--;
 		hull[hullPointCount++] = inputPoints[i];
 	}
 	// 위쪽 체인
-	for (int i = (int)num - 2, t = hullPointCount + 1; i >= 0; i--) {
+	for (int32_t i = num - 2, t = hullPointCount + 1; i >= 0; i--) {
 		while (hullPointCount >= t && cross(hull[hullPointCount - 2], hull[hullPointCount - 1], inputPoints[i]) <= 0) hullPointCount--;
 		hull[hullPointCount++] = inputPoints[i];
 	}
@@ -601,7 +601,7 @@ void Renderer::BuildConvexHullNode(QuadTreeNode& node)
 
 	if (hullPointCount < 3) { // 일직선 등 → hull 실패
 		node.m_lodVertexOffset = -1; node.m_lodIndexOffset = -1;
-		node.m_lodVertexCount  = 0;  node.m_lodIndexCount  = 0;
+		node.m_lodVertexCount  =  0; node.m_lodIndexCount  =  0;
 		return;
 	}
 
@@ -611,13 +611,13 @@ void Renderer::BuildConvexHullNode(QuadTreeNode& node)
 	node.m_lodVertexOffset = (uint32_t)m_fakeIndices.size();
 	node.m_lodVertexCount  = (uint32_t)hullPointCount;
 
-	for (int i = 0; i < hullPointCount; i++)
+	for (int32_t i = 0; i < hullPointCount; i++)
 		m_fakeIndices.push_back(hull[i].originalIndex); // 폴리곤 정점 인덱스
 
 	// fan 삼각분할: 정점 0을 중심으로 (0, i, i+1) 삼각형 생성
 	node.m_lodIndexOffset = (uint32_t)m_fakeIndices.size();
 	uint32_t base = node.m_lodVertexOffset;
-	for (int i = 1; i < hullPointCount - 1; i++) {
+	for (int32_t i = 1; i < hullPointCount - 1; i++) {
 		m_fakeIndices.push_back(m_fakeIndices[base]);         // 실제 폴리곤 정점 인덱스
 		m_fakeIndices.push_back(m_fakeIndices[base + i]);
 		m_fakeIndices.push_back(m_fakeIndices[base + i + 1]);
@@ -699,7 +699,7 @@ void Renderer::DrawCameraFrustum(CameraController& camera)
 		glm::vec2 ndcCorners[4] = { {-1.0f, -1.0f}, { 1.0f, -1.0f}, { 1.0f,  1.0f}, {-1.0f,  1.0f} };
 		glm::dvec3 hitPoints[4];
 
-		for (int dataId = 0; dataId < 4; ++dataId) {
+		for (int32_t dataId = 0; dataId < 4; ++dataId) {
 			glm::vec4 nearPoint = inverseViewProjectionMatrix * glm::vec4(ndcCorners[dataId], -1.0f, 1.0f);
 			glm::vec4 farPoint  = inverseViewProjectionMatrix * glm::vec4(ndcCorners[dataId],  1.0f, 1.0f);
 			if (nearPoint.w != 0.0f) nearPoint /= nearPoint.w;
@@ -724,9 +724,8 @@ void Renderer::DrawCameraFrustum(CameraController& camera)
 		}
 
 		// 지면과 교차하는 실제 절두체 라인 조립
-		float r1 = 1.0f, g1 = 0.0f, b1 = 1.0f;
-		for (int dataId = 0; dataId < 4; ++dataId) {
-			int next = (dataId + 1) % 4;
+		for (int32_t dataId = 0; dataId < 4; ++dataId) {
+			int32_t next = (dataId + 1) % 4;
 			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[dataId].x), static_cast<float>(hitPoints[dataId].y), 0.0f, 0, 0, 0, 255});
 			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[next].x),   static_cast<float>(hitPoints[next].y),   0.0f, 0, 0, 0, 255 });
 
@@ -846,10 +845,10 @@ void Renderer::HighlightObjectColor(int32_t objectId)
 
 	// CPU 버퍼에서 해당 vertex 범위만 색상 변경
 	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
-		Vertex& v = m_polygonVertices[i];
-		v.r = 20; 
-		v.g = 230; 
-		v.b = 50;
+		Vertex& vertex = m_polygonVertices[i];
+		vertex.r = 20; 
+		vertex.g = 230; 
+		vertex.b = 50;
 	}
 
 	// GPU의 해당 위치만 덮어쓰기
@@ -873,11 +872,11 @@ void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState)
 		r = 190; g = 190; b = 220;
 
 	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
-		Vertex& v = m_polygonVertices[i];
-		int32_t shade = (v.z < 0.5f) ? 2 : 1;
-		v.r = r / shade; 
-		v.g = g / shade; 
-		v.b = b / shade;
+		Vertex& vertex = m_polygonVertices[i];
+		int32_t shade = (vertex.z < 0.5f) ? 2 : 1;
+		vertex.r = r / shade; 
+		vertex.g = g / shade; 
+		vertex.b = b / shade;
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);

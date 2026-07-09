@@ -13,7 +13,6 @@ struct VisibilityCallbacks
     std::function<void(bool)> onFakeObject;
     std::function<void(bool)> onBuilding;
     std::function<void(bool)> onMap;
-    std::function<void(bool)> onTriangulate;
     std::function<void(int)>  onViewRange;
 };
 
@@ -22,7 +21,7 @@ class CVisibilityPage : public CWnd
 public:
     bool Create(CWnd* parent, UINT id);
     void CreateTabControls();
-    void Resize(int width, int height);
+    void Resize(UISize& uiSize);
     void SetCallbacks(const VisibilityCallbacks& callback) { m_callback = callback; }
     void SetLegendColors();
 
@@ -48,7 +47,7 @@ private:
     CFont m_fontHalf;
 
     // 색상 범례 브러시
-    static constexpr int kLegendCount = 9;
+    static constexpr int32_t kLegendCount = 9;
     CBrush  m_legendBrush[kLegendCount];
     CStatic m_legendSwatch[kLegendCount];
     CStatic m_staticColorInfo;
@@ -61,8 +60,6 @@ private:
     afx_msg void OnBtnFakeObject();
     afx_msg void OnBtnBuilding();
     afx_msg void OnBtnMap();
-    afx_msg void OnBtnCDT();
-    afx_msg void OnBtnEarClipping();
     afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
     afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
     DECLARE_MESSAGE_MAP()

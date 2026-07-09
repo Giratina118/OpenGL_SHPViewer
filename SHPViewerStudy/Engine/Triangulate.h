@@ -15,7 +15,7 @@ struct EarClipping {
 	void Clear(int resize) {
 		prev.clear();
 		next.clear();
-
+		
 		prev.resize(resize);
 		next.resize(resize);
 	}
@@ -26,7 +26,7 @@ class Triangulate
 private:
 	EarClipping earClipping;
 public:
-	std::vector<uint32_t> TriangulatePolygonCDT(const PolyObject& polygon, std::vector<glm::dvec2>& flatRingOut); // CDT 들로네 삼각분할
+	std::vector<uint32_t> TriangulatePolygonCDT (const PolyObject& polygon, std::vector<glm::dvec2>& flatRingOut); // CDT 들로네 삼각분할
 	std::vector<uint32_t> TriangulateEarClipping(const PolyObject& polygon, std::vector<glm::dvec2>& flatRingOut); // Ear Clipping 삼각분할
 	std::vector<uint32_t> EarClipping(const std::vector<glm::dvec2>& points);
 };

@@ -3,13 +3,13 @@
 #include "CameraController.h"
 
 // 카메라 초기화
-void CameraController::Init(const BoundingBox& boundingBox, int screenWidth, int screenHeight)
+void CameraController::Init(const BoundingBox& boundingBox, int32_t screenWidth, int32_t screenHeight)
 {
     // 카메라 위치 설정 (넣은 파일의 객체가 보이도록 위치 이동)
     double centerX     = (boundingBox.minX + boundingBox.maxX) * 0.5;
     double centerY     = (boundingBox.minY + boundingBox.maxY) * 0.5;
     double maxExtent   = std::max(boundingBox.maxX - boundingBox.minX, boundingBox.maxY - boundingBox.minY);
-
+    
     transform.position = glm::dvec3(centerX, centerY, maxExtent);
     transform.rotation = glm::angleAxis(glm::radians(0.0), glm::dvec3(1, 0, 0));
     m_thirdMovePos     = transform.position;
@@ -19,7 +19,7 @@ void CameraController::Init(const BoundingBox& boundingBox, int screenWidth, int
 }
 
 // 종횡비 갱신
-void CameraController::UpdateAspect(int screenWidth, int screenHeight)
+void CameraController::UpdateAspect(int32_t screenWidth, int32_t screenHeight)
 {
     if (screenWidth <= 0 || screenHeight <= 0) return;
 
@@ -207,7 +207,7 @@ void CameraController::ExtractFrustumPlanes()
     m_frustumPlanes[5].distance = vp[3][3] - vp[3][2];
 
     // 모든 평면 정규화
-    for (int i = 0; i < 6; ++i) {
+    for (int32_t i = 0; i < 6; ++i) {
         m_frustumPlanes[i].Normalize();
     }
 }
@@ -218,7 +218,7 @@ FrustumState CameraController::GetFrustumState(const BoundingBox& box) const
     glm::dvec3 maxP(box.maxX, box.maxY, 0.0f);
     bool allInside = true;
 
-    for (int i = 0; i < 6; ++i) {
+    for (int32_t i = 0; i < 6; ++i) {
         // 평면 방향으로 가장 튀어나온 점 (p-vertex)
         glm::dvec3 p = minP;
         if (m_frustumPlanes[i].normal.x >= 0) p.x = maxP.x;
@@ -260,7 +260,7 @@ BoundingBox CameraController::GetCameraViewBox()
     m_viewBox.maxX = std::numeric_limits<double>::lowest();
     m_viewBox.maxY = std::numeric_limits<double>::lowest();
 
-    for (int i = 0; i < 4; ++i) {
+    for (int32_t i = 0; i < 4; ++i) {
         // NDC near(z=-1) ~ far(z=+1) 두 점을 unproject해 광선 생성
         glm::dvec4 nearPoint = inverseViewProjectionMatrix * glm::dvec4(ndcCorners[i], -1.0f, 1.0f);
         glm::dvec4 farPoint  = inverseViewProjectionMatrix * glm::dvec4(ndcCorners[i],  1.0f, 1.0f);

@@ -1,6 +1,24 @@
 #include <pch.h>
 #include "DBFTable.h"
 
+// .dbf 문자열 관리
+void FixedStringColumn::Resize(int32_t rows) {             // 초기화 없이
+    buffer.resize(rows * width);
+    rowCount = rows;
+}
+char* FixedStringColumn::GetRow(int32_t row) {             // 문자열 반환
+    return &buffer[row * width];
+}
+std::string_view FixedStringColumn::GetView(int32_t row) const {// 복사 없이 문자열 보기
+    return std::string_view(&buffer[row * width], width);
+}
+std::string_view FixedStringColumn::GetTrimmedView(int32_t row) const {
+    const char* start = &buffer[row * width];
+    const char* end = start + width;
+    while (end > start && end[-1] == ' ') end--;
+    return std::string_view(start, end - start);
+}
+
 CString DBFTable::PrintAttribute(int32_t dataId) {
     CString text;
     text = "";

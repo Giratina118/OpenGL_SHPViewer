@@ -23,10 +23,10 @@ struct FixedStringColumn
     int rowCount = 0; // 현재 저장된 행의 개수
     std::vector<char> buffer; // 데이터 저장 공간
 
-    void  Resize(int rows); // 초기화 없이
-    char* GetRow(int row);  // 문자열 반환
-    std::string_view GetView(int row) const; // 복사 없이 문자열 보기
-    std::string_view GetTrimmedView(int row) const;
+    void  Resize(int32_t rows); // 초기화 없이
+    char* GetRow(int32_t row);  // 문자열 반환
+    std::string_view GetView       (int32_t row) const; // 복사 없이 문자열 보기
+    std::string_view GetTrimmedView(int32_t row) const;
 };
 
 struct DBFTable;

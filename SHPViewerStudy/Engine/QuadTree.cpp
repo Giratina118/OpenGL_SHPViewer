@@ -5,7 +5,7 @@
 
 QuadTreeNode::QuadTreeNode(int32_t level, BoundingBox& mbrBox)
 {
-	m_level = level;
+	m_level       = level;
 	m_boundingBox = mbrBox;
 }
 
@@ -57,7 +57,7 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	case 3: curObjBox = &m_layer.polyLineObjects[dataId].mbrBox; break;
 	case 5: curObjBox = &m_layer.polygonObjects[dataId].mbrBox;  break;
 	}
-
+	
 
 	// 최대 깊이일 경우 현재 노드에 데이터 삽입
 	if (curNode.m_level == m_maxLevel) {

@@ -112,22 +112,22 @@ std::vector<uint32_t> Triangulate::TriangulateEarClipping(const PolyObject& poly
 	std::vector<uint32_t> triIndices;
 
 	if (polygon.points.size() < 3) return triIndices;
-	earClipping.Clear(polygon.points.size());
+	earClipping.Clear(static_cast<int32_t>(polygon.points.size()));
 
 	int32_t flatRingOutPart = 0;
 	std::vector<int32_t> holePolygonPart;
 
 	// 1. 파츠 분석 및 초기 연결 (신발끈 공식으로 시계/반시계 판별)
-	for (int part = 0; part < polygon.parts.size(); part++) {
+	for (int32_t part = 0; part < polygon.parts.size(); part++) {
 		int32_t startPoint = polygon.parts[part];
-		int32_t endPoint = (part != polygon.parts.size() - 1) ? polygon.parts[part + 1] - 1 : polygon.points.size() - 1;
+		int32_t endPoint   = (part != static_cast<int32_t>(polygon.parts.size()) - 1) ? polygon.parts[part + 1] - 1 : static_cast<int32_t>(polygon.points.size()) - 1;
 
 		if (polygon.points[startPoint] == polygon.points[endPoint]) endPoint--;
 		if (endPoint - startPoint < 2) continue;
 
 		double crossSum = 0.0;
-		for (int pointId = startPoint; pointId <= endPoint; pointId++) {
-			int nextPointId = (pointId == endPoint) ? startPoint : pointId + 1;
+		for (int32_t pointId = startPoint; pointId <= endPoint; pointId++) {
+			int32_t nextPointId = (pointId == endPoint) ? startPoint : pointId + 1;
 			crossSum += (polygon.points[pointId].x * polygon.points[nextPointId].y - polygon.points[pointId].y * polygon.points[nextPointId].x);
 
 			earClipping.next[pointId] = nextPointId;
@@ -140,17 +140,17 @@ std::vector<uint32_t> Triangulate::TriangulateEarClipping(const PolyObject& poly
 
 	// 2. 내부 구멍과 외곽선 연결 (Bridge)
 	int32_t outerStart = polygon.parts[flatRingOutPart];
-	int32_t outerEnd = (flatRingOutPart != polygon.parts.size() - 1) ? polygon.parts[flatRingOutPart + 1] - 1 : polygon.points.size() - 1;
+	int32_t outerEnd   = (flatRingOutPart != static_cast<int32_t>(polygon.parts.size()) - 1) ? polygon.parts[flatRingOutPart + 1] - 1 : static_cast<int32_t>(polygon.points.size()) - 1;
 
 	for (int32_t holePart : holePolygonPart) {
 		int32_t holeStart = polygon.parts[holePart];
-		int32_t holeEnd   = (holePart != polygon.parts.size() - 1) ? polygon.parts[holePart + 1] - 1 : polygon.points.size() - 1;
+		int32_t holeEnd   = (holePart != static_cast<int32_t>(polygon.parts.size()) - 1) ? polygon.parts[holePart + 1] - 1 : static_cast<int32_t>(polygon.points.size()) - 1;
 		if (polygon.points[holeStart] == polygon.points[holeEnd]) holeEnd--;
 
-		struct Bridge { int outerIndex; double distance; };
+		struct Bridge { int32_t outerIndex; double distance; };
 		std::vector<Bridge> bridges;
 
-		for (int outPoint = outerStart; outPoint <= outerEnd; outPoint++) {
+		for (int32_t outPoint = outerStart; outPoint <= outerEnd; outPoint++) {
 			double dx = polygon.points[holeStart].x - polygon.points[outPoint].x;
 			double dy = polygon.points[holeStart].y - polygon.points[outPoint].y;
 			bridges.push_back({ outPoint, dx * dx + dy * dy });
@@ -158,7 +158,7 @@ std::vector<uint32_t> Triangulate::TriangulateEarClipping(const PolyObject& poly
 
 		std::sort(bridges.begin(), bridges.end(), [](const Bridge& a, const Bridge& b) { return a.distance < b.distance; });
 
-		int bestOuter = -1;
+		int32_t bestOuter = -1;
 		glm::dvec2 point1 = polygon.points[holeStart];
 
 		for (auto& bridge : bridges) {
@@ -166,13 +166,13 @@ std::vector<uint32_t> Triangulate::TriangulateEarClipping(const PolyObject& poly
 			double isCross = -1.0;
 
 			// 교차 검사 로직
-			for (int pointId = outerStart; pointId <= outerEnd && !isCross; pointId++) {
-				int nextPointId = earClipping.next[pointId];
+			for (int32_t pointId = outerStart; pointId <= outerEnd && !isCross; pointId++) {
+				int32_t nextPointId = earClipping.next[pointId];
 				if (pointId == bridge.outerIndex || nextPointId == bridge.outerIndex) continue;
 				isCross = CrossCheck(point1, point2, polygon.points[pointId], polygon.points[nextPointId]);
 			}
-			for (int i = holeStart; i <= holeEnd && !isCross; i++) {
-				int next_i = earClipping.next[i];
+			for (int32_t i = holeStart; i <= holeEnd && !isCross; i++) {
+				int32_t next_i = earClipping.next[i];
 				if (i == holeStart || next_i == holeStart) continue;
 				isCross = CrossCheck(point1, point2, polygon.points[i], polygon.points[next_i]);
 			}
@@ -186,8 +186,8 @@ std::vector<uint32_t> Triangulate::TriangulateEarClipping(const PolyObject& poly
 		if (bestOuter == -1) bestOuter = bridges[0].outerIndex; // 안전장치
 
 		// 왕복 브리지 연결 (One Continuous Loop)
-		int outerNext = earClipping.next[bestOuter];
-		int holeLast  = earClipping.prev[holeStart];
+		int32_t outerNext = earClipping.next[bestOuter];
+		int32_t holeLast  = earClipping.prev[holeStart];
 
 		earClipping.next[bestOuter] = holeStart;
 		earClipping.prev[holeStart] = bestOuter;
@@ -198,8 +198,8 @@ std::vector<uint32_t> Triangulate::TriangulateEarClipping(const PolyObject& poly
 
 	// 3. 만들어진 단일 루프를 따라 flatRingOut 배열 생성
 	int32_t curPointIndex = outerStart;
-	int safety = 0;
-	int maxPoints = polygon.points.size() * 2; // 브리지 왕복 고려한 최대점
+	int32_t safety    = 0;
+	int32_t maxPoints = static_cast<int32_t>(polygon.points.size()) * 2; // 브리지 왕복 고려한 최대점
 
 	do {
 		flatRingOut.push_back(polygon.points[curPointIndex]);
@@ -213,32 +213,32 @@ std::vector<uint32_t> Triangulate::TriangulateEarClipping(const PolyObject& poly
 
 std::vector<uint32_t> Triangulate::EarClipping(const std::vector<glm::dvec2>& points)
 {
-	int N = points.size();
+	int32_t pointNum = static_cast<int32_t>(points.size());
 	std::vector<uint32_t> triIndices;
-	if (N < 3) return triIndices;
+	if (pointNum < 3) return triIndices;
 
 	// 1. O(1) 삭제를 위한 로컬 연결 리스트 (캐시 친화적)
-	std::vector<int> prev(N), next(N);
-	for (int i = 0; i < N; ++i) {
-		prev[i] = (i - 1 + N) % N;
-		next[i] = (i + 1) % N;
+	std::vector<int32_t> prev(pointNum), next(pointNum);
+	for (int32_t i = 0; i < pointNum; ++i) {
+		prev[i] = (i - 1 + pointNum) % pointNum;
+		next[i] = (i + 1) % pointNum;
 	}
 
 	// 외적 람다 (CCW, CW 판별)
-	auto cross = [&](int a, int b, int c) {
+	auto cross = [&](int32_t a, int32_t b, int32_t c) {
 		glm::dvec2 v1 = points[b] - points[a];
 		glm::dvec2 v2 = points[c] - points[b];
 		return v1.x * v2.y - v1.y * v2.x;
 	};
 
-	int cur = 0;
-	int remainCount = N;
-	int safety = 0; // 무한 루프 방지용
+	int32_t cur = 0;
+	int32_t remainCount = pointNum;
+	int32_t safety = 0; // 무한 루프 방지용
 
 	// 2. 핵심 루프
-	while (remainCount >= 3 && safety < 2 * N) {
-		int p = prev[cur];
-		int n = next[cur];
+	while (remainCount >= 3 && safety < 2 * pointNum) {
+		int32_t p = prev[cur];
+		int32_t n = next[cur];
 
 		// 조건 1: 볼록(Convex)한가? (시계 방향 검사)
 		if (cross(p, cur, n) >= 0.0) {
@@ -247,7 +247,7 @@ std::vector<uint32_t> Triangulate::EarClipping(const std::vector<glm::dvec2>& po
 
 		// 조건 2: 삼각형 내부에 다른 점이 없는가?
 		bool isEar = true;
-		for (int check = next[n]; check != p; check = next[check]) {
+		for (int32_t check = next[n]; check != p; check = next[check]) {
 			// 점이 삼각형 p-cur-n 내부에 있는지 검사 (모두 같은 방향인지)
 			if (cross(p, cur, check) < 0.0 &&
 				cross(cur, n, check) < 0.0 &&
@@ -257,9 +257,7 @@ std::vector<uint32_t> Triangulate::EarClipping(const std::vector<glm::dvec2>& po
 			}
 		}
 
-		if (!isEar) {
-			cur = n; safety++; continue;
-		}
+		if (!isEar) cur = n; safety++; continue;
 
 		// 귀 잘라내기 (삼각형 확정)
 		triIndices.push_back(p);

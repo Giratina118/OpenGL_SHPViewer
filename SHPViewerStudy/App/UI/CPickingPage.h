@@ -1,6 +1,7 @@
 #pragma once
 
 #include "framework.h"
+#include "UIState.h"
 #include <functional>
 
 struct PickingCallbacks
@@ -14,7 +15,7 @@ class CPickingPage : public CWnd
 public:
     bool Create(CWnd* parent, UINT id);
     void CreateTabControls();
-    void Resize(int width, int height);
+    void Resize(UISize& uiSize);
     void SetCallbacks(const PickingCallbacks& callback) { m_callback = callback; }
     void UpdatePickingInfo(double pointX, double pointY);
 
