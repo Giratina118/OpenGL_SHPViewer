@@ -9,6 +9,7 @@
 // View → 패널에 전달할 콜백 묶음
 struct LeftPanelCallbacks
 {
+	ControllCallbacks   controlCallbacks;
     VisibilityCallbacks visibilityCallbacks;
     PickingCallbacks    pickingCallbacks;
 };

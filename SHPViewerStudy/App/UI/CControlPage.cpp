@@ -4,6 +4,10 @@
 #include <resource.h>
 #include <algorithm>
 
+BEGIN_MESSAGE_MAP(CControlPage, CWnd)
+    ON_BN_CLICKED(ID_BTN_DELETE_LAYER, &CControlPage::OnBtnDeleteLayer)
+END_MESSAGE_MAP()
+
 bool CControlPage::Create(CWnd* pParent, UINT nID)
 {
     return CWnd::Create(AfxRegisterWndClass(CS_HREDRAW | CS_VREDRAW, ::LoadCursor(nullptr, IDC_ARROW), (HBRUSH)(COLOR_BTNFACE + 1)), _T(""), WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, CRect(0, 0, 10, 10), pParent, nID) == TRUE;
@@ -16,6 +20,7 @@ void CControlPage::CreateTabControls()
 {
     m_staticChangeInfo.Create(_T("데이터 대기중..."), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
     m_staticInfo.Create(_T("이동: WASD, 좌클릭\n줌: R/F, 휠\n회전: 방향키, Q/E, 우클릭"), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
+    m_buttonDeleteLayer.Create(_T("Delete"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_DELETE_LAYER);
 
     // LVS_OWNERDRAWFIXED 필수, 스크롤은 WS_VSCROLL 또는 자동
     m_listCtrlLayer.Create(WS_CHILD | WS_VISIBLE | WS_VSCROLL | LVS_REPORT | LVS_OWNERDRAWFIXED | LVS_SINGLESEL | LVS_NOCOLUMNHEADER, CRect(0, 0, 10, 10), this, IDC_LAYER_LIST);
@@ -25,16 +30,15 @@ void CControlPage::CreateTabControls()
     //m_listCtrlLayer.AddLayer(_T("부산 건물"), 2, true);  // Polygon
     //m_listCtrlLayer.AddLayer(_T("도로 네트워크"), 1, true);  // Line
     //m_listCtrlLayer.AddLayer(_T("버스 정류장"), 0, false); // Point
-
 }
 
 void CControlPage::Resize(UISize& uiSize)
 {
     // 탭1 내부
-    m_staticChangeInfo.MoveWindow(0, 0,                       uiSize.buttonWidth, uiSize.buttonHeight * 4);
-    m_staticInfo.MoveWindow      (0, uiSize.buttonHeight * 4, uiSize.buttonWidth, uiSize.buttonHeight * 2);
-	m_listCtrlLayer.MoveWindow   (0, uiSize.buttonHeight * 7, uiSize.buttonWidth, uiSize.buttonHeight * 6);
-
+    m_staticChangeInfo.MoveWindow (0, 0,                        uiSize.buttonWidth, uiSize.buttonHeight * 4);
+    m_staticInfo.MoveWindow       (0, uiSize.buttonHeight * 4,  uiSize.buttonWidth, uiSize.buttonHeight * 2);
+	m_listCtrlLayer.MoveWindow    (0, uiSize.buttonHeight * 7,  uiSize.buttonWidth, uiSize.buttonHeight * 5);
+    m_buttonDeleteLayer.MoveWindow(0, uiSize.buttonHeight * 12, uiSize.buttonWidth, uiSize.buttonHeight);
 
     // 폰트
     int32_t fontSize = std::max(10, uiSize.clientHeight / 32);
@@ -46,6 +50,7 @@ void CControlPage::Resize(UISize& uiSize)
     applyFont(m_staticChangeInfo); 
     applyFont(m_staticInfo);
     applyFont(m_listCtrlLayer);
+    applyFont(m_buttonDeleteLayer);
 }
 
 void CControlPage::UpdateInfo(float fps, int32_t total, int32_t rendered, int32_t fake, int32_t cameraAltitude, double scalePerCm)
@@ -59,9 +64,9 @@ void CControlPage::UpdateInfo(float fps, int32_t total, int32_t rendered, int32_
 }
 
 // View나 Panel에서
-void CControlPage::RefreshLayerList(const LayerManager& layerManager)
+void CControlPage::RefreshLayerList(LayerManager& layerManager)
 {
-	m_listCtrlLayer.ClearItems();
+	m_listCtrlLayer.ClearItems(&layerManager);
     // m_items도 비워야 하므로 CLayerListCtrl에 Clear 함수 추가 권장
 
     for (const auto& layer : layerManager.layers) {
@@ -74,6 +79,21 @@ void CControlPage::RefreshLayerList(const LayerManager& layerManager)
         OutputDebugString(buf);
 
         CString name(layer->m_name.c_str());
-        m_listCtrlLayer.AddLayer(name, iconType, layer->m_isVisible);
+        m_listCtrlLayer.AddLayer(name, iconType, layer->m_isVisible, layer->m_id);
     }
+}
+
+void CControlPage::OnBtnDeleteLayer()
+{
+    if (!m_callback.onDeleteLayer) return;
+    int32_t hitLayerId = m_listCtrlLayer.GetHitLayerId();
+    if (hitLayerId < 0) return;
+
+    TCHAR buf[256];
+    _stprintf_s(buf, _T("Layer List 반응\n"));
+    OutputDebugString(buf);
+
+    m_listCtrlLayer.DeleteLayerItem(hitLayerId); // 레이어 아이템 지우기
+
+    m_callback.onDeleteLayer(hitLayerId);
 }

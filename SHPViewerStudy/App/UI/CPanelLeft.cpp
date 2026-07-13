@@ -95,6 +95,7 @@ void CLeftPanel::Resize()
 void CLeftPanel::SetCallbacks(const LeftPanelCallbacks& callbak)
 {
     m_callback = callbak;
+	m_pageControl.SetCallbacks   (m_callback.controlCallbacks);
     m_pageVisibility.SetCallbacks(m_callback.visibilityCallbacks);
     m_pagePicking.SetCallbacks   (m_callback.pickingCallbacks);
 }

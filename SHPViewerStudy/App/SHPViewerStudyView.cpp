@@ -69,6 +69,13 @@ void CSHPViewerStudyView::OnDraw(CDC* pDc)
 void CSHPViewerStudyView::LinkCallbacksToUI()
 {
 	LeftPanelCallbacks callback;
+	callback.controlCallbacks.onDeleteLayer    = [this](bool value) { 
+		TCHAR buf[256];
+		_stprintf_s(buf, _T("View.cpp 반응\n"));
+		OutputDebugString(buf);
+		m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager); m_layerManager.ReDraw(); SetFocus(); 
+	};
+
 	callback.visibilityCallbacks.onObjectMBR   = [this](bool value) { m_uiState.isShowObjectMBR   = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onNodeMBR     = [this](bool value) { m_uiState.isShowNodeMBR     = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(value); m_layerManager.ReDraw(); SetFocus(); };

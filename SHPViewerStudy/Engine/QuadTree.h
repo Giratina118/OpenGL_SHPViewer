@@ -45,9 +45,9 @@ public:
 class QuadTree
 {
 public:
-	QuadTree(Layer& layer) : m_layer(layer) {}
+	QuadTree(Layer& layer, double layerLength);
 
-	const static int32_t      m_maxLevel = 8;   // 최대 깊이
+	int32_t                   m_maxLevel = 1;   // 최대 깊이
 	std::vector<QuadTreeNode> m_nodes;          // 트리 노드
 	std::vector<int32_t>	  m_objectLevels;   // 객체ID -> 트리 레벨 매핑 (레벨 색상, MBR 색상에 사용)
 	std::vector<int32_t>      m_visibleNodeIds; // 마지막 검색에서 통과한 노드들
@@ -56,6 +56,7 @@ public:
 
 	double m_limitSizeRate = 0.25;  // 노드 길이 * m_limitSizeRate 보다 객체의 길이가 크다면 자식 노드에 넣기에 크다고 판단하여 자식 노드에 넣지 않고 현재 노드에 넣는다.
 	double m_looseBoxRate  = 0.075; // 느슨한 박스 = 노드 길이 * m_looseBoxRate 만큼 확장
+	double m_minNodeLength = 500.0;   // 노드 길이가 이보다 작으면 더 이상 분할하지 않는다.
 
 	// 성능 측정용 카운터 (매 탐색마다 리셋)
 	//int64_t m_visitedNodeCount = 0; // SearchRenderingData가 진입한 노드 수

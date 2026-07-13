@@ -1,22 +1,38 @@
 #include <pch.h>
 #include <Layer.h>
 
+// 레이어 생성
 Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox& layerBox)
 {
-
     layers.emplace_back(std::make_unique<Layer>());
-    Layer& newLayer = *layers.back();
-	newLayer.m_id   = static_cast<int32_t>(layers.size()) - 1;
-    newLayer.m_name = name;
+    m_layerIdToIndex[m_nextLayerId] = static_cast<int32_t>(layers.size() - 1);
+
+    Layer& newLayer        = *layers.back();
+	newLayer.m_id          = m_nextLayerId++;
+    newLayer.m_name        = name;
     newLayer.m_shapeType   = shpType;
-    newLayer.m_quadTree    = std::make_unique<QuadTree>(newLayer);
+    newLayer.m_quadTree    = std::make_unique<QuadTree>(newLayer, layerBox.GetMaxExtent());
     newLayer.m_boundingBox = layerBox;
+    newLayer.m_isVisible   = true;
 	if (layers.size() == 1) newLayer.m_isBuilding = true; // 첫 번째 레이어(건물 정보)일 시 표시, 높이값 적용을 위해
 
-
     boundingBox = boundingBox.CombineBox(layerBox);
-    visibleLayers.push_back(static_cast<int32_t>(layers.size()) - 1);
+    //visibleLayers.push_back(static_cast<int32_t>(layers.size()) - 1);
     return newLayer;
+}
+
+// 레이어 삭제
+void LayerManager::DeleteLayer(int32_t layerId)
+{
+    int32_t deleteLayerIndex = m_layerIdToIndex[layerId]; // 삭제할 레이어 인덱스 번호
+    int32_t lastLayerIndex   = static_cast<int32_t>(layers.size()) - 1;
+    std::swap(layers[deleteLayerIndex], layers[lastLayerIndex]);
+    layers.pop_back();
+
+    m_layerIdToIndex[m_nextLayerId - 1] = deleteLayerIndex;
+    m_layerIdToIndex.erase(layerId);
+
+    ReDraw();
 }
 
 // 렌더 초기화, 레이어별 Renderer 생성
@@ -117,11 +133,11 @@ void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t sc
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // 레이어 별 렌더링
-    for (int32_t visibleLayerId : visibleLayers)
-    {
-        if (visibleLayerId < 0 || visibleLayerId >= layers.size()) continue;
-        Renderer* renderer = layers[visibleLayerId]->m_renderer.get();
-        if (renderer != nullptr && !(!uiState.isShowBuilding && layers[visibleLayerId]->m_isBuilding)) {
+    for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
+        if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
+
+        Renderer* renderer = layers[layerId]->m_renderer.get();
+        if (renderer != nullptr && !(!uiState.isShowBuilding && layers[layerId]->m_isBuilding)) {
             //glEnable(GL_POLYGON_OFFSET_FILL);
             //glPolygonOffset(0.5f, 4.0f);
             renderer->Render(camera, uiState, screenWidth, screenHeight, panelWidthLeft, hitPoint);
@@ -132,7 +148,6 @@ void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t sc
         }
     }
     //glDisable(GL_POLYGON_OFFSET_FILL);
-
 
     glDisable(GL_SCISSOR_TEST);           // UI 패널 제외한 영역에만 그리기 설정 해제
     eglSwapBuffers(m_display, m_surface); // 화면에 그려진 결과 출력 (더블 버퍼링에서 백 버퍼와 프론트 버퍼 교체, 실제로는 GPU가 알아서 최적화해서 처리)
@@ -159,8 +174,10 @@ void LayerManager::Refresh()
 
 void LayerManager::ApplyObjectColorWithLevel(bool useLevelColor)
 {
-    for (int32_t visibleLayerId : visibleLayers)
-        layers[visibleLayerId]->m_renderer->ApplyLevelColors(useLevelColor);
+    for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
+        if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
+		layers[layerId]->m_renderer->ApplyLevelColors(useLevelColor);
+    }
 }
 
 /*

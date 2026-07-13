@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "CLayerListCtrl.h"
+#include "Layer.h"
 
 BEGIN_MESSAGE_MAP(CLayerListCtrl, CListCtrl)
     ON_WM_LBUTTONDOWN()
@@ -13,12 +14,13 @@ void CLayerListCtrl::Init()
 }
 
 // 아이템 추가
-void CLayerListCtrl::AddLayer(const CString& name, int iconType, bool isVisible)
+void CLayerListCtrl::AddLayer(const CString& name, int32_t iconType, bool isVisible, int32_t layerId)
 {
-    int index = (int)m_items.size();
+    int32_t index = static_cast<int32_t>(m_items.size());
 
     LayerItemData itemData;
     itemData.name      = name;
+	itemData.layerId   = layerId; // 임시로 인덱스를 레이어 ID로 사용
     itemData.iconType  = iconType;
     itemData.isVisible = isVisible;
     m_items.push_back(itemData);
@@ -29,20 +31,36 @@ void CLayerListCtrl::AddLayer(const CString& name, int iconType, bool isVisible)
     lvItem.iItem   = index;
     lvItem.pszText = (LPTSTR)(LPCTSTR)name;
     InsertItem(&lvItem);
+
+    RedrawItems(index, index);
+    UpdateWindow();
+
+    TCHAR buf[256];
+    _stprintf_s(buf, _T("[visible] = %d\n"), itemData.isVisible);
+    OutputDebugString(buf);
 }
 
 // 레이어 체크 상태 변경
-void CLayerListCtrl::SetLayerVisible(int index, bool isVisible)
+void CLayerListCtrl::SetLayerVisible(int32_t index, bool isVisible)
 {
-    if (index < 0 || index >= (int)m_items.size()) return;
+    if (index < 0 || index >= static_cast<int32_t>(m_items.size())) return;
     m_items[index].isVisible = isVisible;
     RedrawItems(index, index);
 }
 
-bool CLayerListCtrl::GetLayerVisible(int index) const
+bool CLayerListCtrl::GetLayerVisible(int32_t index) const
 {
-    if (index < 0 || index >= (int)m_items.size()) return false;
+    if (index < 0 || index >= static_cast<int32_t>(m_items.size())) return false;
     return m_items[index].isVisible;
+}
+
+void CLayerListCtrl::DeleteLayerItem(int32_t layerId)
+{
+    if (m_hitItemIndex < 0) return; 
+    m_items.erase(m_items.begin() + m_hitItemIndex); 
+    m_hitItemIndex = -1;
+
+    m_layerManager->DeleteLayer(layerId);
 }
 
 // 아이템 높이 설정
@@ -55,9 +73,9 @@ void CLayerListCtrl::MeasureItem(LPMEASUREITEMSTRUCT lpMIS)
 CRect CLayerListCtrl::GetCheckRect(const CRect& rect) const
 {
     // 왼쪽 끝에 정사각형 체크박스
-    int size = 18;
-    int cx   = rect.left + 10;
-    int cy   = rect.top + (rect.Height() - size) / 2;
+    int32_t size = 18;
+    int32_t cx   = rect.left + 10;
+    int32_t cy   = rect.top + (rect.Height() - size) / 2;
     return CRect(cx, cy, cx + size, cy + size);
 }
 
@@ -65,9 +83,9 @@ CRect CLayerListCtrl::GetIconRect(const CRect& rect) const
 {
     // 체크박스 오른쪽에 아이콘
     CRect checkRect = GetCheckRect(rect);
-    int size = 20;
-    int cx   = checkRect.right + 8;
-    int cy   = rect.top + (rect.Height() - size) / 2;
+    int32_t size = 20;
+    int32_t cx   = checkRect.right + 8;
+    int32_t cy   = rect.top + (rect.Height() - size) / 2;
     return CRect(cx, cy, cx + size, cy + size);
 }
 
@@ -78,7 +96,7 @@ CRect CLayerListCtrl::GetTextRect(const CRect& rect) const
     return CRect(iconRect.right + 8, rect.top, rect.right - 4, rect.bottom);
 }
 
-COLORREF CLayerListCtrl::GetIconColor(int iconType) const
+COLORREF CLayerListCtrl::GetIconColor(int32_t iconType) const
 {
     switch (iconType) {
     case 0:  return RGB(30,  144, 255); // Point   파랑
@@ -88,7 +106,7 @@ COLORREF CLayerListCtrl::GetIconColor(int iconType) const
     }
 }
 
-CString CLayerListCtrl::GetIconLabel(int iconType) const
+CString CLayerListCtrl::GetIconLabel(int32_t iconType) const
 {
     switch (iconType) {
 	case 0:  return _T(".");  // Point
@@ -101,8 +119,8 @@ CString CLayerListCtrl::GetIconLabel(int iconType) const
 // 핵심: 아이템 그리기
 void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
 {
-    int index = lpDIS->itemID;
-    if (index < 0 || index >= (int)m_items.size()) return;
+    int32_t index = lpDIS->itemID;
+    if (index < 0 || index >= static_cast<int32_t>(m_items.size())) return;
 
     CDC* pDC = CDC::FromHandle(lpDIS->hDC);
     CRect rectItem = lpDIS->rcItem;
@@ -131,7 +149,7 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
         // 체크 표시 - 선으로 직접 그리기
         CPen checkPen(PS_SOLID, 2, RGB(255, 255, 255));
         CPen* pOldPen = pDC->SelectObject(&checkPen);
-        int cx = rectCheck.left, cy = rectCheck.top;
+        int32_t cx = rectCheck.left, cy = rectCheck.top;
         pDC->MoveTo(cx + 4,  cy + 9);
         pDC->LineTo(cx + 7,  cy + 12);
         pDC->LineTo(cx + 14, cy + 5);
@@ -181,9 +199,11 @@ void CLayerListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
     // 클릭한 아이템 인덱스 찾기
     LVHITTESTINFO ht = {};
     ht.pt = point;
-    int index = HitTest(&ht);
+    int32_t index = HitTest(&ht);
 
-    if (index >= 0 && index < (int)m_items.size()) {
+    if (index >= 0 && index < static_cast<int32_t>(m_items.size())) {
+		m_hitItemIndex = index;
+
         // 해당 아이템의 체크박스 영역 계산
         CRect rectItem;
         GetItemRect(index, &rectItem, LVIR_BOUNDS);
@@ -192,6 +212,9 @@ void CLayerListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
         if (rcCheck.PtInRect(point)) {
             // 체크박스 클릭 → 토글
             m_items[index].isVisible = !m_items[index].isVisible;
+			m_layerManager->layers[m_layerManager->m_layerIdToIndex[m_items[index].layerId]]->m_isVisible = m_items[index].isVisible; // LayerManager에도 반영
+            m_layerManager->ReDraw();
+
             RedrawItems(index, index);
             UpdateWindow();
 

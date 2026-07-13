@@ -3,6 +3,7 @@
 #include "Render/Renderer.h"
 #include <string>
 #include <variant>
+#include <unordered_map>
 
 // 레이어 수가 늘어도 유연하게 대응하기 위해 레이어별 데이터 위치 정보를 담는 구조체 (어느 벡터에 어디부터 어디까지 들어있는지)
 // 현재는 하나의 레이어만 들어가기에 layerDatas[0]에만 데이터가 들어있다.
@@ -40,18 +41,20 @@ class LayerManager
 {
 public:
 	std::vector<std::unique_ptr<Layer>> layers;
-	std::vector<int32_t>  visibleLayers; // 현재 보이는 레이어들
+	std::unordered_map<int32_t, int32_t> m_layerIdToIndex;
+	int32_t m_nextLayerId = 0;
+	//std::vector<int32_t>  visibleLayers; // 현재 보이는 레이어들
 
 	// EGL
 	EGLDisplay m_display = EGL_NO_DISPLAY; // GPU 드라이버 연결 핸들
 	EGLSurface m_surface = EGL_NO_SURFACE; // 그림이 실제로 그려질 표면 (윈도우와 연결)
 	EGLContext m_context = EGL_NO_CONTEXT; // EGL 컨텍스트 핸들
-	HDC m_deviceContext  = nullptr; // 윈도우 디바이스 컨텍스트 핸들
-
-	bool m_needRedraw = true; // true면 다음 Render에서 컬링/업로드 수행
-	BoundingBox boundingBox; // 전체 MBR
+	HDC  m_deviceContext = nullptr; // 윈도우 디바이스 컨텍스트 핸들
+	bool m_needRedraw    = true;    // true면 다음 Render에서 컬링/업로드 수행
+	BoundingBox boundingBox;        // 전체 MBR
 
 	Layer& CreateLayer(std::string name, uint32_t shpType, BoundingBox& layerBox);
+	void DeleteLayer(int32_t layerId);
 	bool InitRenderer(HWND hWnd);
 	bool InitEGL(HWND hwnd);
 	void Shutdown(HWND hWnd);

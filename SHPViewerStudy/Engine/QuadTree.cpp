@@ -9,6 +9,12 @@ QuadTreeNode::QuadTreeNode(int32_t level, BoundingBox& mbrBox)
 	m_boundingBox = mbrBox;
 }
 
+QuadTree::QuadTree(Layer& layer, double layerLength) : m_layer(layer)
+{
+	if (m_layer.m_isBuilding) m_minNodeLength = 200.0; 
+	while (layerLength > m_minNodeLength) { layerLength /= 2; m_maxLevel++; }
+}
+
 // ÄõµåÆ®¸® ºôµå
 void QuadTree::BuildQuadTree()
 {
