@@ -28,8 +28,6 @@ void DbfHeader::Read(const uint8_t*& ptr) {
 void DbfParser::DbfParse(vector<uint8_t>& buffer, DBFTable& dbfTable) {
     const uint8_t* ptr = buffer.data(); // 시작점
 
-    OutputDebugStringA(("dbfTable = " + std::to_string((uintptr_t)&dbfTable) + "\n").c_str());
-
     // 고정 헤더 읽기
     DbfHeader fileHeader;
     fileHeader.Read(ptr);

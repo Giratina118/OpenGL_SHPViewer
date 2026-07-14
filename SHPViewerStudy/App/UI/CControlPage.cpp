@@ -45,12 +45,19 @@ void CControlPage::Resize(UISize& uiSize)
     m_font.DeleteObject();
     m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
 
-
     auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&m_font); };
     applyFont(m_staticChangeInfo); 
     applyFont(m_staticInfo);
     applyFont(m_listCtrlLayer);
     applyFont(m_buttonDeleteLayer);
+
+    m_listCtrlLayer.Resize(fontSize);
+    //CRect rect;
+    //GetClientRect(&rect);
+    //m_listCtrlLayer.SetColumnWidth(0, fontSize * 30);
+    //m_listCtrlLayer.SetCustomItemHeight(fontSize);
+    //m_listCtrlLayer.Invalidate();
+    //m_listCtrlLayer.UpdateWindow();
 }
 
 void CControlPage::UpdateInfo(float fps, int32_t total, int32_t rendered, int32_t fake, int32_t cameraAltitude, double scalePerCm)

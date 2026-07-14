@@ -25,12 +25,22 @@ Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox
 void LayerManager::DeleteLayer(int32_t layerId)
 {
     int32_t deleteLayerIndex = m_layerIdToIndex[layerId]; // 삭제할 레이어 인덱스 번호
+    layers.erase(layers.begin() + deleteLayerIndex);
+    m_layerIdToIndex.erase(layerId);
+
+    for (int32_t i = deleteLayerIndex; i < layers.size(); ++i)
+        m_layerIdToIndex[layers[i]->m_id] = i;
+
+    /*
     int32_t lastLayerIndex   = static_cast<int32_t>(layers.size()) - 1;
     std::swap(layers[deleteLayerIndex], layers[lastLayerIndex]);
     layers.pop_back();
 
     m_layerIdToIndex[m_nextLayerId - 1] = deleteLayerIndex;
     m_layerIdToIndex.erase(layerId);
+    */
+
+
 
     ReDraw();
 }
