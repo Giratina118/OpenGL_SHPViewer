@@ -41,9 +41,7 @@ private:
     CBrush  m_bgBrush;
     CFont   m_font;
 	UISize& m_uiSize;
-    //int32_t m_clientWidth  = 1;
-    //int32_t m_clientHeight = 1;
-    float   m_panelRate    = 0.2f;
+    float   m_panelRate = 0.2f;
 
     void ShowPage(int32_t tabIndex);
 

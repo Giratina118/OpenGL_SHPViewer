@@ -92,26 +92,29 @@ void CVisibilityPage::Resize(UISize& uiSize)
     SetLegendColors();
 
     // 폰트
-    int fontSize = std::max(10, uiSize.clientHeight / 32);
-    m_font.DeleteObject();
-    m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+    //int fontSize = std::max(10, uiSize.clientHeight / 32);
+    //m_font.DeleteObject();
+    //m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
 
-    auto applyFont = [&](CWnd& w, CFont& font) { if (w.GetSafeHwnd()) w.SetFont(&font); };
-    applyFont(m_buttonObjectMBR,   m_font);
-    applyFont(m_buttonNodeMBR,     m_font);
-    applyFont(m_buttonLevelColor,  m_font);
-    applyFont(m_buttonFrustumView, m_font);
-    applyFont(m_buttonFakeObject,  m_font);
-    applyFont(m_buttonBuilding,    m_font);
-    applyFont(m_buttonMap,         m_font);
-    applyFont(m_staticViewRange,   m_font);
-    applyFont(m_staticColorInfo,   m_font);
+    if (uiSize.isFontChanged) {
+        auto applyFont = [&](CWnd& w, CFont& font) { if (w.GetSafeHwnd()) w.SetFont(&font); };
+        applyFont(m_buttonObjectMBR,   uiSize.font);
+        applyFont(m_buttonNodeMBR,     uiSize.font);
+        applyFont(m_buttonLevelColor,  uiSize.font);
+        applyFont(m_buttonFrustumView, uiSize.font);
+        applyFont(m_buttonFakeObject,  uiSize.font);
+        applyFont(m_buttonBuilding,    uiSize.font);
+        applyFont(m_buttonMap,         uiSize.font);
+        applyFont(m_staticViewRange,   uiSize.font);
+        applyFont(m_staticColorInfo,   uiSize.font);
 
-    m_fontHalf.DeleteObject();
-    m_fontHalf.CreateFont(-fontSize / 2, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
-    applyFont(m_staticSliderValueMin, m_fontHalf);
-    applyFont(m_staticSliderValueMid, m_fontHalf);
-    applyFont(m_staticSliderValueMax, m_fontHalf);
+        m_fontHalf.DeleteObject();
+        m_fontHalf.CreateFont(-uiSize.fontSize / 2, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+        applyFont(m_staticSliderValueMin, m_fontHalf);
+        applyFont(m_staticSliderValueMid, m_fontHalf);
+        applyFont(m_staticSliderValueMax, m_fontHalf);
+    }
+    
 }
 
 // 콜백 전달

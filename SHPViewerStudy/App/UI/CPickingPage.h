@@ -25,9 +25,7 @@ private:
     CButton m_buttonPicking;
     CButton m_radioFirstPerson;
     CButton m_radioThirdPerson;
-
     CStatic m_staticPickingInfo;
-    CFont   m_font;
 
     //afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
     afx_msg void OnBtnPicking();

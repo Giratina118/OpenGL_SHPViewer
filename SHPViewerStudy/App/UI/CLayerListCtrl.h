@@ -1,5 +1,6 @@
 #pragma once
 #include "framework.h"
+#include "UIState.h"
 
 class LayerManager;
 
@@ -21,7 +22,7 @@ public:
 	int32_t GetHitLayerId() const { return (m_hitItemIndex < 0 || m_hitItemIndex >= m_items.size()) ? -1 : m_items[m_hitItemIndex].layerId; } // 체크박스 클릭 시 인덱스 반환
     void SetCustomItemHeight(int32_t height);
     void DeleteLayerItem(int32_t layerId);
-    void Resize(int32_t fontSize);
+    void Resize(UISize& uiSize);
 
 protected:
     afx_msg void DrawItem(LPDRAWITEMSTRUCT lpDIS); // Owner Draw 함수

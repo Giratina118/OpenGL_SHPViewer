@@ -43,7 +43,7 @@ private:
     CStatic m_staticSliderValueMid;
     CStatic m_staticSliderValueMax;
     CSliderCtrl m_sliderViewRange;
-    CFont m_font;
+    //CFont m_font;
     CFont m_fontHalf;
 
     // 색상 범례 브러시

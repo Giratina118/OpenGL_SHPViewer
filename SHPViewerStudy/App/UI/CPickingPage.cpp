@@ -37,15 +37,13 @@ void CPickingPage::Resize(UISize& uiSize)
     m_staticPickingInfo.MoveWindow(0,               btnHeightGap * 2, uiSize.buttonWidth, uiSize.buttonHeight * 3);
 
     // 폰트
-    int32_t fontSize = std::max(10, uiSize.clientHeight / 32);
-    m_font.DeleteObject();
-    m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
-
-    auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&m_font); };
-    applyFont(m_buttonPicking);    
-    applyFont(m_radioFirstPerson);
-    applyFont(m_radioThirdPerson);
-    applyFont(m_staticPickingInfo);
+    if (uiSize.isFontChanged) {
+        auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&uiSize.font); };
+        applyFont(m_buttonPicking);
+        applyFont(m_radioFirstPerson);
+        applyFont(m_radioThirdPerson);
+        applyFont(m_staticPickingInfo);
+    }
 }
 
 // 콜백 전달

@@ -12,9 +12,6 @@ END_MESSAGE_MAP()
 bool CLeftPanel::Create(CWnd* pParent, UINT nID, CRect& rect)
 {
     m_bgBrush.CreateSolidBrush(RGB(240, 240, 240));
-    //m_clientWidth = rect.Width();
-    //m_clientHeight = rect.Height();
-
     return CWnd::Create(AfxRegisterWndClass(CS_HREDRAW | CS_VREDRAW, ::LoadCursor(nullptr, IDC_ARROW), (HBRUSH)(COLOR_BTNFACE + 1)), _T(""), WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, CRect(0, 0, 10, 10), pParent, nID) == TRUE;
 }
 
@@ -57,15 +54,8 @@ void CLeftPanel::OnTcnSelChange(NMHDR*, LRESULT* pResult)
 
 void CLeftPanel::Resize()
 {
-    //m_uiSize = uiSize;
-    //m_clientWidth  = screenWidth;
-    //m_clientHeight = screenHeight;
-    //int32_t panelWidth = m_clientWidth * m_panelRate;
-
     MoveWindow(0, 0, m_uiSize.panelWidth, m_uiSize.clientHeight);
 
-    //int marginX    = panelWidth * 0.05;
-    //int gapHeight  = m_clientHeight * 0.01;
     int32_t tabHeight  = std::max(10, m_uiSize.clientHeight / 16);
     int32_t pageTop    = tabHeight + 4;
     int32_t pageHeight = m_uiSize.clientHeight - pageTop;
@@ -74,12 +64,14 @@ void CLeftPanel::Resize()
     m_tab.SetItemSize(CSize(m_uiSize.panelWidth, tabHeight));
 
     // 폰트
-    int32_t fontSize = std::max(10, m_uiSize.clientHeight / 36);
-    m_font.DeleteObject();
-    m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+    if (m_uiSize.isFontChanged) {
+        int32_t fontSize = std::max(10, m_uiSize.clientHeight / 36);
+        m_font.DeleteObject();
+        m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
 
-    auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&m_font); };
-    applyFont(m_tab);
+        auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&m_font); };
+        applyFont(m_tab);
+    }
 
     // 세 페이지 모두 같은 위치에 겹쳐 배치 (탭이 전환할 때 ShowWindow로 교체)
     CRect pageRect(m_uiSize.marginX, pageTop + m_uiSize.gapHeight, m_uiSize.panelWidth - m_uiSize.marginX, pageTop + pageHeight - m_uiSize.gapHeight);

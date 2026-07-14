@@ -41,17 +41,16 @@ void CControlPage::Resize(UISize& uiSize)
     m_buttonDeleteLayer.MoveWindow(0, uiSize.buttonHeight * 12, uiSize.buttonWidth, uiSize.buttonHeight);
 
     // ÆùÆ®
-    int32_t fontSize = std::max(10, uiSize.clientHeight / 32);
-    m_font.DeleteObject();
-    m_font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+    if (uiSize.isFontChanged) {
+        auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&uiSize.font); };
+        applyFont(m_staticChangeInfo);
+        applyFont(m_staticInfo);
+        applyFont(m_listCtrlLayer);
+        applyFont(m_buttonDeleteLayer);
+    }
 
-    auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&m_font); };
-    applyFont(m_staticChangeInfo); 
-    applyFont(m_staticInfo);
-    applyFont(m_listCtrlLayer);
-    applyFont(m_buttonDeleteLayer);
-
-    m_listCtrlLayer.Resize(fontSize);
+    m_listCtrlLayer.Resize(uiSize);
+    
     //CRect rect;
     //GetClientRect(&rect);
     //m_listCtrlLayer.SetColumnWidth(0, fontSize * 30);

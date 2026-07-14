@@ -43,5 +43,8 @@ struct UISize
     int32_t buttonWidth;
     int32_t buttonHeight;
     int32_t gapHeight;
+
     int32_t fontSize;
+    CFont   font;
+    bool    isFontChanged = true;
 };

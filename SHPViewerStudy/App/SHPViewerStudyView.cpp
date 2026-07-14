@@ -266,8 +266,17 @@ void CSHPViewerStudyView::OnSize(UINT nType, int clientWidth, int clientHeight)
 	//m_clientHeight = clientHeight;
 
 	// 양쪽 패널 사이즈 재지정
+	int32_t fontSize = std::max(10, m_uiSize.clientHeight / 32);
+	if (m_uiSize.fontSize != fontSize) {
+		m_uiSize.fontSize = fontSize;
+		m_uiSize.font.DeleteObject();
+		m_uiSize.font.CreateFont(-fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+		m_uiSize.isFontChanged = true;
+	}
+
 	m_panelLeft.Resize ();
 	m_panelRight.Resize();
+	m_uiSize.isFontChanged = false;
 
 	// 가운데 렌더링 영역 사이즈, 카메라 종횡비 재지정
 	m_camera.UpdateAspect(m_uiSize.clientWidth - m_uiSize.panelWidth, m_uiSize.clientHeight);

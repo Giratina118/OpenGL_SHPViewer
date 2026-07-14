@@ -56,12 +56,15 @@ void CLayerListCtrl::DeleteLayerItem(int32_t layerId)
     m_layerManager->DeleteLayer(layerId);
 }
 
-void CLayerListCtrl::Resize(int32_t fontSize)
+void CLayerListCtrl::Resize(UISize& uiSize)
 {
-    SetColumnWidth(0, fontSize * 25);
-    SetCustomItemHeight(fontSize);
-    Invalidate();
-    UpdateWindow();
+    if (uiSize.isFontChanged) {
+        if (m_font.GetSafeHandle()) m_font.DeleteObject();
+        m_font.CreateFont(-uiSize.fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+
+        SetColumnWidth(0, uiSize.fontSize * 25);
+        SetCustomItemHeight(uiSize.fontSize);
+    }
 }
 
 // 영역 계산
@@ -151,7 +154,7 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
     pDC->SetBkMode(TRANSPARENT);
 
     //CFont font;
-    m_font.CreateFont(-(rectIcon.Height() - 4), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
+    //m_font.CreateFont(-(rectIcon.Height() - 4), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
     CFont* pOldFont = pDC->SelectObject(&m_font);
     pDC->DrawText(iconLabel, rectIcon, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     pDC->SelectObject(pOldFont);

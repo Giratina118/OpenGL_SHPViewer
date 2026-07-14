@@ -25,7 +25,7 @@ private:
     CStatic m_staticChangeInfo;
     CStatic m_staticInfo;
     CButton m_buttonDeleteLayer;
-    CFont   m_font;
+    //CFont   m_font;
 
     afx_msg void OnBtnDeleteLayer();
     DECLARE_MESSAGE_MAP()
