@@ -59,10 +59,9 @@ void CSHPViewerStudyView::OnDraw(CDC* pDc)
 	ASSERT_VALID(pDoc);
 	if (!pDoc) return;
 
-	CRect rect;
-	GetClientRect(&rect);
-
-	m_layerManager.Render(m_camera, m_uiState, rect.Width(), rect.Height(), m_panelLeft.GetWidth(), m_hitPoint);
+	//CRect rect;
+	//GetClientRect(&rect);
+	m_layerManager.Render(m_camera, m_uiSize, m_hitPoint);
 	//m_renderer.Render(m_camera, m_layerManager, m_uiState);
 }
 
@@ -78,7 +77,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 
 	callback.visibilityCallbacks.onObjectMBR   = [this](bool value) { m_uiState.isShowObjectMBR   = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onNodeMBR     = [this](bool value) { m_uiState.isShowNodeMBR     = value; m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(value); m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(); m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; m_layerManager.layers[0]->m_renderer->SetDrawFrustum(!value);  m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onFakeObject  = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_uiState.isShowBuilding    = value; m_layerManager.ReDraw(); SetFocus(); }; 
@@ -98,7 +97,7 @@ void CSHPViewerStudyView::RefreshMap()
 
 	CRect rect;
 	GetClientRect(&rect);
-	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_camera.Init(m_layerManager.m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
 
 	m_layerManager.Refresh();
 	//m_renderer.BuildMesh(m_layerManager);
@@ -224,7 +223,8 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (CView::OnCreate(lpCreateStruct) == -1) return -1;
 	DragAcceptFiles(TRUE); // 파일 드래그, 드롭 허용
 
-	// TODO: 처음에 파일 안 들어 있도록 바꾸기
+
+
 	// shapefile 파싱
 	std::filesystem::path busanBuildingPath = std::filesystem::current_path() / "Resource" / "ShpFile" / "BusanBuilding" / "F_FAC_BUILDING_26_202606.shp";
 	m_shpLoader.Parse(busanBuildingPath, m_layerManager);
@@ -240,8 +240,8 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	LinkCallbacksToUI();
 	
 	// 카메라 초기화, UI 패널 부분 남기기
-	m_camera.Init(m_layerManager.boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
-	m_layerManager.InitRenderer(m_hWnd); // 렌더 초기화
+	m_camera.Init(m_layerManager.m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_layerManager.InitRenderer(m_hWnd, &m_uiState); // 렌더 초기화
 
 	m_lastTime = std::chrono::steady_clock::now();
 	SetTimer(1, 8, nullptr); // 8ms마다 WM_TIMER -> OnTimer함수 호출
@@ -317,9 +317,8 @@ void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
 		//int32_t totalObjCount  = static_cast<int32_t>(m_layerManager.pointObjects.size()) + static_cast<int32_t>(m_layerManager.polyLineObjects.size()) + static_cast<int32_t>(m_layerManager.polygonObjects.size());
 		//int32_t renderObjCount = m_renderer.m_currentRenderCount;
 		//int32_t fakeObjCount   = m_uiState.isShowFakeObject ? m_renderer.m_currentRenderFakeCount : 0;
-		//double  scalePerCm     = 2 * m_camera.transform.position.z * glm::tan(m_camera.fov * 3.141592 / 180.0 * 0.5) * m_camera.aspect / m_clientWidth * 37.795276;
-		//m_panelLeft.UpdateInfo(fps, totalObjCount, renderObjCount, fakeObjCount, static_cast<int32_t>(m_camera.transform.position.z), scalePerCm);
-		m_panelLeft.UpdateInfo(fps, 0, 0, 0, static_cast<int32_t>(m_camera.transform.position.z), 0.0);
+		//m_panelLeft.UpdateInfo(fps, totalObjCount, renderObjCount, fakeObjCount, static_cast<int32_t>(m_camera.transform.position.z));
+		//m_panelLeft.UpdateInfo(fps, 0, 0, 0, static_cast<int32_t>(m_camera.transform.position.z), 0.0);
 		m_panelLeft.UpdatePickingInfo(m_hitPoint);
 	}
 
@@ -533,7 +532,7 @@ void CSHPViewerStudyView::TestTimeAboutAltitude(double altitude)
 
 	m_panTime = 0.0;
 	m_panCenter = m_camera.transform.position; // 현재 위치를 기준점으로
-	m_panRangeX = m_layerManager.boundingBox.GetLengthX() * 0.1; // 이동 폭
+	m_panRangeX = m_layerManager.m_boundingBox.GetLengthX() * 0.1; // 이동 폭
 	m_autoPanning = true;
 }
 

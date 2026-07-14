@@ -11,9 +11,6 @@ END_MESSAGE_MAP()
 bool CControlPage::Create(CWnd* pParent, UINT nID)
 {
     return CWnd::Create(AfxRegisterWndClass(CS_HREDRAW | CS_VREDRAW, ::LoadCursor(nullptr, IDC_ARROW), (HBRUSH)(COLOR_BTNFACE + 1)), _T(""), WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, CRect(0, 0, 10, 10), pParent, nID) == TRUE;
-    //bool bResult = CWnd::Create(AfxRegisterWndClass(CS_HREDRAW | CS_VREDRAW, ::LoadCursor(nullptr, IDC_ARROW), (HBRUSH)(COLOR_BTNFACE + 1)), _T(""), WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, CRect(0, 0, 10, 10), pParent, nID) == TRUE;
-    //if (bResult) CreateTabControls();
-    //return bResult;
 }
 
 void CControlPage::CreateTabControls()
@@ -22,14 +19,9 @@ void CControlPage::CreateTabControls()
     m_staticInfo.Create(_T("이동: WASD, 좌클릭\n줌: R/F, 휠\n회전: 방향키, Q/E, 우클릭"), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
     m_buttonDeleteLayer.Create(_T("Delete"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_DELETE_LAYER);
 
-    // LVS_OWNERDRAWFIXED 필수, 스크롤은 WS_VSCROLL 또는 자동
+    // LVS_OWNERDRAWFIXED 필수, 스크롤은 WS_VSCROLL
     m_listCtrlLayer.Create(WS_CHILD | WS_VISIBLE | WS_VSCROLL | LVS_REPORT | LVS_OWNERDRAWFIXED | LVS_SINGLESEL | LVS_NOCOLUMNHEADER, CRect(0, 0, 10, 10), this, IDC_LAYER_LIST);
     m_listCtrlLayer.Init();
-
-    // 테스트 아이템 추가 (실제로는 LayerManager에서 받아와야 함)
-    //m_listCtrlLayer.AddLayer(_T("부산 건물"), 2, true);  // Polygon
-    //m_listCtrlLayer.AddLayer(_T("도로 네트워크"), 1, true);  // Line
-    //m_listCtrlLayer.AddLayer(_T("버스 정류장"), 0, false); // Point
 }
 
 void CControlPage::Resize(UISize& uiSize)
@@ -50,16 +42,9 @@ void CControlPage::Resize(UISize& uiSize)
     }
 
     m_listCtrlLayer.Resize(uiSize);
-    
-    //CRect rect;
-    //GetClientRect(&rect);
-    //m_listCtrlLayer.SetColumnWidth(0, fontSize * 30);
-    //m_listCtrlLayer.SetCustomItemHeight(fontSize);
-    //m_listCtrlLayer.Invalidate();
-    //m_listCtrlLayer.UpdateWindow();
 }
 
-void CControlPage::UpdateInfo(float fps, int32_t total, int32_t rendered, int32_t fake, int32_t cameraAltitude, double scalePerCm)
+void CControlPage::UpdateInfo(float fps, int32_t total, int32_t rendered, int32_t fake, int32_t cameraAltitude)
 {
     CString text;
     text.Format(_T("FPS : %.1f\r\n전체 객체: %d\r\n렌더 객체: %d\r\n가상 객체: %d\r\n현재 고도: %dm\r\n"), fps, total, rendered, fake, cameraAltitude);

@@ -99,7 +99,7 @@ void Renderer::Shutdown(HWND m_hWnd)
 }
 
 // 메인 렌더 함수
-void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft, glm::dvec3 hitPoint)
+void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize, glm::dvec3 hitPoint, bool isSelected)
 {
 	// 쿼드트리에서 가시 객체 검색 (컬링, LOD)
 	if (!uiState.isShowFrustumView) {
@@ -108,7 +108,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screen
 		m_quadTree.m_visibleNodeFakeObjIds.clear();
 
 		double halfFovRad = glm::radians(camera.fov * 0.5);
-		double lodFactor  = std::max(screenHeight, 1) / (2.0 * std::tan(halfFovRad));
+		double lodFactor  = std::max(uiSize.clientHeight, 1) / (2.0 * std::tan(halfFovRad));
 		m_quadTree.SearchRenderingData(m_renderObjectIds, 0, camera, camera.transform.position, lodFactor);
 
 		m_currentRenderCount     = static_cast<int32_t>(m_renderObjectIds.size());
@@ -210,8 +210,11 @@ void Renderer::Render(CameraController& camera, UIState& uiState, int32_t screen
 		}
 	}
 
-	if (uiState.isShowObjectMBR)   DrawObjectMBR();           // 객체 MBR 그리기
-	if (uiState.isShowNodeMBR)     DrawQuadTreeNodeMBR();     // 노드 MBR 그리기
+	if (isSelected) {
+		if (uiState.isShowObjectMBR)   DrawObjectMBR();           // 객체 MBR 그리기
+		if (uiState.isShowNodeMBR)     DrawQuadTreeNodeMBR();     // 노드 MBR 그리기
+	}
+
 	if (uiState.isShowFrustumView) DrawCameraFrustum(camera); // 카메라 절두체 라인 그리기
 	DrawDebugRect(hitPoint, 10.0f);
 }

@@ -16,8 +16,7 @@ Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox
     newLayer.m_isVisible   = true;
 	if (layers.size() == 1) newLayer.m_isBuilding = true; // 첫 번째 레이어(건물 정보)일 시 표시, 높이값 적용을 위해
 
-    boundingBox = boundingBox.CombineBox(layerBox);
-    //visibleLayers.push_back(static_cast<int32_t>(layers.size()) - 1);
+    m_boundingBox = m_boundingBox.CombineBox(layerBox);
     return newLayer;
 }
 
@@ -31,23 +30,13 @@ void LayerManager::DeleteLayer(int32_t layerId)
     for (int32_t i = deleteLayerIndex; i < layers.size(); ++i)
         m_layerIdToIndex[layers[i]->m_id] = i;
 
-    /*
-    int32_t lastLayerIndex   = static_cast<int32_t>(layers.size()) - 1;
-    std::swap(layers[deleteLayerIndex], layers[lastLayerIndex]);
-    layers.pop_back();
-
-    m_layerIdToIndex[m_nextLayerId - 1] = deleteLayerIndex;
-    m_layerIdToIndex.erase(layerId);
-    */
-
-
-
     ReDraw();
 }
 
 // 렌더 초기화, 레이어별 Renderer 생성
-bool LayerManager::InitRenderer(HWND hWnd)
+bool LayerManager::InitRenderer(HWND hWnd, UIState* uiState)
 {
+    m_uiState = uiState;
     if (!InitEGL(hWnd)) return false;
     for (std::unique_ptr<Layer>& layer : layers) layer->m_renderer = std::make_unique<Renderer>(hWnd, *layer, *layer->m_quadTree);
     return true;
@@ -117,7 +106,7 @@ void LayerManager::Shutdown(HWND hWnd)
     }
 }
 
-void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft, glm::dvec3 hitPoint)
+void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 hitPoint)
 {
     // render여부 체크 -> 변화 없으면 그냥 return (CPU/GPU idle, 화면은 이전 프레임 유지)
     bool needRebuild = camera.GetCameraChange() || m_needRedraw;
@@ -127,30 +116,31 @@ void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t sc
     EGLint surficeWidth = 0, surficeHeight = 0;
     eglQuerySurface(m_display, m_surface, EGL_WIDTH, &surficeWidth);
     eglQuerySurface(m_display, m_surface, EGL_HEIGHT, &surficeHeight);
-    if (surficeWidth <= 0 || surficeHeight <= 0) { surficeWidth = screenWidth; surficeHeight = screenHeight; }
+    if (surficeWidth <= 0 || surficeHeight <= 0) { surficeWidth = uiSize.clientWidth; surficeHeight = uiSize.clientHeight; }
 
     // 전체 회색 클리어
     glDisable(GL_SCISSOR_TEST);
-    glViewport(0, 0, screenWidth, screenHeight);
+    glViewport(0, 0, uiSize.clientWidth, uiSize.clientHeight);
     glClearColor(0.94f, 0.94f, 0.94f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // 3D 영역만 viewport + scissor (둘 다 동일 좌표 = surface 기준)
-    glViewport(panelWidthLeft, 0, screenWidth - panelWidthLeft, screenHeight);
+    glViewport(uiSize.panelWidth, 0, uiSize.clientWidth - uiSize.panelWidth, uiSize.clientHeight);
     glEnable(GL_SCISSOR_TEST);
-    glScissor(panelWidthLeft, 0, screenWidth - panelWidthLeft, screenHeight);
+    glScissor(uiSize.panelWidth, 0, uiSize.clientWidth - uiSize.panelWidth, uiSize.clientHeight);
     glClearColor(0.8f, 0.8f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // 레이어 별 렌더링
     for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
+        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layerId) ? true : false;
 
         Renderer* renderer = layers[layerId]->m_renderer.get();
-        if (renderer != nullptr && !(!uiState.isShowBuilding && layers[layerId]->m_isBuilding)) {
+        if (renderer != nullptr && !(!m_uiState->isShowBuilding && layers[layerId]->m_isBuilding)) {
             //glEnable(GL_POLYGON_OFFSET_FILL);
             //glPolygonOffset(0.5f, 4.0f);
-            renderer->Render(camera, uiState, screenWidth, screenHeight, panelWidthLeft, hitPoint);
+            renderer->Render(camera, *m_uiState, uiSize, hitPoint, isSelectedLayer);
         }
         else {
             //glEnable(GL_POLYGON_OFFSET_FILL);
@@ -163,7 +153,7 @@ void LayerManager::Render(CameraController& camera, UIState& uiState, int32_t sc
     eglSwapBuffers(m_display, m_surface); // 화면에 그려진 결과 출력 (더블 버퍼링에서 백 버퍼와 프론트 버퍼 교체, 실제로는 GPU가 알아서 최적화해서 처리)
 
     // surface가 아직 윈도우 크기를 못 따라잡았으면 다음 프레임에 다시 그림
-    if (surficeWidth != screenWidth || surficeHeight != screenHeight) ReDraw();
+    if (surficeWidth != uiSize.clientWidth || surficeHeight != uiSize.clientHeight) ReDraw();
     else { m_needRedraw = false; camera.SetCameraChange(); }
 }
 
@@ -182,11 +172,12 @@ void LayerManager::Refresh()
 	ReDraw();
 }
 
-void LayerManager::ApplyObjectColorWithLevel(bool useLevelColor)
+void LayerManager::ApplyObjectColorWithLevel()
 {
     for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
+        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layerId) ? true : false;
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
-		layers[layerId]->m_renderer->ApplyLevelColors(useLevelColor);
+		layers[layerId]->m_renderer->ApplyLevelColors(m_uiState->isShowLevelColor && isSelectedLayer);
     }
 }
 

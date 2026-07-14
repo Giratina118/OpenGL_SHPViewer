@@ -119,10 +119,11 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
     CDC*  pDC      = CDC::FromHandle(lpDIS->hDC);
     CRect rectItem = lpDIS->rcItem; // 아이템 영역 크기
     const LayerItemData& item = m_items[index];
-    bool  isSelected = (lpDIS->itemState & ODS_SELECTED) != 0; // 선택된 아이템과 선택되지 않은 아이템 구분
+    //bool  isSelected = ((lpDIS->itemState & ODS_SELECTED) != 0); // 선택된 아이템과 선택되지 않은 아이템 구분
+    //bool  isSelected = (m_hitItemIndex == index); // 선택된 아이템과 선택되지 않은 아이템 구분
 
     // 배경 설정 (흰색 - 회색 번갈아가며, 선택된 아이템은 하늘색)
-    COLORREF bgColor = isSelected ? RGB(200, 220, 255) : (index % 2 == 1 && !isSelected) ? RGB(255, 255, 255) : RGB(240, 240, 240);
+    COLORREF bgColor = (m_hitItemIndex == index) ? RGB(200, 220, 255) : ((index % 2) ? RGB(255, 255, 255) : RGB(240, 240, 240));
     pDC->FillSolidRect(rectItem, bgColor);
 
     CRect rectCheck = GetCheckRect(rectItem); // 체크박스 크기
@@ -154,7 +155,6 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
     pDC->SetBkMode(TRANSPARENT);
 
     //CFont font;
-    //m_font.CreateFont(-(rectIcon.Height() - 4), 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
     CFont* pOldFont = pDC->SelectObject(&m_font);
     pDC->DrawText(iconLabel, rectIcon, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     pDC->SelectObject(pOldFont);
@@ -184,8 +184,7 @@ void CLayerListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
     int32_t index = HitTest(&hit);
 
     if (index < 0 || index >= static_cast<int32_t>(m_items.size())) return;
-    m_hitItemIndex = index;
-
+    
     // 해당 아이템의 체크박스 영역 계산
     CRect rectItem;
     GetItemRect(index, &rectItem, LVIR_BOUNDS);
@@ -194,11 +193,16 @@ void CLayerListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
     if (rectCheck.PtInRect(point)) { // 체크박스 클릭 -> 토글
         m_items[index].isVisible = !m_items[index].isVisible;
         m_layerManager->layers[m_layerManager->m_layerIdToIndex[m_items[index].layerId]]->m_isVisible = m_items[index].isVisible; // LayerManager에도 반영
-        m_layerManager->ReDraw();
-
-        RedrawItems(index, index);
-        UpdateWindow();
     }
+    else { // 레이어 선택/취소
+        m_hitItemIndex = (m_hitItemIndex == index) ? -1 : index;
+        m_layerManager->m_hitLayerId = GetHitLayerId(); // 현재 클릭한 레이어 반영 -> 해당 레이어만 노드mbr, 객체mbr 그리기
+        m_layerManager->ApplyObjectColorWithLevel();
+    }
+
+    RedrawItems(index, index);
+    m_layerManager->ReDraw();
+    UpdateWindow();
 
     CListCtrl::OnLButtonDown(nFlags, point);
 }

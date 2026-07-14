@@ -17,7 +17,6 @@ class QuadTreeNode;
 class Renderer
 {
 private:
-
 	// 셰이더
 	Shader m_shader;
 	GLint  m_viewProjectionLocation  = -1; // u_viewProjection uniform 슬롯 ID
@@ -95,20 +94,20 @@ public:
 	void UploadAndDraw(GLuint& vao, GLuint& vbo, std::vector<Vertex>& vertices, int drawType);
 	void Shutdown(HWND hWnd);	   // GPU 리소스 해제
 
-	void Render(CameraController& camera, UIState& uiState, int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft, glm::dvec3 hitPoint); // 메인 렌더 함수
+	void Render(CameraController& camera, UIState& uiState, UISize& uiSize, glm::dvec3 hitPoint, bool isSelected); // 메인 렌더 함수
 	//void Resize(int32_t width, int32_t height, int32_t panelWidthLeft); // 윈도우 크기 변경 시 viewport 갱신
 
 	// 그리기 정보 빌드, 파일 열때 호출되는 함수들
-	void BuildMesh();        // 메쉬 빌드
+	void BuildMesh();         // 메쉬 빌드
 	void BuildPolyLineMesh(); // 선 메쉬 빌드
-	void BuildPolygonMesh(); // 면 메쉬 빌드
-	void RebuildQuadTree();  // 쿼드트리 재빌드 (파일 새로 로딩 시 호출)
-	void BuildFakeMeshes();  // LOD용 간략화된 메쉬 빌드
+	void BuildPolygonMesh();  // 면 메쉬 빌드
+	void RebuildQuadTree();   // 쿼드트리 재빌드 (파일 새로 로딩 시 호출)
+	void BuildFakeMeshes();   // LOD용 간략화된 메쉬 빌드
 	void BuildConvexHullNode(QuadTreeNode& node); // 노드 대표 메쉬, 볼록 껍질 빌드
 	
 	// UI 버튼 클릭으로 mbr그리기, 색상 표현
 	void DrawObjectMBR(); // 객체 MBR 박스 그리기
-	void DrawQuadTreeNodeMBR();		  // 노드 MBR 박스 그리기
+	void DrawQuadTreeNodeMBR(); // 노드 MBR 박스 그리기
 	void DrawCameraFrustum(CameraController& camera); // 카메라 절두체 시각화
 
 	void PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<Vertex>& vertices, unsigned char r, unsigned char g, unsigned char b, bool hasHeight); // mbr 정점 버퍼 삽입

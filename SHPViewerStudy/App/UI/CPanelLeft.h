@@ -25,7 +25,7 @@ public:
     void SetCallbacks(const LeftPanelCallbacks& callbak);
 
     // View에서 호출 -> 텍스트 갱신
-    void UpdateInfo(float fps, int32_t total, int32_t rendered, int32_t fake, int32_t cameraAltitude, double scalePerCm) { m_pageControl.UpdateInfo(fps, total, rendered, fake, cameraAltitude, scalePerCm); }
+    void UpdateInfo(float fps, int32_t total, int32_t rendered, int32_t fake, int32_t cameraAltitude) { m_pageControl.UpdateInfo(fps, total, rendered, fake, cameraAltitude); }
     void UpdatePickingInfo(glm::dvec3 m_hitPoint) { m_pagePicking.UpdatePickingInfo(m_hitPoint.x, m_hitPoint.y); }
     int32_t GetWidth() const { return static_cast<int32_t>(m_uiSize.clientWidth * m_panelRate); }
 
