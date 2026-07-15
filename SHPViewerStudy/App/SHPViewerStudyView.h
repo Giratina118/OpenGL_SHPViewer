@@ -43,14 +43,9 @@ private:
 	float   m_deltaTimeStack = 0.0f; // 델타타임 누적
 	int32_t m_frameCount     = 0;    // 프레임 카운트
 
-	// 화면 길이 정보
-	//int32_t m_clientWidth  = 1; // 윈도우 전체 좌우 길이
-	//int32_t m_clientHeight = 1; // 윈도우 전체 상하 길이
-
 	// 마우스, 좌표 정보
 	bool    m_isCameraThirdMode = false; // 카메라 모드, false: 1인칭(기본), true: 3인칭
 	bool    m_isPickingMode     = false; // 피킹 모드, 버튼으로 on/off
-	int32_t pickingDataId       = -1;    // 피킹한 데이터 아이디, 이전 피킹과 현재 피킹 객체가 같은지 아닌지 판별 시 사용하기 위해 저장
 	glm::dvec3 m_rayStart;
 	glm::dvec3 m_rayDir;
 
@@ -62,12 +57,11 @@ private:
 
 	// 성능 측정, 디버그 용도
 	bool   m_autoPanning = false;
-	double m_panTime = 0.0;     // 경과 시간(초)
+	double m_panTime     = 0.0; // 경과 시간(초)
 	double m_panDuration = 8.0; // 왕복 총 시간(초)
-	double m_panRangeX = 0.0;   // 좌우 이동 폭(미터)
+	double m_panRangeX   = 0.0; // 좌우 이동 폭(미터)
 	glm::dvec3 m_panCenter;     // 왕복 중심 위치
 
-	void TestTimeAboutAltitude(double altitude); // 카메라 자동 이동 (동일 환경에서 디버그 데이터 수집)
 
 protected:
 	CSHPViewerStudyView() noexcept : m_panelLeft(m_uiSize), m_panelRight(m_uiSize) {}
@@ -103,8 +97,11 @@ public:
 	void LinkCallbacksToUI();  // 좌측 패널 콜백 연결
 	void InputKey(float deltaTime);                // 키 입력
 	glm::dvec3 ClientToWorldPos(CPoint clientPos); // 피킹 위치
-	glm::dvec3 PickingObj(CPoint clientPos);       // 피킹 객체
+	void PickingObj(CPoint clientPos);       // 피킹 객체
 	bool IsInUIPanel(const CPoint& mousePoint) const { return mousePoint.x < m_panelLeft.GetWidth() || mousePoint.x > m_uiSize.clientWidth - m_panelRight.GetWidth(); } // UI 마우스 이벤트가 3D 영역인지 판별
+
+
+	void TestTimeAboutAltitude(double altitude); // 카메라 자동 이동 (동일 환경에서 디버그 데이터 수집)
 };
 
 /*

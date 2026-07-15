@@ -10,7 +10,6 @@
 #include "Layer.h"
 #include <glm/gtc/type_ptr.hpp>
 
-
 // 전체 초기화 진입점, EGL/셰이더/버퍼/상태/쿼드트리를 준비
 bool Renderer::Initialize(HWND hWnd)
 {
@@ -116,9 +115,9 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 	}
 
 	// 셰이더 설정
-	m_shader.UseProgram();
-	glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(camera.GetMatrix())));
-	glUniform1f(m_colorMultiplierLocation, 1.0f); // 기본값
+	//m_shader.UseProgram();
+	//glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(camera.GetMatrix())));
+	//glUniform1f(m_colorMultiplierLocation, 1.0f); // 기본값
 
 	// TODO: 면, 라인, fake 그리는 함수를 한데 묶어 처리
 	// 면 가시 인덱스, 가시 인덱스를 모아서 GPU에 stream 업로드
@@ -691,7 +690,6 @@ void Renderer::DrawQuadTreeNodeMBR()
 	m_nodeMbrBoxVertices.clear();
 	m_nodeMbrBoxVertices.shrink_to_fit();
 }
-
 
 // MBR 박스 출력에 사용
 void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<Vertex>& vertices, unsigned char r, unsigned char g, unsigned char b, bool hasHeight)

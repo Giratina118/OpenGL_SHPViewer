@@ -323,7 +323,7 @@ void QuadTree::InputRenderingDataAll(std::vector<int32_t>& renderObjectIds, int3
 }
 
 // 피킹 데이터 탐색 및 반환
-int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, int32_t currentNodeId, double& minDistance, std::vector<DrawInfo>& polygonDrawInfos, std::vector<uint32_t>& polygonIndices, std::vector<Vertex>& polygonVertices, glm::dvec3& hitPoint)
+int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, int32_t currentNodeId, double& minDistance, std::vector<DrawInfo>& polygonDrawInfos, std::vector<uint32_t>& polygonIndices, std::vector<Vertex>& polygonVertices)
 {
 	// 루트노드 높이 접촉점 -> z=0 라인
 	// 자신 노드 데이터와 비교
@@ -360,7 +360,6 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 				if (triCollisionDistance >= 0.0 && triCollisionDistance < minDistance) {
 					minDistance = triCollisionDistance;
 					selectDataId = dataId;
-					hitPoint = rayStart + rayDir * triCollisionDistance;
 				}
 			}
 
@@ -379,7 +378,7 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 		QuadTreeNode& childNode = m_nodes[childNodeId];
 		if (!childNode.m_boundingBox.IsOnCollisionRay(rayStart, rayDir)) continue; // 자식노드와 접하지 않으면 넘기기
 
-		int32_t childPickingId = SearchPickingData(rayStart, rayDir, childNodeId, minDistance, polygonDrawInfos, polygonIndices, polygonVertices, hitPoint);
+		int32_t childPickingId = SearchPickingData(rayStart, rayDir, childNodeId, minDistance, polygonDrawInfos, polygonIndices, polygonVertices);
 		if (childPickingId != -1) selectDataId = childPickingId;
 	}
 	

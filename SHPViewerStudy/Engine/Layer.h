@@ -52,7 +52,6 @@ public:
 	GLuint m_debugVAO = 0;
 	GLuint m_debugVBO = 0;
 	std::vector<Vertex> m_frustumLineVertices;
-	//std::vector<Vertex> m_frustumLineVertices; // 카메라 절두체 라인 재구성
 
 	// EGL
 	EGLDisplay m_display = EGL_NO_DISPLAY; // GPU 드라이버 연결 핸들
@@ -75,7 +74,7 @@ public:
 	void Resize(int32_t width, int32_t height, int32_t panelWidthLeft);
 	void ReDraw() { m_needRedraw = true; } // 토글 시 캐시 강제 무효화용
 	void CountObject(int32_t& totalObjCount, int32_t& renderObjCount, int32_t& fakeObjCount);
-	glm::dvec3 Picking(glm::dvec3& hitPoint, glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel& rightPanel);
+	void Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel& rightPanel);
 	
 	void DrawDebugPrimitives(const std::vector<Vertex>& vertices, GLenum drawMode);
 	void DrawCameraFrustum(CameraController& camera); // 카메라 절두체 시각화

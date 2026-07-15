@@ -56,12 +56,6 @@ private:
 	std::vector<Vertex> m_objMbrBoxVertices;   // 가시 객체 MBR 재구성
 	std::vector<Vertex> m_nodeMbrBoxVertices;  // 가시 노드 MBR 재구성
 
-	// 화면 크기
-	//int32_t m_viewportWidth    = 0;  // 클라이언트 영역 전체 너비 
-	//int32_t m_viewportHeight   = 0;  // 클라이언트 영역 전체 높이
-	//int32_t m_uiPanelWidthLeft = 0;  // UI 좌측 패널 너비 (이 영역은 3D 렌더 안 함)
-
-
 	// 디버깅 쿼드트리 성능 체크
 	double  m_cullMicrosSum   = 0.0;
 	int32_t m_cullSampleCount = 0;
@@ -87,13 +81,11 @@ public:
 	~Renderer() {}
 
 	bool Initialize(HWND hWnd);  // 전체 초기화 진입점, EGL/셰이더/버퍼/상태/쿼드트리를 준비
-	//bool InitializeEGL(HWND hwnd); // EGL 컨텍스트 생성
 	void InitBuffer(GLuint& vao, GLuint& vbo, GLuint* ibo); // 버퍼 초기화
 	void UploadAndDraw(GLuint& vao, GLuint& vbo, std::vector<Vertex>& vertices, int drawType);
 	void Shutdown(HWND hWnd);	   // GPU 리소스 해제
 
 	void Render(CameraController& camera, UIState& uiState, UISize& uiSize, glm::dvec3 hitPoint, bool isSelected); // 메인 렌더 함수
-	//void Resize(int32_t width, int32_t height, int32_t panelWidthLeft); // 윈도우 크기 변경 시 viewport 갱신
 
 	// 그리기 정보 빌드, 파일 열때 호출되는 함수들
 	void BuildMesh();         // 메쉬 빌드
@@ -118,5 +110,4 @@ public:
 	std::vector<DrawInfo>& GetPolygonDrawInfo() { return m_polygonDrawInfos; } // 면 객체별 인덱스 범위 반환
 	std::vector<uint32_t>& GetPolygonIndices()  { return m_polygonIndices;   } // 면 인덱스 반환
 	std::vector<Vertex>&   GetPolygonVertices() { return m_polygonVertices;  } // 면 버텍스 반환
-
 };

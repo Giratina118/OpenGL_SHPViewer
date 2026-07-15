@@ -1,0 +1,66 @@
+diff a/SHPViewerStudy/Engine/Render/Renderer.cpp b/SHPViewerStudy/Engine/Render/Renderer.cpp	(rejected hunks)
+@@ -651,64 +651,6 @@
+ 	m_nodeMbrBoxVertices.shrink_to_fit();
+ }
+ 
+-// ī�޶� ����ü �ð�ȭ (����� �����ϴ� 4�� ��), NDC �𼭸� 4���� unproject�ؼ� z=0 ������ �������� ���� �������� ǥ��
+-void Renderer::DrawCameraFrustum(CameraController& camera)
+-{
+-	if (m_layer.m_id != 0) return;
+-
+-	if (!m_drawedFrustum)
+-	{
+-		m_frustumLineVertices.clear();
+-		m_frustumLineVertices.reserve(16); // ���� ���� 4�� ����(8�� ����) + AABB 4�� ����(8�� ����)
+-
+-		// TODO: screenToWorld �Լ� ���
+-		// ī�޶� �þ��� 4�� NDC �𼭸��� ����(z=0)�� ������ ���� ��ǥ ��� (��ٸ���/�簢��)
+-		glm::dmat4 inverseViewProjectionMatrix = glm::inverse(camera.GetMatrix());
+-		glm::vec2 ndcCorners[4] = { {-1.0f, -1.0f}, { 1.0f, -1.0f}, { 1.0f,  1.0f}, {-1.0f,  1.0f} };
+-		glm::dvec3 hitPoints[4];
+-
+-		for (int32_t dataId = 0; dataId < 4; ++dataId) {
+-			glm::vec4 nearPoint = inverseViewProjectionMatrix * glm::vec4(ndcCorners[dataId], -1.0f, 1.0f);
+-			glm::vec4 farPoint  = inverseViewProjectionMatrix * glm::vec4(ndcCorners[dataId],  1.0f, 1.0f);
+-			if (nearPoint.w != 0.0f) nearPoint /= nearPoint.w;
+-			if (farPoint.w  != 0.0f) farPoint  /= farPoint.w;
+-
+-			glm::dvec3 rayOrigin = glm::dvec3(nearPoint);
+-			glm::dvec3 rayDir = glm::dvec3(farPoint) - glm::dvec3(nearPoint);
+-
+-			if (std::abs(rayDir.z) > 1e-6) {
+-				double t = -rayOrigin.z / rayDir.z;
+-				if (t >= 0.0 && t <= 1.0) {
+-					hitPoints[dataId].x = static_cast<float>(rayOrigin.x + t * rayDir.x);
+-					hitPoints[dataId].y = static_cast<float>(rayOrigin.y + t * rayDir.y);
+-				}
+-				else {
+-					hitPoints[dataId] = glm::dvec3(farPoint);
+-				}
+-			}
+-			else {
+-				hitPoints[dataId] = glm::dvec3(farPoint);
+-			}
+-		}
+-
+-		// ����� �����ϴ� ���� ����ü ���� ����
+-		for (int32_t dataId = 0; dataId < 4; ++dataId) {
+-			int32_t next = (dataId + 1) % 4;
+-			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[dataId].x), static_cast<float>(hitPoints[dataId].y), 0.0f, 0, 0, 0, 255});
+-			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[next].x),   static_cast<float>(hitPoints[next].y),   0.0f, 0, 0, 0, 255 });
+-
+-			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[dataId].x), static_cast<float>(hitPoints[dataId].y), 0.0f, 25, 25, 100, 255 });
+-			m_frustumLineVertices.push_back({ static_cast<float>(camera.transform.position.x), static_cast<float>(camera.transform.position.y), static_cast<float>(camera.transform.position.z), 25, 25, 100, 255 });
+-		}
+-
+-		m_drawedFrustum = true;
+-	}
+-
+-	if (m_frustumLineVertices.empty()) return;
+-
+-	// GPU ���ε� �� ������
+-	UploadAndDraw(m_mbrVAO, m_mbrVBO, m_frustumLineVertices, GL_LINES);
+-}
+ 
+ // MBR �ڽ� ��¿� ���
+ void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<Vertex>& vertices, unsigned char r, unsigned char g, unsigned char b, bool hasHeight)
