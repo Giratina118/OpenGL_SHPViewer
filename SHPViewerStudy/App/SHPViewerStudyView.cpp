@@ -78,7 +78,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	callback.visibilityCallbacks.onObjectMBR   = [this](bool value) { m_uiState.isShowObjectMBR   = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onNodeMBR     = [this](bool value) { m_uiState.isShowNodeMBR     = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(); m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; m_layerManager.layers[0]->m_renderer->SetDrawFrustum(!value);  m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; m_layerManager.SetDrawFrustum(!value);  m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onFakeObject  = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_uiState.isShowBuilding    = value; m_layerManager.ReDraw(); SetFocus(); }; 
 	callback.visibilityCallbacks.onMap         = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
@@ -88,21 +88,6 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	callback.pickingCallbacks.onPicking        = [this](bool value) { m_isPickingMode     = value; SetFocus(); };
 	callback.pickingCallbacks.onThirdMode      = [this](bool value) { m_isCameraThirdMode = value; SetFocus(); };
 	m_panelLeft.SetCallbacks(callback);
-}
-
-// 파일 열리면 화면 갱신
-void CSHPViewerStudyView::RefreshMap()
-{
-	//if (m_layerManager.polygonObjects.empty() && m_layerManager.polyLineObjects.empty() && m_layerManager.pointObjects.empty()) return;
-
-	CRect rect;
-	GetClientRect(&rect);
-	m_camera.Init(m_layerManager.m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
-
-	m_layerManager.Refresh();
-	//m_renderer.BuildMesh(m_layerManager);
-	//m_renderer.RebuildQuadTree(m_layerManager);
-	//m_renderer.ReDraw();
 }
 
 // 키 입력
@@ -191,25 +176,10 @@ glm::dvec3 CSHPViewerStudyView::ClientToWorldPos(CPoint clientPos)
 }
 
 // 객체 선택 (픽킹)
-// TODO: 현재는 0번 레이어만 피킹 체크 중
 glm::dvec3 CSHPViewerStudyView::PickingObj(CPoint clientPos)
 {
-	int32_t beforePickingId = pickingDataId;
 	m_hitPoint = ClientToWorldPos(clientPos);
-	glm::dvec3 hit = m_hitPoint;
-
-	// 레이와 객체의 충돌 검사, 쿼드트리를 이용한 피킹
-	double collisionDistance = std::numeric_limits<double>::max();
-	pickingDataId = m_layerManager.layers[0]->m_quadTree->SearchPickingData(m_rayStart, m_rayDir, 0, collisionDistance, m_layerManager.layers[0]->m_renderer->GetPolygonDrawInfo(), m_layerManager.layers[0]->m_renderer->GetPolygonIndices(), m_layerManager.layers[0]->m_renderer->GetPolygonVertices(), hit);
-
-	if (pickingDataId   == -1)            { m_layerManager.layers[0]->m_renderer->SetSelectedObject(-1, m_uiState);  return hit; } // 객체가 없는 빈 공간 선택
-	if (beforePickingId == pickingDataId) { m_panelRight.Show(false); pickingDataId = -1; return hit; } // 이전과 같은 객체 선택
-
-	// 피킹된 객체 정보 얻기, TODO: 폴리곤 데이터만 일단 적용
-	if (m_layerManager.layers[0]->polygonObjects.size() < 1) return hit;
-
-	m_layerManager.layers[0]->m_renderer->SetSelectedObject(pickingDataId, m_uiState); // 선택 객체 색상 적용
-	m_panelRight.SetPickingInfo(m_layerManager.layers[0]->dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
+	glm::dvec3 hit = m_layerManager.Picking(m_hitPoint, m_rayStart, m_rayDir, m_panelRight);
 
 	m_layerManager.ReDraw();
 	Invalidate(FALSE);
@@ -222,8 +192,6 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
 	if (CView::OnCreate(lpCreateStruct) == -1) return -1;
 	DragAcceptFiles(TRUE); // 파일 드래그, 드롭 허용
-
-
 
 	// shapefile 파싱
 	std::filesystem::path busanBuildingPath = std::filesystem::current_path() / "Resource" / "ShpFile" / "BusanBuilding" / "F_FAC_BUILDING_26_202606.shp";
@@ -314,11 +282,9 @@ void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
 		m_frameCount     = 0;
 
 		// TODO: 모든 레이어 총합 구하기
-		//int32_t totalObjCount  = static_cast<int32_t>(m_layerManager.pointObjects.size()) + static_cast<int32_t>(m_layerManager.polyLineObjects.size()) + static_cast<int32_t>(m_layerManager.polygonObjects.size());
-		//int32_t renderObjCount = m_renderer.m_currentRenderCount;
-		//int32_t fakeObjCount   = m_uiState.isShowFakeObject ? m_renderer.m_currentRenderFakeCount : 0;
-		//m_panelLeft.UpdateInfo(fps, totalObjCount, renderObjCount, fakeObjCount, static_cast<int32_t>(m_camera.transform.position.z));
-		//m_panelLeft.UpdateInfo(fps, 0, 0, 0, static_cast<int32_t>(m_camera.transform.position.z), 0.0);
+		int32_t totalObjCount = 0, renderObjCount = 0, fakeObjCount = 0;
+		m_layerManager.CountObject(totalObjCount, renderObjCount, fakeObjCount);
+		m_panelLeft.UpdateInfo(fps, totalObjCount, renderObjCount, fakeObjCount, static_cast<int32_t>(m_camera.transform.position.z));
 		m_panelLeft.UpdatePickingInfo(m_hitPoint);
 	}
 

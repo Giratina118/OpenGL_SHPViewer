@@ -50,13 +50,11 @@ private:
 
 	// 렌더링 상태
 	std::vector<int32_t> m_renderObjectIds; // 컬링 통과 객체 ID 목록
-	bool m_drawedFrustum = false;
 
 	// MBR 시각화 (객체 MBR, 노드 MBR, 절두체 라인을 공용으로 그리는 버퍼)
 	GLuint m_mbrVAO = 0, m_mbrVBO = 0;
 	std::vector<Vertex> m_objMbrBoxVertices;   // 가시 객체 MBR 재구성
 	std::vector<Vertex> m_nodeMbrBoxVertices;  // 가시 노드 MBR 재구성
-	std::vector<Vertex> m_frustumLineVertices; // 카메라 절두체 라인 재구성
 
 	// 화면 크기
 	//int32_t m_viewportWidth    = 0;  // 클라이언트 영역 전체 너비 
@@ -101,20 +99,16 @@ public:
 	void BuildMesh();         // 메쉬 빌드
 	void BuildPolyLineMesh(); // 선 메쉬 빌드
 	void BuildPolygonMesh();  // 면 메쉬 빌드
-	void RebuildQuadTree();   // 쿼드트리 재빌드 (파일 새로 로딩 시 호출)
 	void BuildFakeMeshes();   // LOD용 간략화된 메쉬 빌드
 	void BuildConvexHullNode(QuadTreeNode& node); // 노드 대표 메쉬, 볼록 껍질 빌드
 	
 	// UI 버튼 클릭으로 mbr그리기, 색상 표현
 	void DrawObjectMBR(); // 객체 MBR 박스 그리기
 	void DrawQuadTreeNodeMBR(); // 노드 MBR 박스 그리기
-	void DrawCameraFrustum(CameraController& camera); // 카메라 절두체 시각화
 
 	void PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<Vertex>& vertices, unsigned char r, unsigned char g, unsigned char b, bool hasHeight); // mbr 정점 버퍼 삽입
 	void ApplyLevelColors(bool useLevelColor); // 라인/면 vertex 색상 다시 칠하기
 	void GetLevelColor(int32_t level, unsigned char& r, unsigned char& g, unsigned char& b); // 객체 레벨에 따른 색상 계산
-	
-	void SetDrawFrustum(bool isDrawed) { m_drawedFrustum = isDrawed; } // 프러스텀 그리기 토글
 
 	void SetSelectedObject(int32_t objectId, UIState& uiState); // 선택된 객체(피킹) 강조 표시
 	void HighlightObjectColor(int32_t objectId); // 피킹 객체 색상 강조
@@ -124,6 +118,4 @@ public:
 	std::vector<uint32_t>& GetPolygonIndices()  { return m_polygonIndices;   } // 면 인덱스 반환
 	std::vector<Vertex>&   GetPolygonVertices() { return m_polygonVertices;  } // 면 버텍스 반환
 
-	// 디버그용
-	void DrawDebugRect(const glm::dvec3& center, float size);
 };

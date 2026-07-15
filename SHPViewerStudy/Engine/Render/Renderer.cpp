@@ -35,7 +35,7 @@ bool Renderer::Initialize(HWND hWnd)
 	glGenBuffers(1, &m_fakeIBO);           // 가상 객체 인덱스 버퍼
 	glGenBuffers(1, &m_fakeIBOVisible);	   // 가시 가상 객체 인덱스 버퍼
 
-	RebuildQuadTree(); // 쿼드트리 생성
+	//RebuildQuadTree(); // 쿼드트리 생성
 	BuildMesh();
 
 	return true;
@@ -214,18 +214,11 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 		if (uiState.isShowObjectMBR)   DrawObjectMBR();           // 객체 MBR 그리기
 		if (uiState.isShowNodeMBR)     DrawQuadTreeNodeMBR();     // 노드 MBR 그리기
 	}
-
-	if (uiState.isShowFrustumView) DrawCameraFrustum(camera); // 카메라 절두체 라인 그리기
-	DrawDebugRect(hitPoint, 10.0f);
 }
 
 // 메쉬 빌드 진입점, 파일이 열리면 실행
 void Renderer::BuildMesh()
 {
-	TCHAR buf[256];
-	_stprintf_s(buf, _T("[Build Mesh] start\n"));
-	OutputDebugString(buf);
-
 	// 모든 멤버 클리어
 	m_polygonVertices.clear(); // TODO: 클리어 부분 하나로 모아서 함수 만들기
 	m_polygonIndices.clear();
@@ -262,10 +255,6 @@ void Renderer::BuildMesh()
 	m_polygonVertices.shrink_to_fit();
 	m_polygonIndices.shrink_to_fit();
 	m_lineIndices.shrink_to_fit();
-
-	//TCHAR buf[256];
-	_stprintf_s(buf, _T("[Build Mesh] finish\n"));
-	OutputDebugString(buf);
 }
 
 // 선(너비를 부여해 직사각형으로) 빌드
@@ -466,30 +455,6 @@ void Renderer::BuildPolygonMesh()
 	m_lineIndices.shrink_to_fit();
 }
 
-
-// 쿼드트리 재빌드 (파일 새로 로딩 시 호출)
-void Renderer::RebuildQuadTree()
-{
-	m_quadTree.BuildQuadTree(); // 트리 빌드
-	ApplyLevelColors(false);    // 트리에 따라 색상 적용
-
-	//auto fakeBuildStart = std::chrono::high_resolution_clock::now(); // 디버그용, 시간 측정
-
-	BuildFakeMeshes(); // 트리 빌드 후 각 노드의 가상 객체 메쉬 생성
-
-	// 디버그용, 시간 측정
-	/*
-	auto   fakeBuildEnd    = std::chrono::high_resolution_clock::now();
-	double fakeBuildMicros = std::chrono::duration<double, std::micro>(fakeBuildEnd - fakeBuildStart).count();
-	TCHAR buf[256];
-	_stprintf_s(buf, _T("시간 간격: %.1f\n"), fakeBuildMicros);
-	OutputDebugString(buf);
-	*/
-
-	//ReDraw(); // 다시 그리기
-}
-
-
 // 트리 빌드 후 각 노드의 LOD 메쉬 생성
 void Renderer::BuildFakeMeshes()
 {
@@ -686,64 +651,6 @@ void Renderer::DrawQuadTreeNodeMBR()
 	m_nodeMbrBoxVertices.shrink_to_fit();
 }
 
-// 카메라 절두체 시각화 (지면과 교차하는 4개 변), NDC 모서리 4개를 unproject해서 z=0 평면과의 교차점을 구해 라인으로 표시
-void Renderer::DrawCameraFrustum(CameraController& camera)
-{
-	if (m_layer.m_id != 0) return;
-
-	if (!m_drawedFrustum)
-	{
-		m_frustumLineVertices.clear();
-		m_frustumLineVertices.reserve(16); // 지면 투영 4개 라인(8개 정점) + AABB 4개 라인(8개 정점)
-
-		// TODO: screenToWorld 함수 사용
-		// 카메라 시야의 4개 NDC 모서리가 지면(z=0)과 만나는 실제 좌표 계산 (사다리꼴/사각형)
-		glm::dmat4 inverseViewProjectionMatrix = glm::inverse(camera.GetMatrix());
-		glm::vec2 ndcCorners[4] = { {-1.0f, -1.0f}, { 1.0f, -1.0f}, { 1.0f,  1.0f}, {-1.0f,  1.0f} };
-		glm::dvec3 hitPoints[4];
-
-		for (int32_t dataId = 0; dataId < 4; ++dataId) {
-			glm::vec4 nearPoint = inverseViewProjectionMatrix * glm::vec4(ndcCorners[dataId], -1.0f, 1.0f);
-			glm::vec4 farPoint  = inverseViewProjectionMatrix * glm::vec4(ndcCorners[dataId],  1.0f, 1.0f);
-			if (nearPoint.w != 0.0f) nearPoint /= nearPoint.w;
-			if (farPoint.w  != 0.0f) farPoint  /= farPoint.w;
-
-			glm::dvec3 rayOrigin = glm::dvec3(nearPoint);
-			glm::dvec3 rayDir = glm::dvec3(farPoint) - glm::dvec3(nearPoint);
-
-			if (std::abs(rayDir.z) > 1e-6) {
-				double t = -rayOrigin.z / rayDir.z;
-				if (t >= 0.0 && t <= 1.0) {
-					hitPoints[dataId].x = static_cast<float>(rayOrigin.x + t * rayDir.x);
-					hitPoints[dataId].y = static_cast<float>(rayOrigin.y + t * rayDir.y);
-				}
-				else {
-					hitPoints[dataId] = glm::dvec3(farPoint);
-				}
-			}
-			else {
-				hitPoints[dataId] = glm::dvec3(farPoint);
-			}
-		}
-
-		// 지면과 교차하는 실제 절두체 라인 조립
-		for (int32_t dataId = 0; dataId < 4; ++dataId) {
-			int32_t next = (dataId + 1) % 4;
-			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[dataId].x), static_cast<float>(hitPoints[dataId].y), 0.0f, 0, 0, 0, 255});
-			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[next].x),   static_cast<float>(hitPoints[next].y),   0.0f, 0, 0, 0, 255 });
-
-			m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[dataId].x), static_cast<float>(hitPoints[dataId].y), 0.0f, 25, 25, 100, 255 });
-			m_frustumLineVertices.push_back({ static_cast<float>(camera.transform.position.x), static_cast<float>(camera.transform.position.y), static_cast<float>(camera.transform.position.z), 25, 25, 100, 255 });
-		}
-
-		m_drawedFrustum = true;
-	}
-
-	if (m_frustumLineVertices.empty()) return;
-
-	// GPU 업로드 및 렌더링
-	UploadAndDraw(m_mbrVAO, m_mbrVBO, m_frustumLineVertices, GL_LINES);
-}
 
 // MBR 박스 출력에 사용
 void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<Vertex>& vertices, unsigned char r, unsigned char g, unsigned char b, bool hasHeight)
@@ -886,18 +793,3 @@ void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState)
 	glBufferSubData(GL_ARRAY_BUFFER, info.vertexOffset * sizeof(Vertex), info.vertexCount * sizeof(Vertex), m_polygonVertices.data() + info.vertexOffset);
 }
 
-void Renderer::DrawDebugRect(const glm::dvec3& center, float size)
-{
-	if (m_layer.m_id != 0) return;
-
-	float halfSize = size * 0.5f;
-
-	std::vector<Vertex> vertices(4);
-
-	vertices[0] = { static_cast<float>(center.x - halfSize), static_cast<float>(center.y - halfSize), static_cast<float>(center.z) + 1.0f, 255,0,0,255 };
-	vertices[1] = { static_cast<float>(center.x + halfSize), static_cast<float>(center.y - halfSize), static_cast<float>(center.z) + 1.0f, 255,0,0,255 };
-	vertices[2] = { static_cast<float>(center.x + halfSize), static_cast<float>(center.y + halfSize), static_cast<float>(center.z) + 1.0f, 255,0,0,255 };
-	vertices[3] = { static_cast<float>(center.x - halfSize), static_cast<float>(center.y + halfSize), static_cast<float>(center.z) + 1.0f, 255,0,0,255 };
-
-	UploadAndDraw(m_mbrVAO, m_mbrVBO, vertices, GL_LINE_LOOP);
-}

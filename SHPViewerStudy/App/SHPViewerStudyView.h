@@ -101,7 +101,6 @@ public:
 	virtual void OnDraw(CDC* pDC);
 	
 	void LinkCallbacksToUI();  // 좌측 패널 콜백 연결
-	void RefreshMap();                             // 파일 열기 시 화면 갱신
 	void InputKey(float deltaTime);                // 키 입력
 	glm::dvec3 ClientToWorldPos(CPoint clientPos); // 피킹 위치
 	glm::dvec3 PickingObj(CPoint clientPos);       // 피킹 객체
