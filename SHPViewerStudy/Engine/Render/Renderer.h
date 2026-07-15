@@ -97,6 +97,7 @@ public:
 
 	// 그리기 정보 빌드, 파일 열때 호출되는 함수들
 	void BuildMesh();         // 메쉬 빌드
+	void BuildPointMesh();    // 점 메쉬 빌드
 	void BuildPolyLineMesh(); // 선 메쉬 빌드
 	void BuildPolygonMesh();  // 면 메쉬 빌드
 	void BuildFakeMeshes();   // LOD용 간략화된 메쉬 빌드

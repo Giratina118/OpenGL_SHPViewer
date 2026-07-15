@@ -147,7 +147,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 		// 면 그리기
 		glBindVertexArray(m_polygonVAO); // 면 VAO 바인딩
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBOVisible); // 가시 인덱스 버퍼 바인딩
-		glDrawElements(GL_TRIANGLES, (GLsizei)totalPolygonIndices, GL_UNSIGNED_INT, nullptr); // 인덱스 드로우콜, 가시 인덱스 수만큼 그리기, 실제 그리기 명령
+		glDrawElements(GL_TRIANGLES,    (GLsizei)totalPolygonIndices, GL_UNSIGNED_INT, nullptr); // 인덱스 드로우콜, 가시 인덱스 수만큼 그리기, 실제 그리기 명령
 		glBindVertexArray(0); // VAO 바인딩 해제
 	}
 
@@ -176,7 +176,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 		glUniform1f(m_colorMultiplierLocation, 0.6f); // 어둡게
 		glBindVertexArray(m_polygonVAO);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
-		glDrawElements(GL_LINES, (GLsizei)totalLineIndices, GL_UNSIGNED_INT, nullptr);
+		glDrawElements(GL_LINES,     (GLsizei)totalLineIndices, GL_UNSIGNED_INT, nullptr);
 		glUniform1f(m_colorMultiplierLocation, 1.0f); // 복원
 		glBindVertexArray(0);
 	}
@@ -229,7 +229,7 @@ void Renderer::BuildMesh()
 	m_lineVisibleIndices.clear();
 
 	switch (m_layer.m_shapeType) {
-	case 1: break;
+	case 1: BuildPointMesh();    break;
 	case 3: BuildPolyLineMesh(); break; // 선 정점/인덱스 빌드, 선을 직사각형의 폴리곤으로 만들어 너비를 설정
 	case 5: BuildPolygonMesh();  break; // 면 정점/인덱스 빌드
 	}
@@ -257,15 +257,63 @@ void Renderer::BuildMesh()
 	m_lineIndices.shrink_to_fit();
 }
 
+void Renderer::BuildPointMesh()
+{
+	int32_t pointCount = static_cast<int32_t>(m_layer.pointObjects.size());
+	m_polygonDrawInfos.resize(pointCount);
+	m_lineDrawInfos.resize   (pointCount);
+	m_polygonVertices.reserve(pointCount * 12);
+	m_polygonIndices.reserve (pointCount * 12);
+	m_lineIndices.reserve    (pointCount * 12);
+
+	if (pointCount == 0) return;
+
+	double radian = 100.0;
+	glm::dvec2 dir[12] = {
+		{ 1.0,  0.0}, { 0.866,  0.5},   { 0.5,    0.866},
+		{ 0.0,  1.0}, {-0.5,    0.866}, {-0.866,  0.5},
+		{-1.0,  0.0}, {-0.866, -0.5},   {-0.5,   -0.866},
+		{ 0.0, -1.0}, { 0.5,   -0.866}, { 0.866, -0.5}
+	};
+
+	for (int32_t dataId = 0; dataId < pointCount; dataId++) {
+		PointObject& pointObj = m_layer.pointObjects[dataId];
+		uint32_t polygonVertStart  = (uint32_t)m_polygonVertices.size();
+		uint32_t polygonIndexStart = (uint32_t)m_polygonIndices.size();
+		uint32_t lineIndexStart    = (uint32_t)m_lineIndices.size();
+
+		for (int32_t angle = 0; angle < 12; angle++) {
+			glm::dvec2 point = pointObj.point + dir[angle] * m_layer.m_objSize;
+			m_polygonVertices.push_back({ static_cast<float>(point.x), static_cast<float>(point.y), 10.0, 200, 200, 50, 255 });
+		}
+		for (int32_t indicesNum = 0; indicesNum < 10; indicesNum++) {
+			m_polygonIndices.push_back({ polygonVertStart });
+			m_polygonIndices.push_back({ polygonVertStart + indicesNum + 1 });
+			m_polygonIndices.push_back({ polygonVertStart + indicesNum + 2 });
+		}
+		for (int32_t indicesNum = 0; indicesNum < 11; indicesNum++) {
+			m_lineIndices.push_back({ polygonVertStart + indicesNum });
+			m_lineIndices.push_back({ polygonVertStart + indicesNum + 1 });
+		}
+		m_lineIndices.push_back({ polygonVertStart + 11 });
+		m_lineIndices.push_back({ polygonVertStart });
+
+		uint32_t polygonVertCount  = (uint32_t)m_polygonVertices.size() - polygonVertStart;
+		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size()  - polygonIndexStart;
+		uint32_t lineIndexCount    = (uint32_t)m_lineIndices.size()     - lineIndexStart;
+
+		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
+		m_lineDrawInfos[dataId]    = { lineIndexStart, lineIndexCount, 0, 0 };
+	}
+
+	m_polygonVertices.shrink_to_fit();
+	m_polygonIndices.shrink_to_fit();
+	m_lineIndices.shrink_to_fit();
+}
+
 // 선(너비를 부여해 직사각형으로) 빌드
 void Renderer::BuildPolyLineMesh()
 {
-	m_polygonVertices.clear(); // TODO: 클리어 부분 하나로 모아서 함수 만들기
-	m_polygonIndices.clear();
-	m_polygonDrawInfos.clear();
-	m_lineIndices.clear();
-	m_lineDrawInfos.clear();
-
 	int32_t polyLineCount = static_cast<int32_t>(m_layer.polyLineObjects.size());
 	m_polygonDrawInfos.resize(polyLineCount);
 	m_lineDrawInfos.resize(polyLineCount);
@@ -283,13 +331,13 @@ void Renderer::BuildPolyLineMesh()
 
 		for (int32_t partNum = 0; partNum < polyLine.parts.size(); partNum++) {
 			int32_t startPoint = polyLine.parts[partNum];
-			int32_t endPoint = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : static_cast<int32_t>(polyLine.points.size());
+			int32_t endPoint   = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : static_cast<int32_t>(polyLine.points.size());
 			for (int32_t pointNum = startPoint; pointNum < endPoint - 1; pointNum++) {
-				glm::dvec2 pointOrigin1 = polyLine.points[pointNum];     //+(polyLine.points[pointNum] - polyLine.mbrBox.GetCenter()) * 100.0;
-				glm::dvec2 pointOrigin2 = polyLine.points[pointNum + 1]; //+(polyLine.points[pointNum + 1] - polyLine.mbrBox.GetCenter()) * 100.0;
-				glm::dvec2 lineDir      = pointOrigin2 - pointOrigin1; // 이 방향 벡터에 수직인 방향으로 두 point에 m_layer.m_objSize 만큼 떨어진 거리에 점 생성
+				glm::dvec2 pointOrigin1 = polyLine.points[pointNum];     //+(point.points[pointNum]     - point.mbrBox.GetCenter()) * 100.0;
+				glm::dvec2 pointOrigin2 = polyLine.points[pointNum + 1]; //+(point.points[pointNum + 1] - point.mbrBox.GetCenter()) * 100.0;
+				glm::dvec2 lineDir      = pointOrigin2 - pointOrigin1;   // 이 방향 벡터에 수직인 방향으로 두 point에 m_layer.m_objSize 만큼 떨어진 거리에 점 생성
 				glm::dvec2 widthDir     = glm::normalize(glm::dvec2(-lineDir.y, lineDir.x));   // 수직 벡터(너비 방향 벡터)
-				glm::dvec2 widthValue   = widthDir * static_cast<double>(m_layer.m_objSize);
+				glm::dvec2 widthValue   = widthDir * m_layer.m_objSize;
 				
 				glm::dvec2 point1 = pointOrigin1 + widthValue;
 				glm::dvec2 point2 = pointOrigin1 - widthValue;
@@ -333,18 +381,11 @@ void Renderer::BuildPolyLineMesh()
 // 면(지붕 + 벽) 메쉬 빌드. 폴리곤 객체만 대상
 void Renderer::BuildPolygonMesh()
 {
-	m_polygonVertices.clear(); // TODO: 클리어 부분 하나로 모아서 함수 만들기
-	m_polygonIndices.clear();
-	m_polygonDrawInfos.clear();
-	m_lineIndices.clear();
-	m_lineDrawInfos.clear();
-
 	int32_t polygonCount = static_cast<int32_t>(m_layer.polygonObjects.size());
 	m_polygonDrawInfos.resize(polygonCount);
 	m_lineDrawInfos.resize(polygonCount);
 	if (polygonCount == 0) return;
 
-	
 	// 삼각분할
 	struct TriResult {
 		std::vector<glm::dvec2> vertices;
