@@ -74,7 +74,7 @@ void CLeftPanel::Resize()
     }
 
     // 세 페이지 모두 같은 위치에 겹쳐 배치 (탭이 전환할 때 ShowWindow로 교체)
-    CRect pageRect(m_uiSize.marginX, pageTop + m_uiSize.gapHeight, m_uiSize.panelWidth - m_uiSize.marginX, pageTop + pageHeight - m_uiSize.gapHeight);
+    CRect pageRect(m_uiSize.marginX, pageTop + m_uiSize.marginY, m_uiSize.panelWidth - m_uiSize.marginX, pageTop + pageHeight - m_uiSize.marginY);
     m_pageControl.MoveWindow(pageRect);
     m_pageVisibility.MoveWindow(pageRect);
     m_pagePicking.MoveWindow(pageRect);

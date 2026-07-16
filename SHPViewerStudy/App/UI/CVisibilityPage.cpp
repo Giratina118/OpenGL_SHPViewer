@@ -1,6 +1,7 @@
 #include <pch.h>
 #include "CVisibilityPage.h"
 #include "resource.h"
+#include "ColorData.h"
 #include <array>
 
 BEGIN_MESSAGE_MAP(CVisibilityPage, CWnd)
@@ -68,13 +69,13 @@ void CVisibilityPage::CreateTabControls()
 
 void CVisibilityPage::Resize(UISize& uiSize)
 {
-    int32_t btnHeightGap  = uiSize.buttonHeight + uiSize.gapHeight;
+    int32_t btnHeightGap  = uiSize.buttonHeight + uiSize.marginY;
 	int32_t btnHeightHalf = uiSize.buttonHeight / 2;
     
     // ÅÇ2 ³»ºÎ
     for (int32_t i = 0; i < 7; i++) {
         CWnd* btns[] = { &m_buttonObjectMBR,&m_buttonNodeMBR, &m_buttonLevelColor,&m_buttonFrustumView, &m_buttonFakeObject, &m_buttonBuilding, &m_buttonMap };
-        btns[i]->MoveWindow(0, i * (uiSize.buttonHeight + uiSize.gapHeight), uiSize.buttonWidth, uiSize.buttonHeight);
+        btns[i]->MoveWindow(0, i * (uiSize.buttonHeight + uiSize.marginY), uiSize.buttonWidth, uiSize.buttonHeight);
     }
     m_staticViewRange.MoveWindow     (0,                          static_cast<int32_t>(btnHeightGap * 8.0f),  uiSize.buttonWidth,     btnHeightHalf);
     m_sliderViewRange.MoveWindow     (0,                          static_cast<int32_t>(btnHeightGap * 8.5f),  uiSize.buttonWidth,     btnHeightHalf);

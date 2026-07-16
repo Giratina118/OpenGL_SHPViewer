@@ -236,6 +236,7 @@ copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     <ClInclude Include="App\UI\CVisibilityPage.h" />
     <ClInclude Include="App\UI\UIState.h" />
     <ClInclude Include="Engine\CameraController.h" />
+    <ClInclude Include="Engine\ColorData.h" />
     <ClInclude Include="Engine\DBFTable.h" />
     <ClInclude Include="Engine\FeatureObject.h" />
     <ClInclude Include="Engine\Layer.h" />

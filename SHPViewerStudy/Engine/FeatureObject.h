@@ -3,9 +3,8 @@
 #include <vector>
 #include <optional>
 #include <string>
-#include <glm/gtc/type_ptr.hpp>
+#include "ColorData.h"
 #include "DBFTable.h"
-
 
 double CrossCheck(glm::dvec2 p1, glm::dvec2 p2, glm::dvec2 p3, glm::dvec2 p4); // 선분 교차 검사
 
@@ -13,7 +12,7 @@ double CrossCheck(glm::dvec2 p1, glm::dvec2 p2, glm::dvec2 p3, glm::dvec2 p4); /
 struct Vertex
 {
 	float x, y, z;
-	unsigned char r, g, b, a;
+	UCharColor color;
 };
 
 // 각 폴리곤별 IBO 위치 정보를 담을 구조체

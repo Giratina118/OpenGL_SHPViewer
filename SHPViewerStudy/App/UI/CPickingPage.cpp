@@ -27,8 +27,8 @@ void CPickingPage::CreateTabControls()
 
 void CPickingPage::Resize(UISize& uiSize)
 {
-	int32_t halfButtonWidth = uiSize.buttonWidth / 2 - uiSize.gapHeight;
-    int32_t btnHeightGap    = uiSize.buttonHeight + uiSize.gapHeight;
+	int32_t halfButtonWidth = uiSize.buttonWidth / 2 - uiSize.marginY;
+    int32_t btnHeightGap    = uiSize.buttonHeight + uiSize.marginY;
 
     // ÅÇ3 ³»ºÎ
     m_buttonPicking.MoveWindow    (0,               0,                uiSize.buttonWidth, uiSize.buttonHeight);

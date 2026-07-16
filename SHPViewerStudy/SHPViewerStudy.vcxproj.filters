@@ -154,6 +154,9 @@
     <ClInclude Include="App\UI\CLayerListCtrl.h">
       <Filter>App\UI</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\ColorData.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Render\Renderer.cpp">

@@ -71,11 +71,11 @@ void DbfParser::DbfParse(vector<uint8_t>& buffer, DBFTable& dbfTable) {
     /*
     // 한 레코드 당 569 바이트의 문자열,  총 472,691개의 레코드
     TCHAR buf[256]; 
-    _stprintf_s(buf, _T("\n\n[DBF] 컬럼 개수 = %d,  %d,  %d,  레코드 개수 = %d"), static_cast<int32_t>(dbfTable.columns.size()), columnCount, static_cast<int32_t>(dbfTable.columns.capacity()), rowCount);
+    _stprintf_s(buf, _T("\n\n[DBF] 컬럼 개수 = %d,  %d,  %d,  레코드 개수 = %d"), static_cast<int32_t>(m_dbfTable.columns.size()), columnCount, static_cast<int32_t>(m_dbfTable.columns.capacity()), rowCount);
     OutputDebugString(buf);
-    _stprintf_s(buf, _T("\n[DBF size]     정수 = %d,  실수 = %d,  논리 = %d,  문자 = %d"), static_cast<int32_t>(dbfTable.intColumns.size()), static_cast<int32_t>(dbfTable.doubleColumns.size()), static_cast<int32_t>(dbfTable.logicalColumns.size()), static_cast<int32_t>(dbfTable.stringColumns.size()));
+    _stprintf_s(buf, _T("\n[DBF size]     정수 = %d,  실수 = %d,  논리 = %d,  문자 = %d"), static_cast<int32_t>(m_dbfTable.intColumns.size()), static_cast<int32_t>(m_dbfTable.doubleColumns.size()), static_cast<int32_t>(m_dbfTable.logicalColumns.size()), static_cast<int32_t>(m_dbfTable.stringColumns.size()));
     OutputDebugString(buf);
-    _stprintf_s(buf, _T("\n[DBF capacity] 정수 = %d,  실수 = %d,  논리 = %d,  문자 = %d\n\n"), static_cast<int32_t>(dbfTable.intColumns.capacity()), static_cast<int32_t>(dbfTable.doubleColumns.capacity()), static_cast<int32_t>(dbfTable.logicalColumns.capacity()), static_cast<int32_t>(dbfTable.stringColumns.capacity()));
+    _stprintf_s(buf, _T("\n[DBF capacity] 정수 = %d,  실수 = %d,  논리 = %d,  문자 = %d\n\n"), static_cast<int32_t>(m_dbfTable.intColumns.capacity()), static_cast<int32_t>(m_dbfTable.doubleColumns.capacity()), static_cast<int32_t>(m_dbfTable.logicalColumns.capacity()), static_cast<int32_t>(m_dbfTable.stringColumns.capacity()));
     OutputDebugString(buf);
     */
 

@@ -34,8 +34,7 @@ bool Renderer::Initialize(HWND hWnd)
 	glGenBuffers(1, &m_fakeIBO);           // 가상 객체 인덱스 버퍼
 	glGenBuffers(1, &m_fakeIBOVisible);	   // 가시 가상 객체 인덱스 버퍼
 
-	//RebuildQuadTree(); // 쿼드트리 생성
-	BuildMesh();
+	BuildMesh(); // 메시 빌드
 
 	return true;
 }
@@ -64,21 +63,11 @@ void Renderer::InitBuffer(GLuint& vao, GLuint& vbo, GLuint* ibo)
 	glBindVertexArray(0); // vao 등록 해제
 }
 
-// 업로드 & 그리기 (객체 mbr, 노드 mbr, 절두체 사각형 등)
-void Renderer::UploadAndDraw(GLuint& vao, GLuint& vbo, std::vector<Vertex>& vertices, int drawType)
-{
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_DYNAMIC_DRAW);
-	glDrawArrays(drawType, 0, (GLsizei)vertices.size());
-	glBindVertexArray(0);
-}
-
 // GPU 리소스 해제
 void Renderer::Shutdown(HWND m_hWnd)
 {
 	if (m_shader.GetProgram() != 0) glDeleteProgram(m_shader.GetProgram());
-	
+
 	// 라인 메쉬 버퍼 해제
 	if (m_lineIBOVisible)    glDeleteBuffers(1, &m_lineIBOVisible);
 	if (m_polygonIBOVisible) glDeleteBuffers(1, &m_polygonIBOVisible);
@@ -97,129 +86,12 @@ void Renderer::Shutdown(HWND m_hWnd)
 	if (m_fakeIBO)           glDeleteBuffers(1, &m_fakeIBO);
 }
 
-// 메인 렌더 함수
-void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize, glm::dvec3 hitPoint, bool isSelected)
-{
-	// 쿼드트리에서 가시 객체 검색 (컬링, LOD)
-	if (!uiState.isShowFrustumView) {
-		m_renderObjectIds.clear();
-		m_quadTree.m_visibleNodeIds.clear();
-		m_quadTree.m_visibleNodeFakeObjIds.clear();
-
-		double halfFovRad = glm::radians(camera.fov * 0.5);
-		double lodFactor  = std::max(uiSize.clientHeight, 1) / (2.0 * std::tan(halfFovRad));
-		m_quadTree.SearchRenderingData(m_renderObjectIds, 0, camera, camera.transform.position, lodFactor);
-
-		m_currentRenderCount     = static_cast<int32_t>(m_renderObjectIds.size());
-		m_currentRenderFakeCount = static_cast<int32_t>(m_quadTree.m_visibleNodeFakeObjIds.size());
-	}
-
-	// 셰이더 설정
-	//m_shader.UseProgram();
-	//glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(camera.GetMatrix())));
-	//glUniform1f(m_colorMultiplierLocation, 1.0f); // 기본값
-
-	// TODO: 면, 라인, fake 그리는 함수를 한데 묶어 처리
-	// 면 가시 인덱스, 가시 인덱스를 모아서 GPU에 stream 업로드
-	size_t  totalPolygonIndices = 0;
-	int32_t polygonCount = static_cast<int32_t>(m_polygonDrawInfos.size());
-	for (int32_t id : m_renderObjectIds) { // 컬링 통과한 객체 ID를 순회
-		if (id < 0 || id >= polygonCount) continue; // ID 유효성 체크 (안전장치)
-		totalPolygonIndices += m_polygonDrawInfos[id].indexCount; // 총 가시 인덱스 수 계산
-	}
-	if (totalPolygonIndices > 0) { // 가시 인덱스가 하나라도 있으면 진행
-		m_polygonVisibleIndices.resize(totalPolygonIndices); // 가시 인덱스 임시 버퍼 크기 조정
-		uint32_t* writePtr = m_polygonVisibleIndices.data(); // 가시 인덱스 버퍼 채우기
-		
-		// 컬링 통과한 객체 ID 순회하면서 가시 인덱스 버퍼 채우기
-		for (int32_t id : m_renderObjectIds) {
-			if (id < 0 || id >= polygonCount) continue; // ID 유효성 체크
-			const DrawInfo& info = m_polygonDrawInfos[id]; // 객체별 인덱스 범위 정보
-			if (info.indexCount == 0) continue; // 인덱스 없는 객체는 건너뛰기
-			memcpy(writePtr, m_polygonIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t)); // CPU 측 전체 인덱스에서 해당 객체의 인덱스 범위를 가시 인덱스 버퍼로 복사
-			writePtr += info.indexCount; // 가시 인덱스 버퍼 쓰기 포인터 이동
-		}
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBOVisible); // 가시 인덱스 버퍼 바인딩
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalPolygonIndices, nullptr, GL_STREAM_DRAW); // nullptr로 먼저 한 번 호출 = "이전 버퍼 내용 버려, 새로 할당해줘"
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalPolygonIndices, m_polygonVisibleIndices.data(), GL_STREAM_DRAW); // 가시 인덱스 데이터 GPU로 업로드 (stream draw: 매 프레임 바뀌는 데이터 -> 드라이버가 빠른 쓰기용 메모리에 배치)
-
-		// 면 그리기
-		glBindVertexArray(m_polygonVAO); // 면 VAO 바인딩
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBOVisible); // 가시 인덱스 버퍼 바인딩
-		glDrawElements(GL_TRIANGLES,    (GLsizei)totalPolygonIndices, GL_UNSIGNED_INT, nullptr); // 인덱스 드로우콜, 가시 인덱스 수만큼 그리기, 실제 그리기 명령
-		glBindVertexArray(0); // VAO 바인딩 해제
-	}
-
-	// 라인 가시 인덱스
-	size_t  totalLineIndices = 0;
-	int32_t lineCount = static_cast<int32_t>(m_lineDrawInfos.size());
-	for (int32_t id : m_renderObjectIds) {
-		if (id < 0 || id >= lineCount) continue;
-		totalLineIndices += m_lineDrawInfos[id].indexCount;
-	}
-	if (totalLineIndices > 0) {
-		m_lineVisibleIndices.resize(totalLineIndices);
-		uint32_t* writePtr = m_lineVisibleIndices.data();
-
-		for (int32_t id : m_renderObjectIds) {
-			if (id < 0 || id >= lineCount) continue;
-			const DrawInfo& info = m_lineDrawInfos[id];
-			if (info.indexCount == 0) continue;
-			memcpy(writePtr, m_lineIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t));
-			writePtr += info.indexCount;
-		}
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLineIndices, nullptr, GL_STREAM_DRAW);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLineIndices, m_lineVisibleIndices.data(), GL_STREAM_DRAW);
-
-		glUniform1f(m_colorMultiplierLocation, 0.6f); // 어둡게
-		glBindVertexArray(m_polygonVAO);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
-		glDrawElements(GL_LINES,     (GLsizei)totalLineIndices, GL_UNSIGNED_INT, nullptr);
-		glUniform1f(m_colorMultiplierLocation, 1.0f); // 복원
-		glBindVertexArray(0);
-	}
-
-	// Fake Object (LOD 메쉬) 그리기
-	int32_t quadTreenodeCount = static_cast<int32_t>(m_quadTree.m_nodes.size());
-	if (uiState.isShowFakeObject) {
-		size_t totalLodIndices = 0;
-		for (int32_t nodeId : m_quadTree.m_visibleNodeFakeObjIds) {
-			if (nodeId < 0 || nodeId >= quadTreenodeCount) continue;
-			totalLodIndices += m_quadTree.m_nodes[nodeId].m_lodIndexCount;
-		}
-		if (m_quadTree.m_visibleNodeFakeObjIds.size() > 0) {
-			m_fakeVisibleIndices.resize(totalLodIndices);
-			uint32_t* writePtr = m_fakeVisibleIndices.data();
-			for (int32_t nodeId : m_quadTree.m_visibleNodeFakeObjIds) {
-				if (nodeId < 0 || nodeId >= quadTreenodeCount) continue;
-				const QuadTreeNode& node = m_quadTree.m_nodes[nodeId];
-				if (node.m_lodIndexCount == 0) continue;
-				memcpy(writePtr, m_fakeIndices.data() + node.m_lodIndexOffset, node.m_lodIndexCount * sizeof(uint32_t));
-				writePtr += node.m_lodIndexCount;
-			}
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBOVisible);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLodIndices, nullptr, GL_STREAM_DRAW);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLodIndices, m_fakeVisibleIndices.data(), GL_STREAM_DRAW);
-			
-			glBindVertexArray(m_polygonVAO);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBOVisible);
-			glDrawElements(GL_TRIANGLES, (GLsizei)totalLodIndices, GL_UNSIGNED_INT, nullptr);
-			glBindVertexArray(0);
-		}
-	}
-
-	if (isSelected) {
-		if (uiState.isShowObjectMBR)   DrawObjectMBR();           // 객체 MBR 그리기
-		if (uiState.isShowNodeMBR)     DrawQuadTreeNodeMBR();     // 노드 MBR 그리기
-	}
-}
-
+// 메쉬 빌드
 // 메쉬 빌드 진입점, 파일이 열리면 실행
 void Renderer::BuildMesh()
 {
 	// 모든 멤버 클리어
-	m_polygonVertices.clear(); // TODO: 클리어 부분 하나로 모아서 함수 만들기
+	m_polygonVertices.clear();
 	m_polygonIndices.clear();
 	m_polygonDrawInfos.clear();
 	m_polygonVisibleIndices.clear();
@@ -613,7 +485,6 @@ void Renderer::BuildConvexHullNode(QuadTreeNode& node)
 		return;
 	}
 
-	fakeObjCount++;
 
 	// m_lodVertexOffset = hull 정점 인덱스들이 시작되는 m_lodIndices 위치
 	node.m_lodVertexOffset = (uint32_t)m_fakeIndices.size();
@@ -626,11 +497,126 @@ void Renderer::BuildConvexHullNode(QuadTreeNode& node)
 	node.m_lodIndexOffset = (uint32_t)m_fakeIndices.size();
 	uint32_t base = node.m_lodVertexOffset;
 	for (int32_t i = 1; i < hullPointCount - 1; i++) {
-		m_fakeIndices.push_back(m_fakeIndices[base]);         // 실제 폴리곤 정점 인덱스
+		m_fakeIndices.push_back(m_fakeIndices[base]); // 실제 폴리곤 정점 인덱스
 		m_fakeIndices.push_back(m_fakeIndices[base + i]);
 		m_fakeIndices.push_back(m_fakeIndices[base + i + 1]);
 	}
 	node.m_lodIndexCount = (uint32_t)m_fakeIndices.size() - node.m_lodIndexOffset;
+}
+
+
+// 메인 렌더 함수
+void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize, bool isSelected)
+{
+	// 쿼드트리에서 가시 객체 검색 (컬링, LOD)
+	if (!uiState.isShowFrustumView) {
+		m_renderObjectIds.clear();
+		m_quadTree.m_visibleNodeIds.clear();
+		m_quadTree.m_visibleNodeFakeObjIds.clear();
+
+		double halfFovRad = glm::radians(camera.fov * 0.5);
+		double lodFactor = std::max(uiSize.clientHeight, 1) / (2.0 * std::tan(halfFovRad));
+		m_quadTree.SearchRenderingData(m_renderObjectIds, 0, camera, camera.transform.position, lodFactor);
+
+		m_currentRenderCount = static_cast<int32_t>(m_renderObjectIds.size());
+		m_currentRenderFakeCount = static_cast<int32_t>(m_quadTree.m_visibleNodeFakeObjIds.size());
+	}
+
+
+	// TODO: 면, 라인, fake 그리는 함수를 한데 묶어 처리
+	// 면 가시 인덱스, 가시 인덱스를 모아서 GPU에 stream 업로드
+	size_t  totalPolygonIndices = 0;
+	int32_t polygonCount = static_cast<int32_t>(m_polygonDrawInfos.size());
+	for (int32_t id : m_renderObjectIds) { // 컬링 통과한 객체 ID를 순회
+		if (id < 0 || id >= polygonCount) continue; // ID 유효성 체크 (안전장치)
+		totalPolygonIndices += m_polygonDrawInfos[id].indexCount; // 총 가시 인덱스 수 계산
+	}
+	if (totalPolygonIndices > 0) { // 가시 인덱스가 하나라도 있으면 진행
+		m_polygonVisibleIndices.resize(totalPolygonIndices); // 가시 인덱스 임시 버퍼 크기 조정
+		uint32_t* writePtr = m_polygonVisibleIndices.data(); // 가시 인덱스 버퍼 채우기
+
+		// 컬링 통과한 객체 ID 순회하면서 가시 인덱스 버퍼 채우기
+		for (int32_t id : m_renderObjectIds) {
+			if (id < 0 || id >= polygonCount) continue; // ID 유효성 체크
+			const DrawInfo& info = m_polygonDrawInfos[id]; // 객체별 인덱스 범위 정보
+			if (info.indexCount == 0) continue; // 인덱스 없는 객체는 건너뛰기
+			memcpy(writePtr, m_polygonIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t)); // CPU 측 전체 인덱스에서 해당 객체의 인덱스 범위를 가시 인덱스 버퍼로 복사
+			writePtr += info.indexCount; // 가시 인덱스 버퍼 쓰기 포인터 이동
+		}
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBOVisible); // 가시 인덱스 버퍼 바인딩
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalPolygonIndices, nullptr, GL_STREAM_DRAW); // nullptr로 먼저 한 번 호출 = "이전 버퍼 내용 버려, 새로 할당해줘"
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalPolygonIndices, m_polygonVisibleIndices.data(), GL_STREAM_DRAW); // 가시 인덱스 데이터 GPU로 업로드 (stream draw: 매 프레임 바뀌는 데이터 -> 드라이버가 빠른 쓰기용 메모리에 배치)
+
+		// 면 그리기
+		glBindVertexArray(m_polygonVAO); // 면 VAO 바인딩
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBOVisible); // 가시 인덱스 버퍼 바인딩
+		glDrawElements(GL_TRIANGLES, (GLsizei)totalPolygonIndices, GL_UNSIGNED_INT, nullptr); // 인덱스 드로우콜, 가시 인덱스 수만큼 그리기, 실제 그리기 명령
+		glBindVertexArray(0); // VAO 바인딩 해제
+	}
+
+	// 라인 가시 인덱스
+	size_t  totalLineIndices = 0;
+	int32_t lineCount = static_cast<int32_t>(m_lineDrawInfos.size());
+	for (int32_t id : m_renderObjectIds) {
+		if (id < 0 || id >= lineCount) continue;
+		totalLineIndices += m_lineDrawInfos[id].indexCount;
+	}
+	if (totalLineIndices > 0) {
+		m_lineVisibleIndices.resize(totalLineIndices);
+		uint32_t* writePtr = m_lineVisibleIndices.data();
+
+		for (int32_t id : m_renderObjectIds) {
+			if (id < 0 || id >= lineCount) continue;
+			const DrawInfo& info = m_lineDrawInfos[id];
+			if (info.indexCount == 0) continue;
+			memcpy(writePtr, m_lineIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t));
+			writePtr += info.indexCount;
+		}
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLineIndices, nullptr, GL_STREAM_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLineIndices, m_lineVisibleIndices.data(), GL_STREAM_DRAW);
+
+		glUniform1f(m_colorMultiplierLocation, 0.6f); // 어둡게
+		glBindVertexArray(m_polygonVAO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
+		glDrawElements(GL_LINES, (GLsizei)totalLineIndices, GL_UNSIGNED_INT, nullptr);
+		glUniform1f(m_colorMultiplierLocation, 1.0f); // 복원
+		glBindVertexArray(0);
+	}
+
+	// Fake Object (LOD 메쉬) 그리기
+	int32_t quadTreenodeCount = static_cast<int32_t>(m_quadTree.m_nodes.size());
+	if (uiState.isShowFakeObject) {
+		size_t totalLodIndices = 0;
+		for (int32_t nodeId : m_quadTree.m_visibleNodeFakeObjIds) {
+			if (nodeId < 0 || nodeId >= quadTreenodeCount) continue;
+			totalLodIndices += m_quadTree.m_nodes[nodeId].m_lodIndexCount;
+		}
+		if (m_quadTree.m_visibleNodeFakeObjIds.size() > 0) {
+			m_fakeVisibleIndices.resize(totalLodIndices);
+			uint32_t* writePtr = m_fakeVisibleIndices.data();
+			for (int32_t nodeId : m_quadTree.m_visibleNodeFakeObjIds) {
+				if (nodeId < 0 || nodeId >= quadTreenodeCount) continue;
+				const QuadTreeNode& node = m_quadTree.m_nodes[nodeId];
+				if (node.m_lodIndexCount == 0) continue;
+				memcpy(writePtr, m_fakeIndices.data() + node.m_lodIndexOffset, node.m_lodIndexCount * sizeof(uint32_t));
+				writePtr += node.m_lodIndexCount;
+			}
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBOVisible);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLodIndices, nullptr, GL_STREAM_DRAW);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLodIndices, m_fakeVisibleIndices.data(), GL_STREAM_DRAW);
+
+			glBindVertexArray(m_polygonVAO);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBOVisible);
+			glDrawElements(GL_TRIANGLES, (GLsizei)totalLodIndices, GL_UNSIGNED_INT, nullptr);
+			glBindVertexArray(0);
+		}
+	}
+
+	if (isSelected) {
+		if (uiState.isShowObjectMBR)   DrawObjectMBR();           // 객체 MBR 그리기
+		if (uiState.isShowNodeMBR)     DrawQuadTreeNodeMBR();     // 노드 MBR 그리기
+	}
 }
 
 // 객체 MBR 박스 그리기 (보이는 객체만)
@@ -656,9 +642,9 @@ void Renderer::DrawObjectMBR()
 		if (!mbrBox) continue;
 
 		int32_t level = (objectId < static_cast<int32_t>(m_quadTree.m_objectLevels.size())) ? m_quadTree.m_objectLevels[objectId] : 0;
-		unsigned char r, g, b;
-		GetLevelColor(level, r, g, b);
-		PushBoundingBoxLine(*mbrBox, m_objMbrBoxVertices, r, g, b, true);
+		UCharColor color;
+		GetLevelColor(level, color);
+		PushBoundingBoxLine(*mbrBox, m_objMbrBoxVertices, color, true);
 	}
 
 	if (m_objMbrBoxVertices.empty()) return;
@@ -678,9 +664,9 @@ void Renderer::DrawQuadTreeNodeMBR()
 	for (int32_t nodeId : m_quadTree.m_visibleNodeIds) {
 		if (nodeId < 0) continue;
 		const QuadTreeNode& node = m_quadTree.m_nodes[nodeId];
-		unsigned char r, g, b;
-		GetLevelColor(node.m_level, r, g, b);
-		PushBoundingBoxLine(node.m_boundingBox, m_nodeMbrBoxVertices, r, g, b, true);
+		UCharColor color;
+		GetLevelColor(node.m_level, color);
+		PushBoundingBoxLine(node.m_boundingBox/*.GetLooseBox(m_quadTree.m_looseBoxRate)*/, m_nodeMbrBoxVertices, color, true);
 	}
 
 	if (m_nodeMbrBoxVertices.empty()) return;
@@ -691,14 +677,24 @@ void Renderer::DrawQuadTreeNodeMBR()
 	m_nodeMbrBoxVertices.shrink_to_fit();
 }
 
-// MBR 박스 출력에 사용
-void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<Vertex>& vertices, unsigned char r, unsigned char g, unsigned char b, bool hasHeight)
+// 업로드 & 그리기 (객체 mbr, 노드 mbr, 절두체 사각형 등)
+void Renderer::UploadAndDraw(GLuint& vao, GLuint& vbo, std::vector<Vertex>& vertices, int drawType)
 {
-	unsigned char alpha = 255;
-	Vertex v0{ (float)boundingBox.minX, (float)boundingBox.minY, 0.0f, r, g, b, alpha };
-	Vertex v1{ (float)boundingBox.maxX, (float)boundingBox.minY, 0.0f, r, g, b, alpha };
-	Vertex v2{ (float)boundingBox.maxX, (float)boundingBox.maxY, 0.0f, r, g, b, alpha };
-	Vertex v3{ (float)boundingBox.minX, (float)boundingBox.maxY, 0.0f, r, g, b, alpha };
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_DYNAMIC_DRAW);
+	glDrawArrays(drawType, 0, (GLsizei)vertices.size());
+	glBindVertexArray(0);
+}
+
+// MBR 박스 출력에 사용
+void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<Vertex>& vertices, UCharColor color, bool hasHeight)
+{
+	color.alpha = 255;
+	Vertex v0{ (float)boundingBox.minX, (float)boundingBox.minY, 0.0f, color };
+	Vertex v1{ (float)boundingBox.maxX, (float)boundingBox.minY, 0.0f, color };
+	Vertex v2{ (float)boundingBox.maxX, (float)boundingBox.maxY, 0.0f, color };
+	Vertex v3{ (float)boundingBox.minX, (float)boundingBox.maxY, 0.0f, color };
 
 	vertices.push_back(v0); vertices.push_back(v1);
 	vertices.push_back(v1); vertices.push_back(v2);
@@ -706,10 +702,10 @@ void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<V
 	vertices.push_back(v3); vertices.push_back(v0);
 
 	if (hasHeight) {
-		Vertex v5{ (float)boundingBox.minX, (float)boundingBox.minY, (float)boundingBox.height, r, g, b, alpha };
-		Vertex v6{ (float)boundingBox.maxX, (float)boundingBox.minY, (float)boundingBox.height, r, g, b, alpha };
-		Vertex v7{ (float)boundingBox.maxX, (float)boundingBox.maxY, (float)boundingBox.height, r, g, b, alpha };
-		Vertex v8{ (float)boundingBox.minX, (float)boundingBox.maxY, (float)boundingBox.height, r, g, b, alpha };
+		Vertex v5{ (float)boundingBox.minX, (float)boundingBox.minY, (float)boundingBox.height, color };
+		Vertex v6{ (float)boundingBox.maxX, (float)boundingBox.minY, (float)boundingBox.height, color };
+		Vertex v7{ (float)boundingBox.maxX, (float)boundingBox.maxY, (float)boundingBox.height, color };
+		Vertex v8{ (float)boundingBox.minX, (float)boundingBox.maxY, (float)boundingBox.height, color };
 
 		vertices.push_back(v0); vertices.push_back(v5);
 		vertices.push_back(v1); vertices.push_back(v6);
@@ -735,9 +731,10 @@ void Renderer::ApplyLevelColors(bool useLevelColor)
 		const DrawInfo& info = m_polygonDrawInfos[dataId];
 		if (info.indexCount == 0) continue;
 
-		unsigned char r, g, b;
-		if (useLevelColor) GetLevelColor(m_quadTree.m_objectLevels[dataId], r, g, b);
-		else               { r = 190; g = 190; b = 220; }
+		//unsigned char r, g, b;
+		UCharColor color;
+		if (useLevelColor) GetLevelColor(m_quadTree.m_objectLevels[dataId], color);
+		else               color = { 190, 190, 220, 255 };
 
 		uint32_t end = info.indexOffset + info.indexCount;
 		for (uint32_t ii = info.indexOffset; ii < end; ii++) {
@@ -746,12 +743,8 @@ void Renderer::ApplyLevelColors(bool useLevelColor)
 			Vertex& vertex = m_polygonVertices[vertexIndex];
 
 			// z = 0 → 벽 하단 (어둡게), z = 1 → 지붕/벽 상단 (밝게)
-			// GPU가 두 점 사이를 자동 보간 → 벽에 자연스러운 그라디언트 생김
-			int32_t shade = (vertex.z < 0.5f) ? 2 : 1;
-			vertex.r = r / shade;
-			vertex.g = g / shade;
-			vertex.b = b / shade;
-			vertex.a = 255;
+			int32_t shade = (vertex.z < 0.5f) ? 3 : 2;
+			vertex.color = color / shade * 2;
 		}
 	}
 
@@ -763,27 +756,10 @@ void Renderer::ApplyLevelColors(bool useLevelColor)
 }
 
 // 트리 레벨에 따른 색상 설정
-void Renderer::GetLevelColor(int32_t level, unsigned char& r, unsigned char& g, unsigned char& b)
+void Renderer::GetLevelColor(int32_t level, UCharColor& color)
 {
 	int32_t levelToColor = level % (sizeof(palette) / sizeof(palette[0]));
-	r = palette[levelToColor].red; 
-	g = palette[levelToColor].green;
-	b = palette[levelToColor].blue;
-}
-
-void Renderer::SetSelectedObject(int32_t objectId, UIState& uiState)
-{
-	// 이전 선택 객체 색상 복원
-	if (m_selectedObjectId >= 0)
-		RestoreObjectColor(m_selectedObjectId, uiState);
-
-	m_selectedObjectId = objectId;
-
-	if (objectId < 0) return;
-
-	// 새 선택 객체 색상 강조
-	HighlightObjectColor(objectId);
-	//ReDraw();
+	color = palette[levelToColor];
 }
 
 // 피킹 객체 색상 강조
@@ -793,12 +769,8 @@ void Renderer::HighlightObjectColor(int32_t objectId)
 	if (info.vertexCount == 0) return;
 
 	// CPU 버퍼에서 해당 vertex 범위만 색상 변경
-	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
-		Vertex& vertex = m_polygonVertices[i];
-		vertex.r = 20; 
-		vertex.g = 230; 
-		vertex.b = 50;
-	}
+	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++)
+		m_polygonVertices[i].color = { 20, 230, 50, 255 };
 
 	// GPU의 해당 위치만 덮어쓰기
 	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
@@ -806,29 +778,22 @@ void Renderer::HighlightObjectColor(int32_t objectId)
 }
 
 // 강조했던 색상 복구
-void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState)
+void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState, bool isSelectedLayer)
 {
 	const DrawInfo& info = m_polygonDrawInfos[objectId];
 	if (info.vertexCount == 0) return;
 
-	// CPU 버퍼에서 원래 색상으로 복원
-	// ApplyLevelColors와 동일한 로직
-	bool useLevelColor = uiState.isShowLevelColor; // 현재 토글 상태
-	unsigned char r, g, b;
-	if (useLevelColor && objectId < static_cast<int32_t>(m_quadTree.m_objectLevels.size()))
-		GetLevelColor(m_quadTree.m_objectLevels[objectId], r, g, b);
-	else
-		r = 190; g = 190; b = 220;
+	// 원래 색상으로 복원, ApplyLevelColors와 동일한 로직
+	UCharColor color;
+	if (uiState.isShowLevelColor && isSelectedLayer) GetLevelColor(m_quadTree.m_objectLevels[objectId], color);
+	else color = { 190, 190, 220, 255 };
 
 	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
 		Vertex& vertex = m_polygonVertices[i];
-		int32_t shade = (vertex.z < 0.5f) ? 2 : 1;
-		vertex.r = r / shade; 
-		vertex.g = g / shade; 
-		vertex.b = b / shade;
+		int32_t shade = (vertex.z < 0.5f) ? 3 : 2;
+		vertex.color = color / shade * 2;
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
 	glBufferSubData(GL_ARRAY_BUFFER, info.vertexOffset * sizeof(Vertex), info.vertexCount * sizeof(Vertex), m_polygonVertices.data() + info.vertexOffset);
 }
-

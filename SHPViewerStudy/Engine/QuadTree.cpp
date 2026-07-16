@@ -43,15 +43,6 @@ void QuadTree::BuildQuadTree()
 // 데이터 삽입
 void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& dataMbrBox, bool isBuilding)
 {
-	assert(currentNodeId >= 0);
-	assert(currentNodeId < m_nodes.size());
-
-	assert(dataId >= 0);
-	assert(dataId < m_layer.polygonObjects.size());
-
-	assert(dataMbrBox.minX <= dataMbrBox.maxX);
-	assert(dataMbrBox.minY <= dataMbrBox.maxY);
-
 	QuadTreeNode& curNode    = m_nodes[currentNodeId]; // 현재 노드
 	BoundingBox&  curNodeBox = curNode.m_boundingBox;  // 현재 노드 mbr박스
 	BoundingBox*  curObjBox  = nullptr; // 현재 데이터 mbr박스
@@ -64,24 +55,31 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	case 5: curObjBox = &m_layer.polygonObjects[dataId].mbrBox;  break;
 	}
 	
-
 	// 최대 깊이일 경우 현재 노드에 데이터 삽입
 	if (curNode.m_level == m_maxLevel) {
 		curNode.m_objectIds.push_back(dataId);
 
-		if (isBuilding) curObjBox->SetHeight(m_layer.dbfTable.doubleColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.doubleColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
+		if (isBuilding) curObjBox->SetHeight(m_layer.m_dbfTable.doubleColumns[m_layer.m_dbfTable.heightPos][dataId], m_layer.m_dbfTable.doubleColumns[m_layer.m_dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
 		if (curObjBox->height > curNodeBox.height) curNodeBox.height = curObjBox->height;
 		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상)
 		return;
 	}
 
-	// 특정 크기 이상만 현재 노드에 데이터 삽입
+	double looseX = curNodeBox.GetLengthX() / 2 * m_looseBoxRate;
+	double looseY = curNodeBox.GetLengthY() / 2 * m_looseBoxRate;
+
+	// 특정 크기 이상만 현재 노드에 데이터 삽입, 루즈 쿼드트리 범위 확장 계산
 	if (curNodeBox.GetMaxExtent() * m_limitSizeRate < dataMbrBox.GetMaxExtent() ||
-		nodeCenter.x - dataMbrBox.minX > curNodeBox.GetLengthX() * m_looseBoxRate && dataMbrBox.maxX - nodeCenter.x > curNodeBox.GetLengthX() * m_looseBoxRate ||
-		nodeCenter.y - dataMbrBox.minY > curNodeBox.GetLengthY() * m_looseBoxRate && dataMbrBox.maxY - nodeCenter.y > curNodeBox.GetLengthY() * m_looseBoxRate) {
+		curNodeBox.minX - dataMbrBox.minX > looseX && dataMbrBox.maxX - curNodeBox.minX > looseX ||
+		nodeCenter.x    - dataMbrBox.minX > looseX && dataMbrBox.maxX - nodeCenter.x    > looseX ||
+		curNodeBox.maxX - dataMbrBox.minX > looseX && dataMbrBox.maxX - curNodeBox.maxX > looseX ||
+		curNodeBox.minY - dataMbrBox.minY > looseY && dataMbrBox.maxY - curNodeBox.minY > looseY ||
+		nodeCenter.y    - dataMbrBox.minY > looseY && dataMbrBox.maxY - nodeCenter.y    > looseY ||
+		curNodeBox.maxY - dataMbrBox.minY > looseY && dataMbrBox.maxY - curNodeBox.maxY > looseY)
+	{
 		curNode.m_objectIds.push_back(dataId);
 
-		if (isBuilding) curObjBox->SetHeight(m_layer.dbfTable.doubleColumns[m_layer.dbfTable.heightPos][dataId], m_layer.dbfTable.doubleColumns[m_layer.dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
+		if (isBuilding) curObjBox->SetHeight(m_layer.m_dbfTable.doubleColumns[m_layer.m_dbfTable.heightPos][dataId], m_layer.m_dbfTable.doubleColumns[m_layer.m_dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
 		if (curObjBox->height > curNodeBox.height) curNodeBox.height = curObjBox->height;
 		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상용)
 		return;
@@ -337,15 +335,15 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 	QuadTreeNode& node = m_nodes[currentNodeId];
 
 	if (!node.m_isVisibleNode) return selectDataId; // 노드가 안 보이면 넘기기 -> 화면에 보이는 객체만 클릭할 수 있도록
-	if (!node.m_boundingBox.IsOnCollisionRay(rayStart, rayDir)) return selectDataId; // TODO: 카메라와 노드 접촉점의 거리가 minDistance 보ek 작으면 그냥 노드 넘기도록
-	
+	//if (!node.m_boundingBox.IsOnCollisionRay(rayStart, rayDir)) return selectDataId; // TODO: 카메라와 노드 접촉점의 거리가 minDistance 보다 작으면 그냥 노드 넘기도록
+	if (!node.m_boundingBox.GetLooseBox(m_looseBoxRate).IsOnCollisionRay(rayStart, rayDir)) return selectDataId;
+
 	// 노드 자신의 안에 있는 데이터들이 충돌하는지
 	if (node.m_objectIds.size() > 0) {
 		for (int32_t dataId : node.m_objectIds) {
 			PolyObject& polygon = m_layer.polygonObjects[dataId];
-			if (!polygon.mbrBox.IsOnCollisionRay(rayStart, rayDir)) continue; // 접하지 않으면 넘기기
-
-			//double collisionRation = polygon.OnCollisionRay(rayOrigin, rayDir, m_nodes[0].m_boundingBox.height); // 폴리곤 mbr 검사
+			//if (!polygon.mbrBox.IsOnCollisionRay(rayStart, rayDir)) continue; // 접하지 않으면 넘기기
+			if (!polygon.mbrBox.GetLooseBox(m_looseBoxRate).IsOnCollisionRay(rayStart, rayDir)) continue; // 접하지 않으면 넘기기
 
 			for (uint32_t indicesId = polygonDrawInfos[dataId].indexOffset; indicesId < polygonDrawInfos[dataId].indexOffset + polygonDrawInfos[dataId].indexCount; indicesId += 3) {
 				uint32_t index0 = polygonIndices[indicesId + 0];
@@ -362,13 +360,6 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 					selectDataId = dataId;
 				}
 			}
-
-			/*
-			if (collisionRation >= 0.0 && collisionRation <= 1.0 && collisionRation < minDistanceRation) { // 충돌 거리가 가장 가깝다면 저장
-				minDistanceRation = collisionRation;
-				selectDataId = dataId;
-			}
-			*/
 		}
 	}
 	
@@ -376,40 +367,12 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 	for (int32_t childNodeId : node.m_childNodes) {
 		if (childNodeId == -1) continue; // 자식노드 없으면 넘기기
 		QuadTreeNode& childNode = m_nodes[childNodeId];
-		if (!childNode.m_boundingBox.IsOnCollisionRay(rayStart, rayDir)) continue; // 자식노드와 접하지 않으면 넘기기
+		//if (!childNode.m_boundingBox.IsOnCollisionRay(rayStart, rayDir)) continue; // 자식노드와 접하지 않으면 넘기기
+		if (!childNode.m_boundingBox.GetLooseBox(m_looseBoxRate).IsOnCollisionRay(rayStart, rayDir)) continue; // 자식노드와 접하지 않으면 넘기기
 
 		int32_t childPickingId = SearchPickingData(rayStart, rayDir, childNodeId, minDistance, polygonDrawInfos, polygonIndices, polygonVertices);
 		if (childPickingId != -1) selectDataId = childPickingId;
 	}
-	
-
-	/*
-	// 데이터와 충돌하는지 검사
-	if (!m_nodes[currentNodeId].m_objectIds.empty()) {
-		for (int32_t dataId : m_nodes[currentNodeId].m_objectIds) {
-			// 충돌한다면 dataId 반환
-
-			// TODO: 현재는 폴리곤만 고려
-			if (layer.polygonObjects[dataId].mbrBox.IsOnCollisionPoint(hitPoint)) {
-				glm::dvec2 objBoxCenter = layer.polygonObjects[dataId].mbrBox.GetCenter();
-				double newDistance = (objBoxCenter.x - hitPoint.x) * (objBoxCenter.x - hitPoint.x) + (objBoxCenter.y - hitPoint.y) * (objBoxCenter.y - hitPoint.y);
-
-				if (minDistanceRation > newDistance) {
-					minDistanceRation = newDistance;
-					selectDataId = dataId;
-				}
-			}
-		}
-	}
-
-	// 자식 노드로 재귀 탐색
-	for (int32_t childNodeId : m_nodes[currentNodeId].m_childNodes) {
-		if (childNodeId != -1) {
-			int32_t dataId = SearchPickingData(layer, rayOrigin, hitPoint, rayDir, childNodeId, minDistanceRation);
-			if (dataId != -1) selectDataId = dataId; // 충돌하는 데이터가 있다면 반환
-		}
-	}
-	*/
 	
 	return selectDataId; // 충돌하는 데이터가 없다면 -1 반환
 }

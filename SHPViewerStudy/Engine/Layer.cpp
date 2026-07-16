@@ -16,8 +16,6 @@ Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox
     newLayer.m_boundingBox = layerBox;
     newLayer.m_isVisible   = true;
 	if (layers.size() == 1) newLayer.m_isBuilding = true; // 첫 번째 레이어(건물 정보)일 시 표시, 높이값 적용을 위해
-
-    m_boundingBox = m_boundingBox.CombineBox(layerBox);
     return newLayer;
 }
 
@@ -41,10 +39,9 @@ bool LayerManager::InitRenderer(HWND hWnd, UIState* uiState)
     if (!InitEGL(hWnd)) return false;
     for (std::unique_ptr<Layer>& layer : layers) layer->m_renderer = std::make_unique<Renderer>(hWnd, *layer, *layer->m_quadTree);
 
-
     // 셰이더 설정
     if (!m_shader.CreateProgram("Resource/Shader/shader.vert", "Resource/Shader/shader.frag")) return false;
-    m_viewProjectionLocation = glGetUniformLocation(m_shader.GetProgram(), "u_viewProjection");
+    m_viewProjectionLocation  = glGetUniformLocation(m_shader.GetProgram(), "u_viewProjection");
     m_colorMultiplierLocation = glGetUniformLocation(m_shader.GetProgram(), "u_colorMultiplier");
 
     // 깊이 테스트 활성화 (3D 건물, 면/라인 z-fighting 해결에 필요)
@@ -135,19 +132,19 @@ void LayerManager::Shutdown(HWND hWnd)
     }
 }
 
+// 메인 렌더 함수
 void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 hitPoint)
 {
     // render여부 체크 -> 변화 없으면 그냥 return (CPU/GPU idle, 화면은 이전 프레임 유지)
-    bool needRebuild = camera.GetCameraChange() || m_needRedraw;
-    if (!needRebuild) return;
+    if (!m_needRedraw) return;
 
     m_shader.UseProgram();
-    glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(camera.GetMatrix())));
+    glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(camera.GetViewProjectionMatrix())));
     glUniform1f(m_colorMultiplierLocation, 1.0f); // 기본값
 
     // 실제 EGL surface 크기 (윈도우와 다를 수 있음 - 리사이즈 중 한 프레임 지연)
     EGLint surficeWidth = 0, surficeHeight = 0;
-    eglQuerySurface(m_display, m_surface, EGL_WIDTH, &surficeWidth);
+    eglQuerySurface(m_display, m_surface, EGL_WIDTH,  &surficeWidth);
     eglQuerySurface(m_display, m_surface, EGL_HEIGHT, &surficeHeight);
     if (surficeWidth <= 0 || surficeHeight <= 0) { surficeWidth = uiSize.clientWidth; surficeHeight = uiSize.clientHeight; }
 
@@ -173,7 +170,7 @@ void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 h
         if (renderer != nullptr && !(!m_uiState->isShowBuilding && layers[layerId]->m_isBuilding)) {
             //glEnable(GL_POLYGON_OFFSET_FILL);
             //glPolygonOffset(0.5f, 4.0f);
-            renderer->Render(camera, *m_uiState, uiSize, hitPoint, isSelectedLayer);
+            renderer->Render(camera, *m_uiState, uiSize, isSelectedLayer);
         }
         else {
             //glEnable(GL_POLYGON_OFFSET_FILL);
@@ -182,25 +179,25 @@ void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 h
     }
     //glDisable(GL_POLYGON_OFFSET_FILL);
 
-
     if (m_uiState->isShowFrustumView) DrawCameraFrustum(camera); // 카메라 절두체 라인 그리기
     DrawDebugRect(hitPoint, 10.0f);
-
 
     glDisable(GL_SCISSOR_TEST);           // UI 패널 제외한 영역에만 그리기 설정 해제
     eglSwapBuffers(m_display, m_surface); // 화면에 그려진 결과 출력 (더블 버퍼링에서 백 버퍼와 프론트 버퍼 교체, 실제로는 GPU가 알아서 최적화해서 처리)
 
     // surface가 아직 윈도우 크기를 못 따라잡았으면 다음 프레임에 다시 그림
     if (surficeWidth != uiSize.clientWidth || surficeHeight != uiSize.clientHeight) ReDraw();
-    else { m_needRedraw = false; camera.SetCameraChange(); }
+    else { m_needRedraw = false; }
 }
 
+// 창 크기 변경
 void LayerManager::Resize(int32_t screenWidth, int32_t screenHeight, int32_t panelWidthLeft)
 {
     glViewport(panelWidthLeft, 0, screenWidth - panelWidthLeft, screenHeight);
     ReDraw();
 }
 
+// 객체 개수 세기
 void LayerManager::CountObject(int32_t& totalObjCount, int32_t& renderObjCount, int32_t& fakeObjCount)
 {
     for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
@@ -213,6 +210,7 @@ void LayerManager::CountObject(int32_t& totalObjCount, int32_t& renderObjCount, 
     }
 }
 
+// 피킹
 void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel& rightPanel)
 {
     int32_t beforePickingDataId  = pickingDataId;  // 이전 피킹 데이터
@@ -225,9 +223,7 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
 
     for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
-
-        int32_t beforeDistance = collisionDistance; // 현재 가장 가까운 거리
-
+        
         // 현재 가장 가까운 거리보다 더 가까운 거리에서 객체와 접했을 경우 -1 이외의 수 저장
         hitObj = layers[layerId]->m_quadTree->SearchPickingData(rayStart, rayDir, 0, collisionDistance, layers[layerId]->m_renderer->GetPolygonDrawInfo(), layers[layerId]->m_renderer->GetPolygonIndices(), layers[layerId]->m_renderer->GetPolygonVertices());
         if (hitObj != -1) { 
@@ -236,9 +232,12 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
         }
     }
 
+    bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == beforePickingLayerId);
+
     // 객체가 없는 빈 공간 선택 또는 이전과 같은 객체 선택 시 색 복구
     if (pickingDataId == -1 && beforePickingDataId != -1 || pickingDataId != -1 && beforePickingDataId == pickingDataId && beforePickingLayerId == pickingLayerId) {
-        layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState);
+        
+        layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState, isSelectedLayer);
         rightPanel.Show(false);
         pickingLayerId = pickingDataId = -1;
         return; 
@@ -249,12 +248,13 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
 
     // 새로운 객체 선택
     if (pickingDataId != -1) {
-        if (beforePickingLayerId != -1) layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState);
+        if (beforePickingLayerId != -1) layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState, isSelectedLayer);
         layers[pickingLayerId]->m_renderer->HighlightObjectColor(pickingDataId);
-        rightPanel.SetPickingInfo(layers[pickingLayerId]->dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
+        rightPanel.SetPickingInfo(layers[pickingLayerId]->m_dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
     }
 }
 
+// 객체 색상 지정
 void LayerManager::ApplyObjectColorWithLevel()
 {
     for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
@@ -268,12 +268,11 @@ void LayerManager::ApplyObjectColorWithLevel()
 // 카메라 절두체 시각화 (지면과 교차하는 4개 변), NDC 모서리 4개를 unproject해서 z=0 평면과의 교차점을 구해 라인으로 표시
 void LayerManager::DrawCameraFrustum(CameraController& camera)
 {
-    //if (m_layer.m_id != 0) return;
     if (!m_drawedFrustum) {
         m_frustumLineVertices.clear();
         m_frustumLineVertices.reserve(16);
 
-        glm::dmat4 inverseViewProjectionMatrix = glm::inverse(camera.GetMatrix());
+        glm::dmat4 inverseViewProjectionMatrix = glm::inverse(camera.GetViewProjectionMatrix());
         glm::vec2 ndcCorners[4] = { {-1.0f, -1.0f}, { 1.0f, -1.0f}, { 1.0f,  1.0f}, {-1.0f,  1.0f} };
         glm::dvec3 hitPoints[4];
 
@@ -284,7 +283,7 @@ void LayerManager::DrawCameraFrustum(CameraController& camera)
             if (farPoint.w  != 0.0f) farPoint  /= farPoint.w;
 
             glm::dvec3 rayOrigin = glm::dvec3(nearPoint);
-            glm::dvec3 rayDir = glm::dvec3(farPoint) - glm::dvec3(nearPoint);
+            glm::dvec3 rayDir    = glm::dvec3(farPoint) - glm::dvec3(nearPoint);
 
             if (std::abs(rayDir.z) > 1e-6) {
                 double t = -rayOrigin.z / rayDir.z;
@@ -307,7 +306,6 @@ void LayerManager::DrawCameraFrustum(CameraController& camera)
             m_frustumLineVertices.push_back({ static_cast<float>(hitPoints[dataId].x), static_cast<float>(hitPoints[dataId].y), 0.0f, 25, 25, 100, 255 });
             m_frustumLineVertices.push_back({ static_cast<float>(cameraPosition.x),    static_cast<float>(cameraPosition.y),    static_cast<float>(cameraPosition.z), 25, 25, 100, 255 });
         }
-
         m_drawedFrustum = true;
     }
 
@@ -337,16 +335,6 @@ void LayerManager::DrawDebugPrimitives(const std::vector<Vertex>& vertices, GLen
     glBindVertexArray(m_debugVAO);
     glBindBuffer(GL_ARRAY_BUFFER, m_debugVBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_DYNAMIC_DRAW);
-    glDrawArrays(drawMode, 0, vertices.size()); // 그리기
+    glDrawArrays(drawMode, 0, static_cast<GLsizei>(vertices.size())); // 그리기
     glBindVertexArray(0);
 }
-
-/*
-void LayerManager::CleanPoints()
-{
-    // TODO: 현재 폴리곤만 있음
-    // 사용한 정점 정보 정리
-    for (PolyObject& polygonObject : polygonObjects)
-        polygonObject.ClearData();
-}
-*/

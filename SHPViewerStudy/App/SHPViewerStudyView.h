@@ -44,15 +44,12 @@ private:
 	int32_t m_frameCount     = 0;    // 프레임 카운트
 
 	// 마우스, 좌표 정보
-	bool    m_isCameraThirdMode = false; // 카메라 모드, false: 1인칭(기본), true: 3인칭
-	bool    m_isPickingMode     = false; // 피킹 모드, 버튼으로 on/off
+	bool   m_isLButtonDragging = false; // 마우스 좌클릭 눌림 상태
+	bool   m_isRButtonDragging = false; // 마우스 우클릭 눌림 상캐
+	CPoint m_mouseClientPos;            // 마우스 스크린 좌표
 	glm::dvec3 m_rayStart;
 	glm::dvec3 m_rayDir;
-
-	bool    m_isLButtonDragging = false; // 마우스 좌클릭 눌림 상태
-	bool    m_isRButtonDragging = false; // 마우스 우클릭 눌림 상캐
-	CPoint  m_mouseClientPos;		     // 마우스 스크린 좌표
-	glm::dvec3 m_hitPoint;               // 스크린 -> 월드 좌표
+	glm::dvec3 m_hitPoint;              // 스크린 -> 월드 좌표, TODO: 언젠가 지우기
 
 
 	// 성능 측정, 디버그 용도
@@ -94,14 +91,15 @@ public:
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
 	virtual void OnDraw(CDC* pDC);
 	
-	void LinkCallbacksToUI();  // 좌측 패널 콜백 연결
+	void LinkCallbacksToUI();                      // 좌측 패널 콜백 연결
 	void InputKey(float deltaTime);                // 키 입력
 	glm::dvec3 ClientToWorldPos(CPoint clientPos); // 피킹 위치
-	void PickingObj(CPoint clientPos);       // 피킹 객체
+	void PickingObj(CPoint clientPos);             // 피킹 객체
+	void OpenFileCommon();                         // 파일 열기 공통 (파일 연 이후 공통동작)
 	bool IsInUIPanel(const CPoint& mousePoint) const { return mousePoint.x < m_panelLeft.GetWidth() || mousePoint.x > m_uiSize.clientWidth - m_panelRight.GetWidth(); } // UI 마우스 이벤트가 3D 영역인지 판별
 
-
-	void TestTimeAboutAltitude(double altitude); // 카메라 자동 이동 (동일 환경에서 디버그 데이터 수집)
+	// 테스트용
+	void TestTimeAboutAltitude(double altitude);   // 카메라 자동 이동 (동일 환경에서 디버그 데이터 수집)
 };
 
 /*
