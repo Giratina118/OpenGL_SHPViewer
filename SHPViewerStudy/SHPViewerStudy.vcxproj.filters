@@ -157,6 +157,9 @@
     <ClInclude Include="Engine\ColorData.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Parser\CoordinateSystem.h">
+      <Filter>Engine\Parser</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Render\Renderer.cpp">
@@ -230,6 +233,9 @@
     </ClCompile>
     <ClCompile Include="App\UI\CLayerListCtrl.cpp">
       <Filter>App\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Parser\CoordinateSystem.cpp">
+      <Filter>Engine\Parser</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

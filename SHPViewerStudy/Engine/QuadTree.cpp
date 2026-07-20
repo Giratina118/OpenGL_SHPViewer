@@ -187,7 +187,6 @@ void QuadTree::SearchRenderingData(std::vector<int32_t>& renderObjectIds, int32_
 		}
 	}
 
-
 	// 완전히 포함되는가
 	if (nodeFrustumState == FrustumState::INSIDE) {
 		InputRenderingDataAll(renderObjectIds, currentNodeId, camera, cameraPos, worldToScreenScale);
