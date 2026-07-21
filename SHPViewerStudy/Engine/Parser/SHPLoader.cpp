@@ -103,6 +103,19 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     if (hasPrj) { 
         prjCoordinate.PrjParse(prjBuffer); 
 
+        TCHAR debugBuf[512];
+        double a    = prjCoordinate.gcs.ellipsoid.semiMajorAxis;
+        double invF = prjCoordinate.gcs.ellipsoid.inverseFlattening;
+        double cm   = prjCoordinate.pcs.parameters[Parameter::CentralMeridian];
+        double lo   = prjCoordinate.pcs.parameters[Parameter::LatitudeOfOrigin];
+        double fe   = prjCoordinate.pcs.parameters[Parameter::FalseEasting];
+        double fn   = prjCoordinate.pcs.parameters[Parameter::FalseNorthing];
+
+        _stprintf_s(debugBuf, _T("\n[PRJ Parse Data] 장반경(a): %f, 편평률 역수(1/f): %f, 중심자오선: %f, 기준 위도: %f, FE: %f, FN: %f\n\n"),
+            a, invF, cm, lo, fe, fn);
+        OutputDebugString(debugBuf);
+
+        
         // TODO: layerManager나 시스템 전역 설정에서 뷰어의 '목표 좌표계(Destination)'를 가져옵니다.
         CoordinateSystem destCoordinate;
         CoordinateTransformer transformer;
@@ -110,7 +123,16 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
         destCoordinate.SetTargetCoordinate(5186);
 
         // 원본과 목표 좌표계가 다를 경우에만 변환 수행, TODO: epsg 번호 저장하여 비교하는 것으로 변경
-        if (prjCoordinate.pcs.name == destCoordinate.pcs.name && prjCoordinate.gcs.name == destCoordinate.gcs.name) {
+        if (prjCoordinate.pcs.name != destCoordinate.pcs.name || prjCoordinate.gcs.name != destCoordinate.gcs.name) {
+            double layerMinX = std::numeric_limits<double>::max();
+            double layerMinY = std::numeric_limits<double>::max();
+            double layerMaxX = std::numeric_limits<double>::lowest();
+            double layerMaxY = std::numeric_limits<double>::lowest();
+
+            double objMinX = std::numeric_limits<double>::max();
+            double objMinY = std::numeric_limits<double>::max();
+            double objMaxX = std::numeric_limits<double>::lowest();
+            double objMaxY = std::numeric_limits<double>::lowest();
 
             // 1. Point 객체 변환 및 MBR 재계산
             for (auto& obj : newLayer.pointObjects) {
@@ -118,12 +140,41 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
                 obj.SetMBRBox(); // 변환된 좌표로 갱신
             }
 
-            // 2. PolyLine / Polygon / MultiPoint 객체 변환 (람다 활용)
+            // 2. PolyLine / Polygon 객체 변환 (람다 활용)
             auto transformPolyObjects = [&](auto& objects) {
                 for (auto& obj : objects) {
-                    for (auto& pt : obj.points) {
-                        pt = transformer.Transform(pt, prjCoordinate, destCoordinate);
+                    objMinX = std::numeric_limits<double>::max();
+                    objMinY = std::numeric_limits<double>::max();
+                    objMaxX = std::numeric_limits<double>::lowest();
+                    objMaxY = std::numeric_limits<double>::lowest();
+
+                    for (auto& point : obj.points) {
+                        point = transformer.Transform(point, prjCoordinate, destCoordinate);
+
+                        // 객체 mbr 박스 계산
+                        if (point.x < objMinX) objMinX = point.x;
+                        if (point.x > objMaxX) objMaxX = point.x;
+                        if (point.y < objMinY) objMinY = point.y;
+                        if (point.y > objMaxY) objMaxY = point.y;
                     }
+
+                    glm::dvec2 mbrMin = { objMinX, objMinY };
+                    glm::dvec2 mbrMax = { objMaxX, objMaxY };
+                    obj.SetMBRBox(mbrMin, mbrMax);
+                    
+
+                    // 레이어 mbr 박스 계산
+                    if (objMinX < layerMinX) layerMinX = objMinX;
+                    if (objMaxX > layerMaxX) layerMaxX = objMaxX;
+                    if (objMinY < layerMinY) layerMinY = objMinY;
+                    if (objMaxY > layerMaxY) layerMaxY = objMaxY;
+
+
+                    //TCHAR buf[256];
+                    //_stprintf_s(buf, _T("[OBJ MBR Box] minX: %f, minY: %f, maxX: %f, maxY: %f\n"), obj.mbrBox.minX, obj.mbrBox.minY, obj.mbrBox.maxX, obj.mbrBox.maxY);
+                    //OutputDebugString(buf);
+                    
+
                     // 주의: 도형의 정점들이 바뀌었으므로 obj의 mbrBox를 새로 계산하는 함수가 필요합니다.
                     // obj.UpdateMBRBox(); 
                 }
@@ -131,12 +182,28 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
 
             transformPolyObjects(newLayer.polyLineObjects);
             transformPolyObjects(newLayer.polygonObjects);
-            transformPolyObjects(newLayer.multiPointObjects);
             // multiPatchObjects 도 동일하게 처리
 
             // 3. 레이어 전체의 BoundingBox(m_boundingBox)도 새로 계산된 객체들의 MBR을 합쳐서 갱신해야 합니다.
-            // newLayer.UpdateLayerBoundingBox();
+            glm::dvec2 mbrMin = { layerMinX, layerMinY };
+            glm::dvec2 mbrMax = { layerMaxX, layerMaxY };
+            newLayer.SetMBRBox(mbrMin, mbrMax);
+
+
+            TCHAR debugBuf[256];
+            double a = prjCoordinate.gcs.ellipsoid.semiMajorAxis;
+            double invF = prjCoordinate.gcs.ellipsoid.inverseFlattening;
+            double cm = prjCoordinate.pcs.parameters[Parameter::CentralMeridian];
+            double lo = prjCoordinate.pcs.parameters[Parameter::LatitudeOfOrigin];
+            double fe = prjCoordinate.pcs.parameters[Parameter::FalseEasting];
+            double fn = prjCoordinate.pcs.parameters[Parameter::FalseNorthing];
+
+            _stprintf_s(debugBuf, _T("\n[Layer MBR Box] minX: %f,  minY: %f,  maxX: %f,  maxY: %f\n\n"),
+                newLayer.m_boundingBox.minX, newLayer.m_boundingBox.minY, newLayer.m_boundingBox.maxX, newLayer.m_boundingBox.maxY);
+            OutputDebugString(debugBuf);
         }
+
+        
     }
 
 	newLayer.m_quadTree->BuildQuadTree(); // 쿼드트리 빌드

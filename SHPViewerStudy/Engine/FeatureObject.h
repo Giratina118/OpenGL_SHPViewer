@@ -92,6 +92,7 @@ public:
 
 	double OnCollisionRay(glm::dvec3& start, glm::dvec3& dir, double& rootNodeHeight);
 	void ClearData() { points.clear(); points.shrink_to_fit(); parts.clear(); parts.shrink_to_fit(); }
+	void SetMBRBox(glm::dvec2& min, glm::dvec2& max);
 };
 
 class MultiPatchObject : public PolyObject

@@ -152,6 +152,14 @@ double PolyObject::OnCollisionRay(glm::dvec3& start, glm::dvec3& dir, double& ro
     return result;
 }
 
+void PolyObject::SetMBRBox(glm::dvec2& min, glm::dvec2& max)
+{
+    mbrBox.minX = min.x;
+    mbrBox.minY = min.y;
+    mbrBox.maxX = max.x;
+    mbrBox.maxY = max.y;
+}
+
 // 두 선분의 접촉 체크, 접촉한다면 첫 번째 선분에서 어느 지점에 접촉하는지 반환, 접촉하지 않는다면 -1.0 반환
 double CrossCheck(glm::dvec2 point1, glm::dvec2 point2, glm::dvec2 point3, glm::dvec2 point4)
 {

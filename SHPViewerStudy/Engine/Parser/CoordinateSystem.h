@@ -64,4 +64,6 @@ class CoordinateTransformer
 {
 public:
     glm::dvec2 Transform(glm::dvec2& point, CoordinateSystem& source, CoordinateSystem& destination);
+    void InverseProjection(glm::dvec2& point, CoordinateSystem& source); // 역투영
+    void Projection(glm::dvec2& point, CoordinateSystem& destination); // 정투영
 };
