@@ -65,5 +65,8 @@ class CoordinateTransformer
 public:
     glm::dvec2 Transform(glm::dvec2& point, CoordinateSystem& source, CoordinateSystem& destination);
     void InverseProjection(glm::dvec2& point, CoordinateSystem& source); // 역투영
-    void Projection(glm::dvec2& point, CoordinateSystem& destination); // 정투영
+    void Projection(glm::dvec2& point, CoordinateSystem& destination);   // 정투영
+    glm::dvec3 LLAtoECEF(glm::dvec2& llaPoint,  CoordinateSystem& source);
+    glm::dvec2 ECEFtoLLA(glm::dvec3& ecefPoint, CoordinateSystem& destination);
+    void EllipsoidTransform(glm::dvec3& ecef);
 };
