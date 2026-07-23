@@ -31,10 +31,10 @@ public:
 	std::vector<PointObject>      pointObjects;      // Point      °´Ã¼ ¹è¿­
 	std::vector<PolyObject>       polyLineObjects;   // PolyLine   °´Ã¼ ¹è¿­
 	std::vector<PolyObject>       polygonObjects;    // Polygon    °´Ã¼ ¹è¿­
-	std::vector<MultiPointObject> multiPointObjects; // MultiPoint °´Ã¼ ¹è¿­
-	std::vector<MultiPatchObject> multiPatchObjects; // MultiPatch °´Ã¼ ¹è¿­
+	std::vector<MultiPointObject> multiPointObjects; // MultiPoint °´Ã¼ ¹è¿­, ¹Ì±¸Çö
+	std::vector<MultiPatchObject> multiPatchObjects; // MultiPatch °´Ã¼ ¹è¿­, ¹Ì±¸Çö
 
-	void SetMBRBox(glm::dvec2& min, glm::dvec2& max) { m_boundingBox.minX = min.x; m_boundingBox.minY = min.y; m_boundingBox.maxX = max.x; m_boundingBox.maxY = max.y; }
+	void SetMBRBox(double minX, double minY, double maxX, double maxY) { m_boundingBox.minX = minX; m_boundingBox.minY = minY; m_boundingBox.maxX = maxX; m_boundingBox.maxY = maxY; }
 };
 
 class LayerManager

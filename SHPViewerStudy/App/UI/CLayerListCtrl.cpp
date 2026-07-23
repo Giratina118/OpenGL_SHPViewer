@@ -110,7 +110,7 @@ CString CLayerListCtrl::GetIconLabel(int32_t iconType) const
     }
 }
 
-// 핵심: 아이템 그리기
+// 아이템 그리기
 void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
 {
     int32_t index = lpDIS->itemID; // 아이템 번호

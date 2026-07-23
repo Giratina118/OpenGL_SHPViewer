@@ -1,6 +1,18 @@
 #include <pch.h>
 #include <vector>
 #include "CoordinateSystem.h"
+#include "Layer.h"
+
+std::string ToLower(std::string str)
+{
+    for (char& ch : str)
+    {
+        if (ch >= 'A' && ch <= 'Z')
+            ch += 'a' - 'A';
+    }
+
+    return str;
+}
 
 // prj 파싱
 void CoordinateSystem::PrjParse(std::vector<uint8_t>& prjBuffer)
@@ -13,11 +25,11 @@ void CoordinateSystem::PrjParse(std::vector<uint8_t>& prjBuffer)
         token = ReadValue();
 
         if      (token.empty())     continue;
-        if      (token == "PROJCS") { pcs.name = ReadValue(); }
-        else if (token == "GEOGCS") { gcs.name = ReadValue(); }
-        else if (token == "DATUM")  { gcs.datumName = ReadValue(); }
+        if      (token == "PROJCS") { pcs.name = ToLower(ReadValue()); }
+        else if (token == "GEOGCS") { gcs.name = ToLower(ReadValue()); }
+        else if (token == "DATUM")  { gcs.datumName = ToLower(ReadValue()); }
         else if (token == "SPHEROID") {
-            gcs.ellipsoid.name              = ReadValue();
+            gcs.ellipsoid.name              = ToLower(ReadValue());
             gcs.ellipsoid.semiMajorAxis     = std::stod(ReadValue());
             gcs.ellipsoid.inverseFlattening = std::stod(ReadValue());
         }
@@ -26,18 +38,18 @@ void CoordinateSystem::PrjParse(std::vector<uint8_t>& prjBuffer)
             gcs.primeMeridian = std::stod(ReadValue());
         }
         else if (token == "PROJECTION") {
-            pcs.projectionName = ReadValue();
+            pcs.projectionName = ToLower(ReadValue());
             isProjected        = true;
         }
         else if (token == "PARAMETER") {
-            std::string name  = ReadValue();
+            std::string name  = ToLower(ReadValue());
             double      value = std::stod(ReadValue());
 
-            if      (name == "False_Easting"      || name == "false_easting"     ) pcs.parameters[Parameter::FalseEasting]     = value;
-            else if (name == "False_Northing"     || name == "false_northing"    ) pcs.parameters[Parameter::FalseNorthing]    = value;
-            else if (name == "Central_Meridian"   || name == "central_meridian"  ) pcs.parameters[Parameter::CentralMeridian]  = value;
-            else if (name == "Latitude_Of_Origin" || name == "latitude_of_origin") pcs.parameters[Parameter::LatitudeOfOrigin] = value;
-            else if (name == "Scale_Factor"       || name == "scale_factor"      ) pcs.parameters[Parameter::ScaleFactor]      = value;
+            if      (name == "false_easting"     ) pcs.parameters[Parameter::FalseEasting]     = value;
+            else if (name == "false_northing"    ) pcs.parameters[Parameter::FalseNorthing]    = value;
+            else if (name == "central_meridian"  ) pcs.parameters[Parameter::CentralMeridian]  = value;
+            else if (name == "latitude_of_origin") pcs.parameters[Parameter::LatitudeOfOrigin] = value;
+            else if (name == "scale_factor"      ) pcs.parameters[Parameter::ScaleFactor]      = value;
         }
         else if (token == "UNIT") {
             ReadValue();
@@ -55,12 +67,12 @@ std::string CoordinateSystem::ReadValue()
     int32_t doubleQuotesCount = 0;
 
     while (m_ptr < m_end) {
-        char ch = *m_ptr++;
+        unsigned char ch = *m_ptr++;
 
         if      (ch == '"' && doubleQuotesCount == 0) { doubleQuotesCount++; }
         else if (ch == '"' && doubleQuotesCount == 1) { break; }
         else if (ch == ' ' && token.empty())          continue;
-        else if (ch != ',' && ch != '[' && ch != ']') token += ch;
+        else if (ch != ',' && ch != '[' && ch != ']')  token += ch;
         else if (!token.empty()) break;
     }
     
@@ -89,15 +101,62 @@ void CoordinateSystem::SetTargetCoordinate(int32_t epsg)
     pcs.unit = 1.0;
 }
 
-
 // 좌표계 변환
-glm::dvec2 CoordinateTransformer::Transform(glm::dvec2& point, CoordinateSystem& source, CoordinateSystem& destination)
+void CoordinateTransformer::TransformCoordinate(CoordinateSystem& prjCoordinate, Layer& newLayer)
+{
+    CoordinateSystem destCoordinate; // 목표 좌표계(5186)
+
+    destCoordinate.SetTargetCoordinate(5186);
+
+    if (prjCoordinate.pcs.name != destCoordinate.pcs.name || prjCoordinate.gcs.name != destCoordinate.gcs.name) {
+        double layerMinX, layerMinY, layerMaxX, layerMaxY;
+        double objMinX, objMinY, objMaxX, objMaxY;
+        layerMinX = layerMinY = objMinX = objMinY = std::numeric_limits<double>::max();
+        layerMaxX = layerMaxY = objMaxX = objMaxY = std::numeric_limits<double>::lowest();
+
+        // Point 객체 변환 및 MBR 재계산
+        for (auto& obj : newLayer.pointObjects) {
+            obj.point = TransformPoint(obj.point, prjCoordinate, destCoordinate);
+            obj.SetMBRBox(); // 변환된 좌표로 갱신
+        }
+
+        // PolyLine / Polygon 객체 변환 (람다 활용)
+        auto transformPolyObjects = [&](auto& objects) {
+            for (auto& obj : objects) {
+                objMinX = objMinY = std::numeric_limits<double>::max();
+                objMaxX = objMaxY = std::numeric_limits<double>::lowest();
+
+                for (auto& point : obj.points) {
+                    point = TransformPoint(point, prjCoordinate, destCoordinate);
+
+                    // 객체 mbr 박스 계산
+                    if (point.x < objMinX) objMinX = point.x;
+                    if (point.x > objMaxX) objMaxX = point.x;
+                    if (point.y < objMinY) objMinY = point.y;
+                    if (point.y > objMaxY) objMaxY = point.y;
+                }
+                obj.SetMBRBox(objMinX, objMinY, objMaxX, objMaxY);
+
+                // 레이어 mbr 박스 계산
+                if (objMinX < layerMinX) layerMinX = objMinX;
+                if (objMaxX > layerMaxX) layerMaxX = objMaxX;
+                if (objMinY < layerMinY) layerMinY = objMinY;
+                if (objMaxY > layerMaxY) layerMaxY = objMaxY;
+            }
+        };
+
+        transformPolyObjects(newLayer.polyLineObjects);
+        transformPolyObjects(newLayer.polygonObjects);
+        newLayer.SetMBRBox(layerMinX, layerMinY, layerMaxX, layerMaxY); // 레이어 mbr 갱신
+    }
+}
+
+// 좌표계 변환 - 정점 좌표 변환
+glm::dvec2 CoordinateTransformer::TransformPoint(glm::dvec2& point, CoordinateSystem& source, CoordinateSystem& destination)
 {
     // 현재는 5186으로만 변환
-    // 일단 GRS80으로 동일하다고 가정, 다른 경우는 이후 추가
-
     // 투영 좌표계(미터) -> 경위도 좌표계로 역투영
-    InverseProjection(point, source); // point의 x y가 각각 경도와 위도 값으로 변환
+    if (source.isProjected) InverseProjection(point, source); // point의 x y가 각각 경도와 위도 값으로 변환
 
     // 타원체 변환 Bessel -> GRS80 (현재는 하나만 적용)
     if (source.gcs.ellipsoid.name.find("bessel") != std::string::npos) { // bessel이 타원체 이름에 포함되어 있을 경우 변환
@@ -309,6 +368,25 @@ void CoordinateTransformer::EllipsoidTransform(glm::dvec3& ecefPoint)
     // 보정 계수
     double s = 6.342 * 0.000001; 
 
-    //ecefPoint
+    // 회전 중심점 (미터)
+    double px = -3159521.31;
+    double py =  4068151.32;
+    double pz =  3748113.85;
 
+    // 회전 중심점을 원점으로 이동 (Origin Shift)
+    double x0 = ecefPoint.x - px;
+    double y0 = ecefPoint.y - py;
+    double z0 = ecefPoint.z - pz;
+
+    // 미세 회전 및 스케일 적용 (Small Angle Approximation 행렬)
+    // 회전각이 극히 작으므로 sin(r) = r, cos(r) = 1 로 근사화된 3x3 행렬을 사용합니다.
+    double scale = 1.0 + s;
+    double xRot = scale * ( x0 - rz * y0 + ry * z0);
+    double yRot = scale * ( rz * x0 + y0 - rx * z0);
+    double zRot = scale * (-ry * x0 + rx * y0 + z0);
+
+    // 회전 중심점 원복 및 원점 이동량(Translation) 최종 적용
+    ecefPoint.x = xRot + px + dx;
+    ecefPoint.y = yRot + py + dy;
+    ecefPoint.z = zRot + pz + dz;
 }

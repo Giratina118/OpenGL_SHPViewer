@@ -37,10 +37,10 @@ struct UISize
         marginX      = static_cast<int32_t>(panelWidth   * 0.05);
         marginY      = static_cast<int32_t>(clientHeight * 0.01);
         buttonWidth  = panelWidth - marginX * 2;
-        buttonHeight = static_cast<int32_t>(clientHeight * 0.07);
+        buttonHeight = static_cast<int32_t>(clientHeight * 0.06);
 
         // 양쪽 패널 사이즈 재지정
-        int32_t newFontSize = std::max(10, clientHeight / 32);
+        int32_t newFontSize = std::max(10, static_cast<int32_t>(clientHeight * 0.03));
         if (fontSize != newFontSize) {
             fontSize = newFontSize;
             font.DeleteObject();

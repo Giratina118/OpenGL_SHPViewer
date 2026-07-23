@@ -117,7 +117,8 @@
     </ResourceCompile>
     <PreBuildEvent>
       <Command>copy /Y "$(ProjectDir)Resource\lib\libEGL.dll" "$(OutDir)."
-copy /Y "$(ProjectDir)Resource\lib\libGLESv2.dll" "$(OutDir)."</Command>
+copy /Y "$(ProjectDir)Resource\lib\libGLESv2.dll" "$(OutDir)."
+copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

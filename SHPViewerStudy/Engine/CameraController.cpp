@@ -10,7 +10,7 @@ void CameraController::Init(const BoundingBox& boundingBox, int32_t screenWidth,
     double centerY     = (boundingBox.minY + boundingBox.maxY) * 0.5;
     double maxExtent   = std::max(boundingBox.maxX - boundingBox.minX, boundingBox.maxY - boundingBox.minY);
     
-    transform.position = glm::dvec3(centerX, centerY, maxExtent);
+    transform.position = glm::dvec3(centerX, centerY, std::max(maxExtent, 2.0));
     transform.rotation = glm::angleAxis(glm::radians(0.0), glm::dvec3(1, 0, 0));
     m_thirdMovePos     = transform.position;
 

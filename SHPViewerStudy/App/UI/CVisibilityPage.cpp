@@ -75,16 +75,19 @@ void CVisibilityPage::Resize(UISize& uiSize)
     // ÅÇ2 ³»ºÎ
     for (int32_t i = 0; i < 7; i++) {
         CWnd* btns[] = { &m_buttonObjectMBR,&m_buttonNodeMBR, &m_buttonLevelColor,&m_buttonFrustumView, &m_buttonFakeObject, &m_buttonBuilding, &m_buttonMap };
-        btns[i]->MoveWindow(0, i * (uiSize.buttonHeight + uiSize.marginY), uiSize.buttonWidth, uiSize.buttonHeight);
+        btns[i]->MoveWindow(0, btnHeightGap * i, uiSize.buttonWidth, uiSize.buttonHeight);
     }
-    m_staticViewRange.MoveWindow     (0,                          static_cast<int32_t>(btnHeightGap * 8.0f),  uiSize.buttonWidth,     btnHeightHalf);
-    m_sliderViewRange.MoveWindow     (0,                          static_cast<int32_t>(btnHeightGap * 8.5f),  uiSize.buttonWidth,     btnHeightHalf);
-    m_staticSliderValueMin.MoveWindow(0,                          static_cast<int32_t>(btnHeightGap * 9.0f),  uiSize.buttonWidth / 3, btnHeightHalf);
-    m_staticSliderValueMid.MoveWindow(uiSize.buttonWidth / 3,     static_cast<int32_t>(btnHeightGap * 9.0f),  uiSize.buttonWidth / 3, btnHeightHalf);
-    m_staticSliderValueMax.MoveWindow(uiSize.buttonWidth / 3 * 2, static_cast<int32_t>(btnHeightGap * 9.0f),  uiSize.buttonWidth / 3, btnHeightHalf);
-    m_staticColorInfo.MoveWindow     (0,                          static_cast<int32_t>(btnHeightGap * 10.0f), uiSize.buttonWidth,     btnHeightHalf);
 
-    int32_t legendY = static_cast<int32_t>(btnHeightGap * 10.5f);
+    int32_t curHeight  = btnHeightGap * 7;
+    int32_t textHeight = static_cast<int32_t>(uiSize.fontSize * 1.5);
+    m_staticViewRange.MoveWindow     (0,                          curHeight,                  uiSize.buttonWidth,     textHeight);
+    m_sliderViewRange.MoveWindow     (0,                          curHeight + textHeight,     uiSize.buttonWidth,     textHeight);
+    m_staticSliderValueMin.MoveWindow(0,                          curHeight + textHeight * 2, uiSize.buttonWidth / 3, textHeight / 2);
+    m_staticSliderValueMid.MoveWindow(uiSize.buttonWidth / 3,     curHeight + textHeight * 2, uiSize.buttonWidth / 3, textHeight / 2);
+    m_staticSliderValueMax.MoveWindow(uiSize.buttonWidth / 3 * 2, curHeight + textHeight * 2, uiSize.buttonWidth / 3, textHeight / 2);
+    m_staticColorInfo.MoveWindow     (0,                          curHeight + textHeight * 3, uiSize.buttonWidth,     textHeight);
+
+    int32_t legendY = curHeight + textHeight * 4;
     for (int32_t i = 0; i < kLegendCount; i++) {
         int32_t sizeY = uiSize.buttonHeight / 2;
         int32_t sizeX = uiSize.buttonWidth  / kLegendCount;

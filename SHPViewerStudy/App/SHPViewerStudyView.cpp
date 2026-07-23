@@ -93,7 +93,11 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 void CSHPViewerStudyView::LinkCallbacksToUI()
 {
 	LeftPanelCallbacks callback;
-	callback.controlCallbacks.onDeleteLayer    = [this](bool value) { m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager); m_layerManager.ReDraw(); SetFocus(); }; // 이거 동작 되는지?
+	callback.controlCallbacks.onGotoLayer      = [this](int32_t value) { if (value < 0) return;
+		int32_t layerIndex = m_layerManager.m_layerIdToIndex[value];
+		m_camera.Init(m_layerManager.layers[layerIndex]->m_boundingBox, m_uiSize.clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_uiSize.clientHeight);
+		m_layerManager.ReDraw(); SetFocus(); };
+	callback.controlCallbacks.onDeleteLayer    = [this](int32_t value) {m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager); m_layerManager.ReDraw(); SetFocus(); };
 
 	callback.visibilityCallbacks.onObjectMBR   = [this](bool value) { m_uiState.isShowObjectMBR = value;   m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onNodeMBR     = [this](bool value) { m_uiState.isShowNodeMBR = value;     m_layerManager.ReDraw(); SetFocus(); };

@@ -5,6 +5,7 @@
 #include <algorithm>
 
 BEGIN_MESSAGE_MAP(CControlPage, CWnd)
+    ON_BN_CLICKED(ID_BTN_GOTO_LAYER,   &CControlPage::OnBtnGotoLayer)
     ON_BN_CLICKED(ID_BTN_DELETE_LAYER, &CControlPage::OnBtnDeleteLayer)
 END_MESSAGE_MAP()
 
@@ -17,7 +18,8 @@ void CControlPage::CreateTabControls()
 {
     m_staticChangeInfo.Create(_T("데이터 대기중..."), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
     m_staticInfo.Create(_T("이동: WASD, 좌클릭\n줌: R/F, 휠\n회전: 방향키, Q/E, 우클릭"), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
-    m_buttonDeleteLayer.Create(_T("Delete"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_DELETE_LAYER);
+    m_buttonGotoLayer.Create(_T("레이어로 이동"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_GOTO_LAYER);
+    m_buttonDeleteLayer.Create(_T("레이어 제거"),   WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_DELETE_LAYER);
 
     // LVS_OWNERDRAWFIXED 필수, 스크롤은 WS_VSCROLL
     m_listCtrlLayer.Create(WS_CHILD | WS_VISIBLE | WS_VSCROLL | LVS_REPORT | LVS_OWNERDRAWFIXED | LVS_SINGLESEL | LVS_NOCOLUMNHEADER, CRect(0, 0, 10, 10), this, IDC_LAYER_LIST);
@@ -26,18 +28,25 @@ void CControlPage::CreateTabControls()
 
 void CControlPage::Resize(UISize& uiSize)
 {
-    // 탭1 내부
-    m_staticChangeInfo.MoveWindow (0, 0,                        uiSize.buttonWidth, uiSize.buttonHeight * 4);
-    m_staticInfo.MoveWindow       (0, uiSize.buttonHeight * 4,  uiSize.buttonWidth, uiSize.buttonHeight * 2);
-	m_listCtrlLayer.MoveWindow    (0, uiSize.buttonHeight * 7,  uiSize.buttonWidth, uiSize.buttonHeight * 5);
-    m_buttonDeleteLayer.MoveWindow(0, uiSize.buttonHeight * 12, uiSize.buttonWidth, uiSize.buttonHeight);
+    int32_t textHeight   = static_cast<int32_t>(uiSize.fontSize * 1.5);
+    int32_t btnHeightGap = uiSize.buttonHeight + uiSize.marginY;
 
+    // 탭1 내부
+    m_staticChangeInfo.MoveWindow (0, 0,              uiSize.buttonWidth, textHeight * 5);
+    m_staticInfo.MoveWindow       (0, textHeight * 5, uiSize.buttonWidth, textHeight * 4);
+	m_listCtrlLayer.MoveWindow    (0, textHeight * 9, uiSize.buttonWidth, textHeight * 7);
+
+    int32_t curHeight = textHeight * 16;
+    m_buttonGotoLayer.MoveWindow  (0, curHeight,                uiSize.buttonWidth, uiSize.buttonHeight);
+    m_buttonDeleteLayer.MoveWindow(0, curHeight + btnHeightGap, uiSize.buttonWidth, uiSize.buttonHeight);
+    
     // 폰트
     if (uiSize.isFontChanged) {
         auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&uiSize.font); };
         applyFont(m_staticChangeInfo);
         applyFont(m_staticInfo);
         applyFont(m_listCtrlLayer);
+        applyFont(m_buttonGotoLayer);
         applyFont(m_buttonDeleteLayer);
     }
 
@@ -65,12 +74,15 @@ void CControlPage::RefreshLayerList(LayerManager& layerManager)
         if      (layer->m_shapeType == 3) iconType = 1; // Line
         else if (layer->m_shapeType == 5) iconType = 2; // Polygon
 
-        TCHAR buf[256];
-        _stprintf_s(buf, _T("[LayerList] 이름 = %hs,  타입 = %d,  아이콘 = %d\n"), layer->m_name.c_str(), layer->m_shapeType, iconType);
-        OutputDebugString(buf);
-
         CString name(layer->m_name.c_str());
         m_listCtrlLayer.AddLayer(name, iconType, layer->m_isVisible, layer->m_id);
+    }
+}
+
+void CControlPage::OnBtnGotoLayer()
+{
+    if (m_callback.onGotoLayer) {
+        m_callback.onGotoLayer(m_listCtrlLayer.GetHitLayerId());
     }
 }
 
@@ -80,11 +92,6 @@ void CControlPage::OnBtnDeleteLayer()
     int32_t hitLayerId = m_listCtrlLayer.GetHitLayerId();
     if (hitLayerId < 0) return;
 
-    TCHAR buf[256];
-    _stprintf_s(buf, _T("Layer List 반응\n"));
-    OutputDebugString(buf);
-
     m_listCtrlLayer.DeleteLayerItem(hitLayerId); // 레이어 아이템 지우기
-
     m_callback.onDeleteLayer(hitLayerId);
 }

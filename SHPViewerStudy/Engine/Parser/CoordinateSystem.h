@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include "glm/gtc/type_ptr.hpp"
 
+class Layer;
+
 // 타원체 정보
 struct Ellipsoid
 {
@@ -63,7 +65,8 @@ public:
 class CoordinateTransformer
 {
 public:
-    glm::dvec2 Transform(glm::dvec2& point, CoordinateSystem& source, CoordinateSystem& destination);
+    void TransformCoordinate(CoordinateSystem& prjCoordinate, Layer& newLayer);
+    glm::dvec2 TransformPoint(glm::dvec2& point, CoordinateSystem& source, CoordinateSystem& destination);
     void InverseProjection(glm::dvec2& point, CoordinateSystem& source); // 역투영
     void Projection(glm::dvec2& point, CoordinateSystem& destination);   // 정투영
     glm::dvec3 LLAtoECEF(glm::dvec2& llaPoint,  CoordinateSystem& source);

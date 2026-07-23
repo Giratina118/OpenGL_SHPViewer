@@ -45,7 +45,7 @@ public:
 class QuadTree
 {
 public:
-	QuadTree(Layer& layer, double layerLength);
+	QuadTree(Layer& layer) : m_layer(layer) {};
 
 	int32_t                   m_maxLevel = 1;   // 최대 깊이
 	std::vector<QuadTreeNode> m_nodes;          // 트리 노드

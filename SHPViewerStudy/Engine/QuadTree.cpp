@@ -9,15 +9,13 @@ QuadTreeNode::QuadTreeNode(int32_t level, BoundingBox& mbrBox)
 	m_boundingBox = mbrBox;
 }
 
-QuadTree::QuadTree(Layer& layer, double layerLength) : m_layer(layer)
-{
-	if (m_layer.m_isBuilding) m_minNodeLength = 200.0; 
-	while (layerLength > m_minNodeLength) { layerLength /= 2; m_maxLevel++; }
-}
-
 // 쿼드트리 빌드
 void QuadTree::BuildQuadTree()
 {
+	double layerLength = m_layer.m_boundingBox.GetMaxExtent();
+	if (m_layer.m_isBuilding) m_minNodeLength = 200.0;
+	while (layerLength > m_minNodeLength) { layerLength /= 2; m_maxLevel++; }
+
 	int32_t rootNodeId = 0;
 	CreateNode(rootNodeId, m_layer.m_boundingBox); // 루트노드 생성
 
