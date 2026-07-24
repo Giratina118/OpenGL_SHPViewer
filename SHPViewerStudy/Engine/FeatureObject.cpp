@@ -158,6 +158,14 @@ void PolyObject::SetMBRBox(double minX, double minY, double maxX, double maxY)
     mbrBox.minY = minY;
     mbrBox.maxX = maxX;
     mbrBox.maxY = maxY;
+    transform.position = { mbrBox.GetCenter(), 0.0 };
+}
+
+void PointObject::SetMBRBox()
+{
+    mbrBox.minX = mbrBox.maxX = point.x;
+    mbrBox.minY = mbrBox.maxY = point.y;
+    transform.position = { mbrBox.GetCenter(), 0.0 };
 }
 
 // 두 선분의 접촉 체크, 접촉한다면 첫 번째 선분에서 어느 지점에 접촉하는지 반환, 접촉하지 않는다면 -1.0 반환
@@ -177,4 +185,32 @@ double CrossCheck(glm::dvec2 point1, glm::dvec2 point2, glm::dvec2 point3, glm::
     double ratioOnB = cross(aToB, dirA) / crossOfDir; // 선분 B 위의 교차점 비율 (0~1이면 선분 B 내부)
 
     return (ratioOnA > 0.0 && ratioOnA < 1.0 && ratioOnB > 0.0 && ratioOnB < 1.0) ? ratioOnA : -1.0;
+}
+
+void ObjectBase::Move(glm::dvec3& delta)
+{
+    transform.MoveWorld(delta);
+    // 렌더링 버텍스에 있는 정점들 위치 변경
+    // 쿼드 트리 내에서 이 객체 하나만 다시 삽입
+
+    
+
+}
+
+void ObjectBase::Rotate(glm::dvec3& delta)
+{
+    transform.RotateWorld(delta.x, delta.y, delta.z);
+
+}
+
+void ObjectBase::Scale(glm::dvec3& delta)
+{
+
+}
+
+// 행렬 갱신
+void ObjectBase::UpdateMatrix()
+{
+
+
 }

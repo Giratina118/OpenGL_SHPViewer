@@ -2,6 +2,16 @@
 #include <Layer.h>
 #include "UI/CPanelRight.h"
 
+
+// 시간 측정을 위한 매크로 준비
+#define PROFILE_START(name) auto start_##name = std::chrono::high_resolution_clock::now();
+#define PROFILE_END(name) \
+    auto end_##name = std::chrono::high_resolution_clock::now(); \
+    auto time_##name = std::chrono::duration_cast<std::chrono::microseconds>(end_##name - start_##name).count(); \
+    std::string msg_##name = std::string(#name) + " 소요 시간: " + std::to_string(time_##name / 1000.0) + " ms\n"; \
+    OutputDebugStringA(msg_##name.c_str());
+
+
 // 레이어 생성
 Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox& layerBox)
 {
@@ -213,9 +223,9 @@ void LayerManager::CountObject(int32_t& totalObjCount, int32_t& renderObjCount, 
 // 피킹
 void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel& rightPanel)
 {
-    int32_t beforePickingDataId  = pickingDataId;  // 이전 피킹 데이터
-    int32_t beforePickingLayerId = pickingLayerId; // 이전 피킹 데이터가 있는 레이어
-    pickingDataId = pickingLayerId = -1;
+    int32_t beforePickingDataId  = m_pickingDataId;  // 이전 피킹 데이터
+    int32_t beforePickingLayerId = m_pickingLayerId; // 이전 피킹 데이터가 있는 레이어
+    m_pickingDataId = m_pickingLayerId = -1;
 
     // 레이와 객체의 충돌 검사, 쿼드트리를 이용한 피킹
     double collisionDistance = std::numeric_limits<double>::max(); // 거리 최대치 설정
@@ -227,30 +237,30 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
         // 현재 가장 가까운 거리보다 더 가까운 거리에서 객체와 접했을 경우 -1 이외의 수 저장
         hitObj = layers[layerId]->m_quadTree->SearchPickingData(rayStart, rayDir, 0, collisionDistance, layers[layerId]->m_renderer->GetPolygonDrawInfo(), layers[layerId]->m_renderer->GetPolygonIndices(), layers[layerId]->m_renderer->GetPolygonVertices());
         if (hitObj != -1) { 
-            pickingDataId  = hitObj;
-            pickingLayerId = layerId;
+            m_pickingDataId  = hitObj;
+            m_pickingLayerId = layerId;
         }
     }
 
     bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == beforePickingLayerId);
 
     // 객체가 없는 빈 공간 선택 또는 이전과 같은 객체 선택 시 색 복구
-    if (pickingDataId == -1 && beforePickingDataId != -1 || pickingDataId != -1 && beforePickingDataId == pickingDataId && beforePickingLayerId == pickingLayerId) {
+    if (m_pickingDataId == -1 && beforePickingDataId != -1/* || m_pickingDataId != -1 && beforePickingDataId == m_pickingDataId && beforePickingLayerId == m_pickingLayerId*/) {
         
         layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState, isSelectedLayer);
         rightPanel.Show(false);
-        pickingLayerId = pickingDataId = -1;
+        m_pickingLayerId = m_pickingDataId = -1;
         return; 
     }
 
     // 피킹된 객체 정보 얻기
-    if (pickingLayerId == -1 || layers[pickingLayerId]->polygonObjects.size() < 1 && layers[pickingLayerId]->polyLineObjects.size() < 1 && layers[pickingLayerId]->pointObjects.size() < 1) return;
+    if (m_pickingLayerId == -1 || layers[m_pickingLayerId]->polygonObjects.size() < 1 && layers[m_pickingLayerId]->polyLineObjects.size() < 1 && layers[m_pickingLayerId]->pointObjects.size() < 1) return;
 
     // 새로운 객체 선택
-    if (pickingDataId != -1) {
+    if (m_pickingDataId != -1) {
         if (beforePickingLayerId != -1) layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState, isSelectedLayer);
-        layers[pickingLayerId]->m_renderer->HighlightObjectColor(pickingDataId);
-        rightPanel.SetPickingInfo(layers[pickingLayerId]->m_dbfTable.PrintAttribute(pickingDataId)); // 선택 객체 dbf 정보 출력
+        layers[m_pickingLayerId]->m_renderer->HighlightObjectColor(m_pickingDataId);
+        rightPanel.SetPickingInfo(layers[m_pickingLayerId]->m_dbfTable.PrintAttribute(m_pickingDataId)); // 선택 객체 dbf 정보 출력
     }
 }
 
@@ -262,6 +272,15 @@ void LayerManager::ApplyObjectColorWithLevel()
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
 		layers[layerId]->m_renderer->ApplyLevelColors(m_uiState->isShowLevelColor && isSelectedLayer);
     }
+}
+
+
+void LayerManager::MoveObject(glm::dvec3& moveDelta)
+{
+    if (m_pickingLayerId < 0 || m_pickingDataId < 0) return;
+
+    layers[m_layerIdToIndex[m_pickingLayerId]]->polygonObjects[m_pickingDataId].Move(moveDelta);
+    layers[m_layerIdToIndex[m_pickingLayerId]]->m_renderer->MoveObject(m_pickingDataId, moveDelta);
 }
 
 

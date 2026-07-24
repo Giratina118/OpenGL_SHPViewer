@@ -67,7 +67,6 @@ void CControlPage::UpdateInfo(float fps, int32_t total, int32_t rendered, int32_
 void CControlPage::RefreshLayerList(LayerManager& layerManager)
 {
 	m_listCtrlLayer.ClearItems(&layerManager);
-    // m_items도 비워야 하므로 CLayerListCtrl에 Clear 함수 추가 권장
 
     for (const auto& layer : layerManager.layers) {
         int32_t iconType = 0;

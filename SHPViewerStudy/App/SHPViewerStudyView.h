@@ -51,6 +51,10 @@ private:
 	glm::dvec3 m_rayDir;
 	glm::dvec3 m_hitPoint;              // 스크린 -> 월드 좌표, TODO: 언젠가 지우기
 
+	// 연속 피킹
+	bool  m_isUpdatePicking        = false;
+	float m_pickingUpdateTimeStack = 0.0f;
+	float m_pickingUpdatePeriod    = 0.1f;
 
 	// 성능 측정, 디버그 용도
 	bool   m_autoPanning = false;

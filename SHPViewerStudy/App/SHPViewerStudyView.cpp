@@ -93,23 +93,26 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 void CSHPViewerStudyView::LinkCallbacksToUI()
 {
 	LeftPanelCallbacks callback;
-	callback.controlCallbacks.onGotoLayer      = [this](int32_t value) { if (value < 0) return;
+	callback.controlCallbacks.onGotoLayer        = [this](int32_t value) { if (value < 0) return;
 		int32_t layerIndex = m_layerManager.m_layerIdToIndex[value];
 		m_camera.Init(m_layerManager.layers[layerIndex]->m_boundingBox, m_uiSize.clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_uiSize.clientHeight);
 		m_layerManager.ReDraw(); SetFocus(); };
-	callback.controlCallbacks.onDeleteLayer    = [this](int32_t value) {m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager); m_layerManager.ReDraw(); SetFocus(); };
+	callback.controlCallbacks.onDeleteLayer      = [this](int32_t value) {m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager); m_layerManager.ReDraw(); SetFocus(); };
 
-	callback.visibilityCallbacks.onObjectMBR   = [this](bool value) { m_uiState.isShowObjectMBR = value;   m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onNodeMBR     = [this](bool value) { m_uiState.isShowNodeMBR = value;     m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onLevelColor  = [this](bool value) { m_uiState.isShowLevelColor = value;  m_layerManager.ApplyObjectColorWithLevel(); m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onFrustumView = [this](bool value) { m_uiState.isShowFrustumView = value; m_layerManager.SetDrawFrustum(!value);      m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onFakeObject  = [this](bool value) { m_uiState.isShowFakeObject = value;  m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onBuilding    = [this](bool value) { m_uiState.isShowBuilding = value;    m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onMap         = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
-	callback.visibilityCallbacks.onViewRange   = [this](int32_t value) { m_camera.SetViewRange(value);     m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onObjectMBR     = [this](bool value) { m_uiState.isShowObjectMBR   = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onNodeMBR       = [this](bool value) { m_uiState.isShowNodeMBR     = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onLevelColor    = [this](bool value) { m_uiState.isShowLevelColor  = value; m_layerManager.ApplyObjectColorWithLevel(); m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onFrustumView   = [this](bool value) { m_uiState.isShowFrustumView = value; m_layerManager.SetDrawFrustum(!value);      m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onFakeObject    = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onBuilding      = [this](bool value) { m_uiState.isShowBuilding    = value; m_layerManager.ReDraw(); SetFocus(); };
+	callback.visibilityCallbacks.onMap           = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
+	callback.visibilityCallbacks.onViewRange     = [this](int32_t value) { m_camera.SetViewRange(value);     m_layerManager.ReDraw(); SetFocus(); };
 
-	callback.pickingCallbacks.onPicking        = [this](bool value) { m_uiState.isPickingMode = value;     SetFocus(); };
-	callback.pickingCallbacks.onThirdMode      = [this](bool value) { m_uiState.isCameraThirdMode = value; SetFocus(); };
+	callback.pickingCallbacks.onPicking          = [this](bool value) { m_uiState.isPickingMode     = value; SetFocus(); };
+	callback.pickingCallbacks.onThirdMode        = [this](bool value) { m_uiState.isCameraThirdMode = value; SetFocus(); };
+	callback.pickingCallbacks.onEditObjectMode   = [this](bool value) { m_uiState.isEditObjectMode  = value; SetFocus(); };
+	callback.pickingCallbacks.onEditObjectSave   = [this](bool value) { /*객체 편집 저장*/ SetFocus(); };
+	callback.pickingCallbacks.onEditObjectCancle = [this](bool value) { /*객체 편집 취소*/ SetFocus(); };
 	m_panelLeft.SetCallbacks(callback);
 }
 
@@ -152,6 +155,17 @@ void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
 	m_lastTime        = currentTime;
 	m_deltaTimeStack += deltaTime.count();
 	m_frameCount++;
+
+	
+	/*
+	// 클릭하지 않아도 마우스가 위치해 있는 곳의 객체 피킹
+	m_pickingUpdateTimeStack += deltaTime.count();
+	if (m_isUpdatePicking && m_pickingUpdateTimeStack > m_pickingUpdatePeriod) {
+		m_pickingUpdateTimeStack = 0.0;
+		m_isUpdatePicking = false;
+		PickingObj(m_mouseClientPos);
+	}
+	*/
 
 	// m_updatePeriod 주기마다 1번씩 갱신 (ui 정보 출력)
 	if (m_deltaTimeStack > m_updatePeriod) {
@@ -228,7 +242,10 @@ void CSHPViewerStudyView::OnRButtonUp(UINT nFlags, CPoint point)
 void CSHPViewerStudyView::OnMouseMove(UINT nFlags, CPoint point)
 {
 	//PickingObj(point); // 마우스 이동 시에도 피킹 체크
-	if (!m_isLButtonDragging && !m_isRButtonDragging) return;
+	if (!m_isLButtonDragging && !m_isRButtonDragging) { 
+		if (!m_isUpdatePicking) { m_mouseClientPos = point; m_isUpdatePicking = true; }
+		return;
+	}
 
 	// 화면 픽셀 이동량 -> 세계 좌표 이동량으로 변환
 	CPoint mouseDelta = point - m_mouseClientPos;
@@ -337,9 +354,9 @@ void CSHPViewerStudyView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 	case 'Q': m_keyState.keyQ = true; break; // 로컬 회전
 	case 'E': m_keyState.keyE = true; break;
 
-	case VK_UP:    m_keyState.keyUp = true; break; // 로컬 회전
-	case VK_DOWN:  m_keyState.keyDown = true; break;
-	case VK_LEFT:  m_keyState.keyLeft = true; break;
+	case VK_UP:    m_keyState.keyUp    = true; break; // 로컬 회전
+	case VK_DOWN:  m_keyState.keyDown  = true; break;
+	case VK_LEFT:  m_keyState.keyLeft  = true; break;
 	case VK_RIGHT: m_keyState.keyRight = true; break;
 
 	case 'I': m_keyState.keyI = true; break; // 월드 이동
@@ -377,36 +394,59 @@ void CSHPViewerStudyView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 // 키 입력 (눌린 후 ~ 뗴기 전)
 void CSHPViewerStudyView::InputKey(float deltaTime)
 {
-	float moveSpeed   = 300.0f * deltaTime;
-	float rotateSpeed = 900.0f * deltaTime;
-	float moveX = 0.0f, moveY = 0.0f;
+	double moveSpeed   = 300.0 * deltaTime;
+	double rotateSpeed = 900.0 * deltaTime;
+	glm::dvec3 moveDelta = { 0.0, 0.0, 0.0 };
 	bool  reDraw = false;
+	
+	if (m_uiState.isEditObjectMode) { // 객체 편집 모드
+		// WASD (객체 이동)
+		double speedPerHeight = abs(m_camera.transform.position.z) * m_camera.moveSpeedCorrection;
+		if (speedPerHeight < 1.0f) speedPerHeight = 1.0f;
 
-	// WASD (로컬 좌표 이동)
-	if (m_keyState.keyW) moveY += moveSpeed;
-	if (m_keyState.keyS) moveY -= moveSpeed;
-	if (m_keyState.keyA) moveX += moveSpeed;
-	if (m_keyState.keyD) moveX -= moveSpeed;
-	if (moveX != 0.0f || moveY != 0.0f) { m_camera.MoveLocal(moveX, moveY); reDraw = true; }
+		if (m_keyState.keyW) moveDelta.y += moveSpeed;
+		if (m_keyState.keyS) moveDelta.y -= moveSpeed;
+		if (m_keyState.keyA) moveDelta.x -= moveSpeed;
+		if (m_keyState.keyD) moveDelta.x += moveSpeed;
+		if (m_keyState.keyR) moveDelta.z += moveSpeed;
+		if (m_keyState.keyF) moveDelta.z -= moveSpeed;
+		if (moveDelta.x != 0.0f || moveDelta.y != 0.0f) {
+			//m_camera.MoveWorld(moveDelta.x, moveDelta.y);
+			//m_camera.ZoomWorld(moveDelta.z);
+			moveDelta.x *= speedPerHeight;
+			moveDelta.y *= speedPerHeight;
+			m_layerManager.MoveObject(moveDelta);
+			reDraw = true;
+		}
+	}
+	else { // 카메라 이동
+		// WASD (로컬 좌표 이동)
+		if (m_keyState.keyW) moveDelta.y += moveSpeed;
+		if (m_keyState.keyS) moveDelta.y -= moveSpeed;
+		if (m_keyState.keyA) moveDelta.x += moveSpeed;
+		if (m_keyState.keyD) moveDelta.x -= moveSpeed;
+		if (moveDelta.x != 0.0f || moveDelta.y != 0.0f) { m_camera.MoveLocal(moveDelta.x, moveDelta.y); reDraw = true; }
 
-	// IJKL (월드 좌표 이동)
-	moveX = moveY = 0.0f;
-	if (m_keyState.keyI) moveY += moveSpeed;
-	if (m_keyState.keyK) moveY -= moveSpeed;
-	if (m_keyState.keyJ) moveX += moveSpeed;
-	if (m_keyState.keyL) moveX -= moveSpeed;
-	if (moveX != 0.0f || moveY != 0.0f) { m_camera.MoveWorld(moveX, moveY); reDraw = true; }
+		// IJKL (월드 좌표 이동)
+		moveDelta = { 0.0, 0.0, 0.0 };
+		if (m_keyState.keyI) moveDelta.y += moveSpeed;
+		if (m_keyState.keyK) moveDelta.y -= moveSpeed;
+		if (m_keyState.keyJ) moveDelta.x += moveSpeed;
+		if (m_keyState.keyL) moveDelta.x -= moveSpeed;
+		if (moveDelta.x != 0.0f || moveDelta.y != 0.0f) { m_camera.MoveWorld(moveDelta.x, moveDelta.y); reDraw = true; }
 
-	// RF (로컬 좌표 줌)
-	if (m_keyState.keyR) m_camera.ZoomLocal(1.0);
-	if (m_keyState.keyF) m_camera.ZoomLocal(-1.0);
+		// RF (로컬 좌표 줌)
+		if (m_keyState.keyR) m_camera.ZoomLocal(1.0);
+		if (m_keyState.keyF) m_camera.ZoomLocal(-1.0);
+	}
+	
 
 	// UO (월드 좌표 줌)
 	if (m_keyState.keyU) m_camera.ZoomWorld(1.0);
 	if (m_keyState.keyO) m_camera.ZoomWorld(-1.0);
 
 	// QE, 방향키 (로컬 회전)
-	float rotX = 0.0f, rotY = 0.0f, rotZ = 0.0f;
+	double rotX = 0.0f, rotY = 0.0f, rotZ = 0.0f;
 	if (m_keyState.keyE)	 rotZ -= rotateSpeed;
 	if (m_keyState.keyQ)	 rotZ += rotateSpeed;
 	if (m_keyState.keyLeft)  rotX -= rotateSpeed;

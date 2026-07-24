@@ -90,6 +90,8 @@ public:
 	void HighlightObjectColor(int32_t objectId); // 피킹 객체 색상 강조
 	void RestoreObjectColor(int32_t objectId, UIState& uiState, bool isSelectedLayer); // 강조했던 색상 복구
 	
+	void MoveObject(int32_t objectId, glm::dvec3& moveDelta);
+
 	std::vector<DrawInfo>& GetPolygonDrawInfo() { return m_polygonDrawInfos; } // 면 객체별 인덱스 범위 반환
 	std::vector<uint32_t>& GetPolygonIndices()  { return m_polygonIndices;   } // 면 인덱스 반환
 	std::vector<Vertex>&   GetPolygonVertices() { return m_polygonVertices;  } // 면 버텍스 반환

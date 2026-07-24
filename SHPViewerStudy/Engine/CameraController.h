@@ -27,10 +27,6 @@ enum class FrustumState {
 class CameraController
 {
 private:
-	float moveSpeedCorrection   = 0.002f; // 이동 속도 보정
-	float zoomSpeedCorrection   = 0.1f;   // 줌   속도 보정
-	float rotateAngleCorrection = 0.1f;   // 회전 각도 보정
-
 	glm::dmat4 viewMatrix           = glm::dmat4(1.0f); // 뷰      행렬
 	glm::dmat4 projectionMatrix     = glm::dmat4(1.0f); // 투영    행렬
 	glm::dmat4 viewProjectionMatrix = glm::dmat4(1.0f); // 뷰-투영 행렬
@@ -39,6 +35,10 @@ private:
 
 
 public:
+	float moveSpeedCorrection = 0.002f; // 이동 속도 보정
+	float zoomSpeedCorrection = 0.1f;   // 줌   속도 보정
+	float rotateAngleCorrection = 0.1f; // 회전 각도 보정
+
     Transform transform;
 	double fov = 60.0;   // 시야각(FOV)
     double aspect = 1.0; // 화면 종횡비

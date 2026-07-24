@@ -12,6 +12,7 @@ struct UIState
     bool isShowBuilding    = false;
     bool isCameraThirdMode = false; // 카메라 모드, false: 1인칭(기본), true: 3인칭
     bool isPickingMode     = false; // 피킹 모드, 버튼으로 on/off
+    bool isEditObjectMode  = false; // 객체 편집 모드
 };
 
 // UI 크기 정보

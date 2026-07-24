@@ -54,9 +54,9 @@ public:
 	std::vector<int32_t>      m_visibleNodeFakeObjIds; // 마지막 검색에서 통과한 노드들
 	Layer& m_layer;    // 레이어
 
-	double m_limitSizeRate = 0.25;  // 노드 길이 * m_limitSizeRate 보다 객체의 길이가 크다면 자식 노드에 넣기에 크다고 판단하여 자식 노드에 넣지 않고 현재 노드에 넣는다.
-	double m_looseBoxRate  = 0.075; // 느슨한 박스 = 노드 길이 * m_looseBoxRate 만큼 확장
-	double m_minNodeLength = 500.0;   // 노드 길이가 이보다 작으면 더 이상 분할하지 않는다.
+	double m_limitSizeRate = 0.75;  // 노드 길이 * m_limitSizeRate 보다 객체의 길이가 크다면 자식 노드에 넣기에 크다고 판단하여 자식 노드에 넣지 않고 현재 노드에 넣는다.
+	double m_looseBoxRate  = 0.25;  // 느슨한 박스 = 노드 길이 * m_looseBoxRate 만큼 확장
+	double m_minNodeLength = 500.0; // 노드 길이가 이보다 작으면 더 이상 분할하지 않는다.
 
 	// 성능 측정용 카운터 (매 탐색마다 리셋)
 	//int64_t m_visitedNodeCount = 0; // SearchRenderingData가 진입한 노드 수

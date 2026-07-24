@@ -797,3 +797,20 @@ void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState, bool isSel
 	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
 	glBufferSubData(GL_ARRAY_BUFFER, info.vertexOffset * sizeof(Vertex), info.vertexCount * sizeof(Vertex), m_polygonVertices.data() + info.vertexOffset);
 }
+
+void Renderer::MoveObject(int32_t objectId, glm::dvec3& moveDelta)
+{
+	const DrawInfo& info = m_polygonDrawInfos[objectId];
+	if (info.vertexCount == 0) return;
+
+	// CPU 버퍼에서 해당 vertex 범위만 색상 변경
+	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
+		m_polygonVertices[i].x += moveDelta.x;
+		m_polygonVertices[i].y += moveDelta.y;
+		m_polygonVertices[i].z += moveDelta.z;
+	}
+
+	// GPU의 해당 위치만 덮어쓰기
+	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
+	glBufferSubData(GL_ARRAY_BUFFER, info.vertexOffset * sizeof(Vertex), info.vertexCount * sizeof(Vertex), m_polygonVertices.data() + info.vertexOffset);
+}

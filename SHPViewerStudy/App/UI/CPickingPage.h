@@ -8,6 +8,9 @@ struct PickingCallbacks
 {
     std::function<void(bool)> onPicking;
     std::function<void(bool)> onThirdMode;
+    std::function<void(bool)> onEditObjectMode;
+    std::function<void(bool)> onEditObjectSave;
+    std::function<void(bool)> onEditObjectCancle;
 };
 
 class CPickingPage : public CWnd
@@ -23,6 +26,9 @@ private:
     PickingCallbacks m_callback;
 
     CButton m_buttonPicking;
+    CButton m_buttonEditObjectMode;
+    CButton m_buttonEditObjectSave;
+    CButton m_buttonEditObjectCancle;
     CButton m_radioFirstPerson;
     CButton m_radioThirdPerson;
     CStatic m_staticPickingInfo;
@@ -31,6 +37,9 @@ private:
     afx_msg void OnBtnPicking();
     afx_msg void OnBtnFirstPerson();
     afx_msg void OnBtnThirdPerson();
+    afx_msg void OnBtnEditObjectMode();
+    afx_msg void OnBtnEditObjectSave();
+    afx_msg void OnBtnEditObjectCancle();
 
     DECLARE_MESSAGE_MAP()
 };

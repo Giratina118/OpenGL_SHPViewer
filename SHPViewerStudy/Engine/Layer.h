@@ -61,8 +61,8 @@ public:
 
 	bool m_needRedraw    = true;    // true면 다음 Render에서 컬링/업로드 수행
 	UIState* m_uiState   = nullptr; // UI 버튼 토글 상태
-	int32_t pickingDataId  = -1;    // 피킹한 데이터 아이디, 이전 피킹과 현재 피킹 객체가 같은지 아닌지 판별 시 사용하기 위해 저장
-	int32_t pickingLayerId = -1;    // 피킹한 데이터의 레이어 아이디
+	int32_t m_pickingDataId  = -1;  // 피킹한 데이터 아이디, 이전 피킹과 현재 피킹 객체가 같은지 아닌지 판별 시 사용하기 위해 저장
+	int32_t m_pickingLayerId = -1;  // 피킹한 데이터의 레이어 아이디
 
 	Layer& CreateLayer(std::string name, uint32_t shpType, BoundingBox& layerBox); // 레이어 생성
 	void DeleteLayer(int32_t layerId); // 레이어 삭제
@@ -75,7 +75,9 @@ public:
 	void Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel& rightPanel); // 피킹
 	void ApplyObjectColorWithLevel(); // 객체 색상 설정
 
-	void DrawCameraFrustum(CameraController& camera); // 카메라 절두체 시각화
+	void MoveObject(glm::dvec3& moveDelta);
+
+	void DrawCameraFrustum(CameraController& camera);         // 카메라 절두체 시각화
 	void DrawDebugRect(const glm::dvec3& center, float size); // 피킹 지점 사각형 표시
 	void DrawDebugPrimitives(const std::vector<Vertex>& vertices, GLenum drawMode); // 절두체, 피킹 지점 사각형 그리기
 

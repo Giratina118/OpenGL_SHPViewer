@@ -5,6 +5,7 @@
 #include <string>
 #include "ColorData.h"
 #include "DBFTable.h"
+#include "Transform.h"
 
 double CrossCheck(glm::dvec2 p1, glm::dvec2 p2, glm::dvec2 p3, glm::dvec2 p4); // 선분 교차 검사
 
@@ -49,15 +50,21 @@ struct BoundingBox
     bool IsOnCollisionBox  (BoundingBox& otherBox)  const; // 박스 접촉 체크
 	bool IsOnCollisionPoint(glm::dvec3& otherPoint) const; // 점 접촉 체크
 	bool IsOnCollisionRay  (glm::dvec3& startPoint, glm::dvec3& dir) const; // 선 접촉 체크
-    bool IsInclude         (BoundingBox& otherBox) const; // 박스 포함 체크 (other이 자신 안에 완전히 포함되는지)
+    bool IsInclude         (BoundingBox& otherBox)  const; // 박스 포함 체크 (other이 자신 안에 완전히 포함되는지)
 };
 
 
 class ObjectBase
 {
 public:
-	uint32_t shapeType; // 객체 타입 (1: Point, 3: PolyLine, 5: Polygon, 8: MultiPoint, 31: MultiPatch)
-    BoundingBox mbrBox; // 객체 MBR
+	uint32_t    shapeType; // 객체 타입 (1: Point, 3: PolyLine, 5: Polygon, 8: MultiPoint, 31: MultiPatch)
+    BoundingBox mbrBox;    // 객체 MBR
+	Transform   transform; // 객체 위치, 회전, 스케일 관리
+
+	void Move  (glm::dvec3& delta);
+	void Rotate(glm::dvec3& delta);
+	void Scale (glm::dvec3& delta);
+	void UpdateMatrix();
 };
 
 class PointObject : public ObjectBase
@@ -68,7 +75,7 @@ public:
 	double z = 0.0; // z 좌표
 	double m = 0.0; // m 값
 
-    void SetMBRBox() { mbrBox.minX = mbrBox.maxX = point.x; mbrBox.minY = mbrBox.maxY = point.y;}
+	void SetMBRBox();
 };
 
 class MultiPointObject : public ObjectBase
