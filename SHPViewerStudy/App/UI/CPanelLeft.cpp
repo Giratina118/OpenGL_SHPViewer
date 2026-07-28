@@ -36,6 +36,7 @@ int CLeftPanel::OnCreate(LPCREATESTRUCT lp)
     m_pagePicking.CreateTabControls();
 
     ShowPage(0); // ≈«1¿Ã ±‚∫ª
+    m_pageControl.BringWindowToTop();
     return 0;
 }
 

@@ -83,10 +83,25 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	// 카메라 초기화, UI 패널 부분 남기기
 	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
 	m_layerManager.InitRenderer(m_hWnd, &m_uiState); // 렌더 초기화
+	m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager);
 
 	m_lastTime = std::chrono::steady_clock::now();
 	SetTimer(1, 8, nullptr); // 8ms마다 WM_TIMER -> OnTimer함수 호출
 	return 0;
+}
+
+void CSHPViewerStudyView::UpdateViewport(int32_t clientWidth, int32_t clientHeight)
+{
+	if (clientWidth <= 0 || clientHeight <= 0) return; // 최소화 방어
+
+	m_uiSize.SetSize(clientWidth, clientHeight); // 새로 변경된 화면 크기 정보 갱신
+	m_panelLeft.Resize();  // 왼쪽   패널 갱신
+	m_panelRight.Resize(); // 오른쪽 패널 갱신
+	m_uiSize.isFontChanged = false;
+
+	// 가운데 렌더링 영역 사이즈, 카메라 종횡비 재지정
+	m_camera.UpdateAspect(m_uiSize.clientWidth - m_uiSize.panelWidth, m_uiSize.clientHeight);
+	m_layerManager.Resize(m_uiSize.clientWidth, m_uiSize.clientHeight, m_uiSize.panelWidth);
 }
 
 // UI의 버튼들 상호작용 연결
@@ -120,16 +135,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 void CSHPViewerStudyView::OnSize(UINT nType, int clientWidth, int clientHeight)
 {
 	CView::OnSize(nType, clientWidth, clientHeight);
-	if (clientWidth <= 0 || clientHeight <= 0) return; // 최소화 방어
-
-	m_uiSize.SetSize(clientWidth, clientHeight); // 새로 변경된 화면 크기 정보 갱신
-	m_panelLeft.Resize();  // 왼쪽   패널 갱신
-	m_panelRight.Resize(); // 오른쪽 패널 갱신
-	m_uiSize.isFontChanged = false;
-
-	// 가운데 렌더링 영역 사이즈, 카메라 종횡비 재지정
-	m_camera.UpdateAspect(m_uiSize.clientWidth - m_uiSize.panelWidth, m_uiSize.clientHeight);
-	m_layerManager.Resize(m_uiSize.clientWidth, m_uiSize.clientHeight, m_uiSize.panelWidth);
+	UpdateViewport(clientWidth, clientHeight);
 }
 
 // WM_DESTROY 시 호출

@@ -123,7 +123,7 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
     //bool  isSelected = (m_hitItemIndex == index); // 선택된 아이템과 선택되지 않은 아이템 구분
 
     // 배경 설정 (흰색 - 회색 번갈아가며, 선택된 아이템은 하늘색)
-    COLORREF bgColor = (m_hitItemIndex == index) ? RGB(200, 220, 255) : ((index % 2) ? RGB(255, 255, 255) : RGB(240, 240, 240));
+    COLORREF bgColor = (m_hitItemIndex == index) ? RGB(200, 220, 255) : ((index % 2) ? RGB(240, 240, 240) : RGB(255, 255, 255));
     pDC->FillSolidRect(rectItem, bgColor);
 
     CRect rectCheck = GetCheckRect(rectItem); // 체크박스 크기

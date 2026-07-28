@@ -95,6 +95,7 @@ public:
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
 	virtual void OnDraw(CDC* pDC);
 	
+	void UpdateViewport(int32_t clientWidth, int32_t clientHeight);
 	void LinkCallbacksToUI();                      // 좌측 패널 콜백 연결
 	void InputKey(float deltaTime);                // 키 입력
 	glm::dvec3 ClientToWorldPos(CPoint clientPos); // 피킹 위치

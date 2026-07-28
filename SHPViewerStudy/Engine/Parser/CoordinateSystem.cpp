@@ -158,6 +158,7 @@ glm::dvec2 CoordinateTransformer::TransformPoint(glm::dvec2& point, CoordinateSy
     // 투영 좌표계(미터) -> 경위도 좌표계로 역투영
     if (source.isProjected) InverseProjection(point, source); // point의 x y가 각각 경도와 위도 값으로 변환
 
+    
     // 타원체 변환 Bessel -> GRS80 (현재는 하나만 적용)
     if (source.gcs.ellipsoid.name.find("bessel") != std::string::npos) { // bessel이 타원체 이름에 포함되어 있을 경우 변환
         glm::dvec3 ecef = LLAtoECEF(point, source);
@@ -192,7 +193,7 @@ void CoordinateTransformer::InverseProjection(glm::dvec2& point, CoordinateSyste
     double latitudeOrigin      = param[Parameter::LatitudeOfOrigin] * source.gcs.unit; // 원점 위도
     double longitudeOrigin     = param[Parameter::CentralMeridian]  * source.gcs.unit; // 원점 경도
 
-    // 계산을 위한 한
+    // 계산을 위한 변수
     double e2 = eccentricitySquared;
     double e4 = e2 * e2;
     double e6 = e4 * e2;

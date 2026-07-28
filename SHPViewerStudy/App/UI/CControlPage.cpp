@@ -17,7 +17,7 @@ bool CControlPage::Create(CWnd* pParent, UINT nID)
 void CControlPage::CreateTabControls()
 {
     m_staticChangeInfo.Create(_T("데이터 대기중..."), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
-    m_staticInfo.Create(_T("이동: WASD, 좌클릭\n줌: R/F, 휠\n회전: 방향키, Q/E, 우클릭"), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
+    m_staticInfo.Create(_T("이동: WASD, 좌클릭\r\n줌: R/F, 휠\r\n회전: 방향키, Q/E, 우클릭"), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
     m_buttonGotoLayer.Create(_T("레이어로 이동"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_GOTO_LAYER);
     m_buttonDeleteLayer.Create(_T("레이어 제거"),   WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_DELETE_LAYER);
 

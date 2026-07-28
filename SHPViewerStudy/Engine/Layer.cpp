@@ -174,7 +174,7 @@ void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 h
     // 레이어 별 렌더링
     for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
-        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layerId) ? true : false;
+        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layers[layerId]->m_id) ? true : false;
 
         Renderer* renderer = layers[layerId]->m_renderer.get();
         if (renderer != nullptr && !(!m_uiState->isShowBuilding && layers[layerId]->m_isBuilding)) {
@@ -211,7 +211,7 @@ void LayerManager::Resize(int32_t screenWidth, int32_t screenHeight, int32_t pan
 void LayerManager::CountObject(int32_t& totalObjCount, int32_t& renderObjCount, int32_t& fakeObjCount)
 {
     for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
-        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layerId) ? true : false;
+        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layers[layerId]->m_id) ? true : false;
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible || !isSelectedLayer) continue;
 
         totalObjCount  += static_cast<int32_t>(layers[layerId]->pointObjects.size()) + static_cast<int32_t>(layers[layerId]->polyLineObjects.size()) + static_cast<int32_t>(layers[layerId]->polygonObjects.size());
@@ -268,7 +268,7 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
 void LayerManager::ApplyObjectColorWithLevel()
 {
     for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
-        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layerId) ? true : false;
+        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layers[layerId]->m_id) ? true : false;
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
 		layers[layerId]->m_renderer->ApplyLevelColors(m_uiState->isShowLevelColor && isSelectedLayer);
     }
