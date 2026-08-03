@@ -160,6 +160,9 @@
     <ClInclude Include="Engine\Parser\CoordinateSystem.h">
       <Filter>Engine\Parser</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Parser\ProjTransformer.h">
+      <Filter>Engine\Parser</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Render\Renderer.cpp">
@@ -235,6 +238,9 @@
       <Filter>App\UI</Filter>
     </ClCompile>
     <ClCompile Include="Engine\Parser\CoordinateSystem.cpp">
+      <Filter>Engine\Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Parser\ProjTransformer.cpp">
       <Filter>Engine\Parser</Filter>
     </ClCompile>
   </ItemGroup>

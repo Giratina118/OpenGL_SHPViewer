@@ -139,7 +139,7 @@ void Renderer::BuildPointMesh()
 
 	if (pointCount == 0) return;
 
-	double radian = 100.0;
+	double radian = 10.0;
 	glm::dvec2 dir[12] = {
 		{ 1.0,  0.0}, { 0.866,  0.5},   { 0.5,    0.866},
 		{ 0.0,  1.0}, {-0.5,    0.866}, {-0.866,  0.5},
@@ -155,7 +155,7 @@ void Renderer::BuildPointMesh()
 
 		for (int32_t angle = 0; angle < 12; angle++) {
 			glm::dvec2 point = pointObj.point + dir[angle] * m_layer.m_objSize;
-			m_polygonVertices.push_back({ static_cast<float>(point.x), static_cast<float>(point.y), 10.0, 200, 200, 50, 255 });
+			m_polygonVertices.push_back({ static_cast<float>(point.x), static_cast<float>(point.y), 10.0, 200, 200, 200, 255 });
 		}
 		for (int32_t indicesNum = 0; indicesNum < 10; indicesNum++) {
 			m_polygonIndices.push_back({ polygonVertStart });
@@ -585,6 +585,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 	}
 
 	// Fake Object (LOD 메쉬) 그리기
+	
 	int32_t quadTreenodeCount = static_cast<int32_t>(m_quadTree.m_nodes.size());
 	if (uiState.isShowFakeObject) {
 		size_t totalLodIndices = 0;
@@ -612,6 +613,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 			glBindVertexArray(0);
 		}
 	}
+	
 
 	if (isSelected) {
 		if (uiState.isShowObjectMBR)   DrawObjectMBR();           // 객체 MBR 그리기

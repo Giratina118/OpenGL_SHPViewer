@@ -3,6 +3,7 @@
 #include "CoordinateSystem.h"
 #include "Layer.h"
 
+
 std::string ToLower(std::string str)
 {
     for (char& ch : str)
@@ -114,10 +115,19 @@ void CoordinateTransformer::TransformCoordinate(CoordinateSystem& prjCoordinate,
         layerMinX = layerMinY = objMinX = objMinY = std::numeric_limits<double>::max();
         layerMaxX = layerMaxY = objMaxX = objMaxY = std::numeric_limits<double>::lowest();
 
+
         // Point 객체 변환 및 MBR 재계산
-        for (auto& obj : newLayer.pointObjects) {
-            obj.point = TransformPoint(obj.point, prjCoordinate, destCoordinate);
-            obj.SetMBRBox(); // 변환된 좌표로 갱신
+        if (newLayer.pointObjects.size() > 0) {
+            for (auto& obj : newLayer.pointObjects) {
+                obj.point = TransformPoint(obj.point, prjCoordinate, destCoordinate);
+                obj.SetMBRBox(); // 변환된 좌표로 갱신
+
+                // 레이어 mbr 박스 계산
+                if (obj.point.x < layerMinX) layerMinX = obj.point.x;
+                if (obj.point.x > layerMaxX) layerMaxX = obj.point.x;
+                if (obj.point.y < layerMinY) layerMinY = obj.point.y;
+                if (obj.point.y > layerMaxY) layerMaxY = obj.point.y;
+            }
         }
 
         // PolyLine / Polygon 객체 변환 (람다 활용)
@@ -145,11 +155,17 @@ void CoordinateTransformer::TransformCoordinate(CoordinateSystem& prjCoordinate,
             }
         };
 
-        transformPolyObjects(newLayer.polyLineObjects);
-        transformPolyObjects(newLayer.polygonObjects);
+        if (newLayer.polyLineObjects.size() > 0) transformPolyObjects(newLayer.polyLineObjects);
+        if (newLayer.polygonObjects.size()  > 0) transformPolyObjects(newLayer.polygonObjects);
         newLayer.SetMBRBox(layerMinX, layerMinY, layerMaxX, layerMaxY); // 레이어 mbr 갱신
+
+        // 변환 결과 출력
+        //TCHAR buf[256];
+        //_stprintf_s(buf, _T("[PROJ] 변환 완료: MBR (%.6f,%.6f)~(%.6f,%.6f)\n"), layerMinX, layerMinY, layerMaxX, layerMaxY);
+        //OutputDebugString(buf);
     }
 }
+
 
 // 좌표계 변환 - 정점 좌표 변환
 glm::dvec2 CoordinateTransformer::TransformPoint(glm::dvec2& point, CoordinateSystem& source, CoordinateSystem& destination)
@@ -172,6 +188,7 @@ glm::dvec2 CoordinateTransformer::TransformPoint(glm::dvec2& point, CoordinateSy
     return point;
 }
 
+
 // 역투영
 void CoordinateTransformer::InverseProjection(glm::dvec2& point, CoordinateSystem& source)
 {
@@ -186,6 +203,7 @@ void CoordinateTransformer::InverseProjection(glm::dvec2& point, CoordinateSyste
     point.x /= scaleFactor;
     point.y /= scaleFactor;
 
+    
     // 투영 좌표계(미터) -> 경위도 좌표계로 역연산
     double flattening          = 1.0 / source.gcs.ellipsoid.inverseFlattening; // 편평률
     double eccentricitySquared = 2.0 * flattening - flattening * flattening;   // 제1이심률 제곱, 타원체의 납작함을 나타내는 값
@@ -244,13 +262,14 @@ void CoordinateTransformer::InverseProjection(glm::dvec2& point, CoordinateSyste
 
     point.x = longitudeRadian / source.gcs.unit; // 경도 (x축에 매핑)
     point.y = latitudeRadian  / source.gcs.unit; // 위도 (y축에 매핑)
+    
 }
 
 // 정투영
 void CoordinateTransformer::Projection(glm::dvec2& point, CoordinateSystem& destination)
 {
     auto param = destination.pcs.parameters; // 투영좌표계 파라미터
-
+    
     double longitudeRadian = point.x * destination.gcs.unit; // 현재 경도
     double latitudeRadian  = point.y * destination.gcs.unit; // 현재 위도
 
@@ -287,13 +306,13 @@ void CoordinateTransformer::Projection(glm::dvec2& point, CoordinateSystem& dest
     double a = (longitudeRadian - longitudeOrigin) * glm::cos(latitudeRadian);      // 경도차 보정 항
 
     // 최종 x, y 계산, 테일러 급수를 통한 평면 거리 전개
-    point.x = transverseRadius    * (a + (1.0 - t + c)       * glm::pow(a, 3.0) / 6.0
-        + (5.0 - 18.0 * t + t * t + 14.0 * c - 58.0 + t + c) * glm::pow(a, 5.0) / 120.0);
+    point.x = transverseRadius * (a + (1.0 - t + c) * glm::pow(a, 3.0) / 6.0
+        + (5.0 - 18.0 * t + t * t + 14.0 * c - 58.0 * t * c) * glm::pow(a, 5.0) / 120.0);
 
     point.y = arcLengthDelta + transverseRadius * glm::tan(latitudeRadian)
         * (a * a / 2.0 + (5.0 - t + 9.0 * c + 4.0 * c * c)      * glm::pow(a, 4.0) / 24.0
         + (61.0 - 58.0 * t + t * t + 270.0 * c - 330.0 * t * c) * glm::pow(a, 6.0) / 720.0);
-
+    
     point.x *= param[Parameter::ScaleFactor];
     point.y *= param[Parameter::ScaleFactor];
 
@@ -356,20 +375,30 @@ void CoordinateTransformer::EllipsoidTransform(glm::dvec3& ecefPoint)
     // 보정 계수의 단위는 ppm(백만분율), 수식에 적용할 때는 1 + (6.342 * 10^{-6}) 형태로 적용해야 함
 
     // 이동 계수
+    //double dx = -115.80;
+    //double dy =  474.99;
+    //double dz =  674.11;
     double dx = -145.907;
-    double dy = 505.034;
-    double dz = 685.756;
+    double dy =  505.034;
+    double dz =  685.756;
 
     // 회전 계수
     double arcSecToRadian = glm::pi<double>() / 648000.0;
+    //double rx = -1.16 * arcSecToRadian;
+    //double ry =  2.31 * arcSecToRadian;
+    //double rz =  1.63 * arcSecToRadian;
     double rx = -1.162 * arcSecToRadian;
     double ry =  2.347 * arcSecToRadian;
     double rz =  1.592 * arcSecToRadian;
 
     // 보정 계수
+    //double s = 6.34 * 0.000001; 
     double s = 6.342 * 0.000001; 
 
     // 회전 중심점 (미터)
+    //double px = 0;
+    //double py = 0;
+    //double pz = 0;
     double px = -3159521.31;
     double py =  4068151.32;
     double pz =  3748113.85;
@@ -382,12 +411,67 @@ void CoordinateTransformer::EllipsoidTransform(glm::dvec3& ecefPoint)
     // 미세 회전 및 스케일 적용 (Small Angle Approximation 행렬)
     // 회전각이 극히 작으므로 sin(r) = r, cos(r) = 1 로 근사화된 3x3 행렬을 사용합니다.
     double scale = 1.0 + s;
-    double xRot = scale * ( x0 - rz * y0 + ry * z0);
-    double yRot = scale * ( rz * x0 + y0 - rx * z0);
-    double zRot = scale * (-ry * x0 + rx * y0 + z0);
+    //double xRot = scale * ( x0 - rz * y0 + ry * z0);
+    //double yRot = scale * ( rz * x0 + y0 - rx * z0);
+    //double zRot = scale * (-ry * x0 + rx * y0 + z0);
+
+    double xRot = scale * ( x0 + rz * y0 - ry * z0);
+    double yRot = scale * (-rz * x0 + y0 + rx * z0);
+    double zRot = scale * ( ry * x0 - rx * y0 + z0);
 
     // 회전 중심점 원복 및 원점 이동량(Translation) 최종 적용
     ecefPoint.x = xRot + px + dx;
     ecefPoint.y = yRot + py + dy;
     ecefPoint.z = zRot + pz + dz;
+}
+
+
+
+int CoordinateSystem::GuessEpsg() const
+{
+    auto& param = pcs.parameters;
+    std::string ellipsoidLower = ToLower(gcs.ellipsoid.name);
+    std::string pcsLower = ToLower(pcs.name);
+
+    // 1. 투영 없음 -> 지리 좌표계
+    if (!isProjected) {
+        if (ellipsoidLower.find("wgs") != std::string::npos) return 4326;
+        return 0;
+    }
+
+    double centralMeridian = param.count(Parameter::CentralMeridian)
+        ? param.at(Parameter::CentralMeridian) : 0.0;
+    double falseEasting = param.count(Parameter::FalseEasting)
+        ? param.at(Parameter::FalseEasting) : 0.0;
+    double falseNorthing = param.count(Parameter::FalseNorthing)
+        ? param.at(Parameter::FalseNorthing) : 0.0;
+    double scaleFactor = param.count(Parameter::ScaleFactor)
+        ? param.at(Parameter::ScaleFactor) : 1.0;
+
+    // 2. 통합 좌표계 (5178 / 5179) - Bessel 체크보다 먼저
+    if (std::abs(centralMeridian - 127.5) < 0.001 &&
+        std::abs(falseEasting - 1000000.0) < 1.0 &&
+        std::abs(falseNorthing - 2000000.0) < 1.0 &&
+        std::abs(scaleFactor - 0.9996) < 0.00001)
+    {
+        if (ellipsoidLower.find("bessel") != std::string::npos) return 5178;
+        return 5179;
+    }
+
+    // 3. Bessel + 중부원점 -> 2097
+    if (ellipsoidLower.find("bessel") != std::string::npos)
+        return 2097;
+
+    // 4. GRS80 + 벨트 계열 (5185 ~ 5188)
+    if (std::abs(falseEasting - 200000.0) < 1.0 &&
+        std::abs(falseNorthing - 600000.0) < 1.0 &&
+        std::abs(scaleFactor - 1.0) < 0.00001)
+    {
+        if (std::abs(centralMeridian - 125.0) < 0.001) return 5185;
+        if (std::abs(centralMeridian - 127.0) < 0.001) return 5186;
+        if (std::abs(centralMeridian - 129.0) < 0.001) return 5187;
+        if (std::abs(centralMeridian - 131.0) < 0.001) return 5188;
+    }
+
+    return 0;
 }

@@ -96,7 +96,7 @@ void CPickingPage::OnBtnEditObjectCancle()
 void CPickingPage::UpdatePickingInfo(double pointX, double pointY)
 {
     CString text;
-    text.Format(_T("¼±ÅÃ ÁÂÇ¥\nx :  %.1f\r\ny :  %.1f\r\n"), pointX, pointY);
+    text.Format(_T("¼±ÅÃ ÁÂÇ¥\nx :  %.6f\r\ny :  %.6f\r\n"), pointX, pointY);
     if (m_staticPickingInfo.GetSafeHwnd())
         m_staticPickingInfo.SetWindowText(text);
 }

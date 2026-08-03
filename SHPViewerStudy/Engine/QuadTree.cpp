@@ -43,7 +43,7 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 {
 	QuadTreeNode& curNode    = m_nodes[currentNodeId]; // 현재 노드
 	BoundingBox&  curNodeBox = curNode.m_boundingBox;  // 현재 노드 mbr박스
-	BoundingBox*  curObjBox  = nullptr; // 현재 데이터 mbr박스
+	BoundingBox*  curObjBox  = nullptr;                // 현재 데이터 mbr박스
 	glm::dvec2    nodeCenter = curNodeBox.GetCenter(); // 노드 중점
 	glm::dvec2    dataCenter = dataMbrBox.GetCenter(); // 데이터 중점
 
@@ -99,7 +99,7 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	if (childNodeId == -1)										// 자식노드가 없다면 (-1: 초기값, 자식 없음을 의미)
 		childNodeId = DivideNode(currentNodeId, childNodeType); // 분할, 생성된 자식노드 Id 반환
 
-	InsertData(childNodeId, dataId, dataMbrBox, isBuilding); // 재귀 분할
+	InsertData(childNodeId, dataId, dataMbrBox, isBuilding);    // 재귀 분할
 }
 
 // 분할
@@ -328,6 +328,7 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 	// 접촉한다면 접촉 지점 부터 카메라의 거리가 가장 짧을 경우에만 객체 아이디 저장
 
 	int32_t selectDataId = -1;
+	if (m_layer.polygonObjects.size() < 1) return -1; // 폴리곤 객체가 없으면 -1 반환
 	
 	QuadTreeNode& node = m_nodes[currentNodeId];
 

@@ -7,6 +7,9 @@
 #include "CoordinateSystem.h"
 #include "Layer.h"
 
+
+#include "ProjTransformer.h"
+
 void ShpfileHeader::ReadHeader(const uint8_t*& ptr)
 {
     memcpy(&fileCode, ptr, 4);
@@ -104,6 +107,24 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     if (hasPrj) { 
         prjCoordinate.PrjParse(prjBuffer);
         transformer.TransformCoordinate(prjCoordinate, newLayer);
+        
+        /*
+        // PROJ 라이브러리 사용
+        int srcEpsg = prjCoordinate.GuessEpsg();
+        if (srcEpsg == 0) {
+            OutputDebugString(_T("[PROJ] EPSG 판단 불가, 헬머트 변환으로 대체\n"));
+            // 기존 헬머트 코드
+            transformer.TransformCoordinate(prjCoordinate, newLayer);
+        }
+        else if (srcEpsg == 5186) {
+            OutputDebugString(_T("[PROJ] 이미 5186, 변환 불필요\n"));
+        }
+        else {
+            ProjTransformer projTransformer;
+            if (projTransformer.Init(srcEpsg, 5186))
+                projTransformer.TransformLayer(newLayer);
+        }
+        */
     }
 
 	newLayer.m_quadTree->BuildQuadTree(); // 쿼드트리 빌드

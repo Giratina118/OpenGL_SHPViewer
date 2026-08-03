@@ -34,7 +34,6 @@ CString DBFTable::PrintAttribute(int32_t dataId) {
             case DBFColumnType::String: 
             {
                 auto view = stringColumns[column.typeIndex].GetTrimmedView(dataId);
-
                 text += CString(view.data(), view.size());
                 break;
             }

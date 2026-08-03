@@ -59,6 +59,8 @@ public:
     void PrjParse(std::vector<uint8_t>& prjBuffer); // 파서
     std::string ReadValue(); // 하나씩 읽기
     void SetTargetCoordinate(int32_t epsg);
+
+    int GuessEpsg() const;
 };
 
 // 좌표계 변환
