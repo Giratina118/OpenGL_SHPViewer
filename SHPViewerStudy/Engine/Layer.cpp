@@ -1,7 +1,8 @@
 #include <pch.h>
 #include <Layer.h>
+#include <random>
 #include "UI/CPanelRight.h"
-
+#include "UI/CLayerListCtrl.h"
 
 // 시간 측정을 위한 매크로 준비
 #define PROFILE_START(name) auto start_##name = std::chrono::high_resolution_clock::now();
@@ -26,6 +27,16 @@ Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox
     newLayer.m_boundingBox = layerBox;
     newLayer.m_isVisible   = true;
 	if (layers.size() == 1) newLayer.m_isBuilding = true; // 첫 번째 레이어(건물 정보)일 시 표시, 높이값 적용을 위해
+
+    static std::random_device rand;
+    static std::mt19937 gen(rand());
+    std::uniform_int_distribution<int> dis(64, 255);
+
+	newLayer.m_baseColor.red   = static_cast<unsigned char>(dis(gen));
+	newLayer.m_baseColor.green = static_cast<unsigned char>(dis(gen));
+	newLayer.m_baseColor.blue  = static_cast<unsigned char>(dis(gen));
+    newLayer.m_baseColor.alpha = 255;
+
     return newLayer;
 }
 
@@ -172,22 +183,44 @@ void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 h
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // 레이어 별 렌더링
+    /*
     for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
         bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layers[layerId]->m_id) ? true : false;
 
         Renderer* renderer = layers[layerId]->m_renderer.get();
         if (renderer != nullptr && !(!m_uiState->isShowBuilding && layers[layerId]->m_isBuilding)) {
-            //glEnable(GL_POLYGON_OFFSET_FILL);
-            //glPolygonOffset(0.5f, 4.0f);
             renderer->Render(camera, *m_uiState, uiSize, isSelectedLayer);
-        }
-        else {
-            //glEnable(GL_POLYGON_OFFSET_FILL);
-            //glPolygonOffset(1.0f, 4.0f);
+			glClear(GL_DEPTH_BUFFER_BIT); // 레이어 간의 우선순위 확실히, z-fighting 방지, 레이어별로 깊이 버퍼 초기화
         }
     }
-    //glDisable(GL_POLYGON_OFFSET_FILL);
+    */
+    // 만약 프로그램 초기화 직후라 m_layerOrder가 비어있다면, 기본 layers 배열의 순서대로 채워줌 (렌더링이 아예 안되는 현상 방지)
+    if (m_layerOrder.empty() && !layers.empty()) 
+        for (int32_t i = 0; i < static_cast<int32_t>(layers.size()); i++)
+            if (layers[i] != nullptr) m_layerOrder.push_back(i); // 여기서 i는 고유ID가 아니라 인덱스라면 i를 넣음
+
+
+    // 레이어 순회 렌더링
+    for (int32_t i = m_layerOrder.size() - 1; i >= 0; i--) {
+        // 안전장치: index가 범위를 벗어났거나 유효하지 않은 데이터면 무시 (크래시 및 꼬임 방지)
+        int32_t layerIndex = m_layerOrder[i];
+        if (layerIndex < 0 || layerIndex >= static_cast<int32_t>(layers.size()) || layers[layerIndex] == nullptr)
+            continue;
+
+        if (!layers[layerIndex]->m_isVisible)
+            continue;
+
+        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layers[layerIndex]->m_id) ? true : false;
+        Renderer* renderer = layers[layerIndex]->m_renderer.get();
+
+        if (renderer != nullptr && !(!m_uiState->isShowBuilding && layers[layerIndex]->m_isBuilding)) {
+            renderer->Render(camera, *m_uiState, uiSize, isSelectedLayer);
+
+            glClear(GL_DEPTH_BUFFER_BIT);
+        }
+    }
+
 
     if (m_uiState->isShowFrustumView) DrawCameraFrustum(camera); // 카메라 절두체 라인 그리기
     DrawDebugRect(hitPoint, 10.0f);
@@ -231,7 +264,10 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
     double collisionDistance = std::numeric_limits<double>::max(); // 거리 최대치 설정
     int32_t hitObj = -1;
 
-    for (int32_t layerId = 0; layerId < layers.size(); layerId++) {
+
+    for (int32_t i = 0; i < m_layerOrder.size(); i++) {
+        int32_t layerId = m_layerOrder[i];
+
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
         
         // 현재 가장 가까운 거리보다 더 가까운 거리에서 객체와 접했을 경우 -1 이외의 수 저장
@@ -239,6 +275,7 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
         if (hitObj != -1) { 
             m_pickingDataId  = hitObj;
             m_pickingLayerId = layerId;
+			break; // 레이어 우선순위에 따라 가장 가까운 객체를 찾았으므로 루프 종료
         }
     }
 
@@ -246,7 +283,6 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
 
     // 객체가 없는 빈 공간 선택 또는 이전과 같은 객체 선택 시 색 복구
     if (m_pickingDataId == -1 && beforePickingDataId != -1/* || m_pickingDataId != -1 && beforePickingDataId == m_pickingDataId && beforePickingLayerId == m_pickingLayerId*/) {
-        
         layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState, isSelectedLayer);
         rightPanel.Show(false);
         m_pickingLayerId = m_pickingDataId = -1;
@@ -279,8 +315,16 @@ void LayerManager::MoveObject(glm::dvec3& moveDelta)
 {
     if (m_pickingLayerId < 0 || m_pickingDataId < 0) return;
 
-    layers[m_layerIdToIndex[m_pickingLayerId]]->polygonObjects[m_pickingDataId].Move(moveDelta);
+    //layers[m_layerIdToIndex[m_pickingLayerId]]->polygonObjects[m_pickingDataId].Move(moveDelta);
     layers[m_layerIdToIndex[m_pickingLayerId]]->m_renderer->MoveObject(m_pickingDataId, moveDelta);
+}
+
+void LayerManager::RotateObject(glm::dvec3& moveDelta)
+{
+    if (m_pickingLayerId < 0 || m_pickingDataId < 0) return;
+
+    layers[m_layerIdToIndex[m_pickingLayerId]]->polygonObjects[m_pickingDataId].Rotate(moveDelta);
+    layers[m_layerIdToIndex[m_pickingLayerId]]->m_renderer->RotateObject(m_pickingDataId, moveDelta);
 }
 
 
@@ -356,4 +400,11 @@ void LayerManager::DrawDebugPrimitives(const std::vector<Vertex>& vertices, GLen
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_DYNAMIC_DRAW);
     glDrawArrays(drawMode, 0, static_cast<GLsizei>(vertices.size())); // 그리기
     glBindVertexArray(0);
+}
+
+void LayerManager::ReOrderLayer(std::vector<LayerItemData>& items)
+{
+    m_layerOrder.clear();
+    for (int32_t order = 0; order < static_cast<int32_t>(items.size()); order++)
+        m_layerOrder.push_back(items[order].layerId);
 }

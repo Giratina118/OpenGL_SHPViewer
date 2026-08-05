@@ -56,7 +56,6 @@ bool BoundingBox::IsOnCollisionPoint(glm::dvec3& otherPoint) const
     return (minX <= otherPoint.x && maxX >= otherPoint.x && minY <= otherPoint.y && maxY >= otherPoint.y);
 }
 
-// 선 접촉 체크, dir은 단위벡터
 bool BoundingBox::IsOnCollisionRay(glm::dvec3& start, glm::dvec3& dir) const
 {
     // 출발점이 이미 박스 안에 있으면 접촉 판정
@@ -67,27 +66,31 @@ bool BoundingBox::IsOnCollisionRay(glm::dvec3& start, glm::dvec3& dir) const
     double distance = 0.0;
     glm::dvec3 targetPoint;
 
-    if (std::abs(dir.x) > 0.01) {
-        if (std::abs(start.x - minX) < std::abs(start.x - maxX))  distance = (minX - start.x) / dir.x;
-        else                                                      distance = (maxX - start.x) / dir.x;
-        targetPoint = start + dir * distance;
+    if (std::abs(dir.x) > 0.001) {
+        targetPoint = start + dir * (minX - start.x) / dir.x;
+        if (minY < targetPoint.y && maxY > targetPoint.y && 0.0 < targetPoint.z && height > targetPoint.z) return true;
+
+        targetPoint = start + dir * (maxX - start.x) / dir.x;
         if (minY < targetPoint.y && maxY > targetPoint.y && 0.0 < targetPoint.z && height > targetPoint.z) return true;
     }
-    if (std::abs(dir.y) > 0.01) {
-        if (std::abs(start.y - minY) < std::abs(start.y - maxY))  distance = (minY - start.y) / dir.y;
-        else                                                      distance = (maxY - start.y) / dir.y;
-        targetPoint = start + dir * distance;
+    if (std::abs(dir.y) > 0.001) {
+        targetPoint = start + dir * (minY - start.y) / dir.y;
+        if (minX < targetPoint.x && maxX > targetPoint.x && 0.0 < targetPoint.z && height > targetPoint.z) return true;
+
+        targetPoint = start + dir * (maxY - start.y) / dir.y;
         if (minX < targetPoint.x && maxX > targetPoint.x && 0.0 < targetPoint.z && height > targetPoint.z) return true;
     }
-    if (std::abs(dir.z) > 0.01) {
-        if (std::abs(start.z - 0.0) < std::abs(start.z - height)) distance = (0.0    - start.z) / dir.z;
-        else                                                      distance = (height - start.z) / dir.z;
-        targetPoint = start + dir * distance;
+    if (std::abs(dir.z) > 0.001) {
+        targetPoint = start + dir * (0.0    - start.z) / dir.z;
+        if (minX < targetPoint.x && maxX > targetPoint.x && minY < targetPoint.y && maxY > targetPoint.y)  return true;
+
+        targetPoint = start + dir * (height - start.z) / dir.z;
         if (minX < targetPoint.x && maxX > targetPoint.x && minY < targetPoint.y && maxY > targetPoint.y)  return true;
     }
 
     return false;
 }
+
 
 // 박스 포함 체크
 bool BoundingBox::IsInclude(BoundingBox& otherBox) const
@@ -192,7 +195,7 @@ void ObjectBase::Move(glm::dvec3& delta)
     transform.MoveWorld(delta);
     // 렌더링 버텍스에 있는 정점들 위치 변경
     // 쿼드 트리 내에서 이 객체 하나만 다시 삽입
-
+    
     
 
 }
@@ -200,7 +203,6 @@ void ObjectBase::Move(glm::dvec3& delta)
 void ObjectBase::Rotate(glm::dvec3& delta)
 {
     transform.RotateWorld(delta.x, delta.y, delta.z);
-
 }
 
 void ObjectBase::Scale(glm::dvec3& delta)

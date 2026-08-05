@@ -7,9 +7,9 @@ struct UCharColor
 
 	UCharColor operator*(float value) const {
 		return {
-			static_cast<unsigned char>(glm::clamp(red * value, 0.0f, 255.0f)),
+			static_cast<unsigned char>(glm::clamp(red   * value, 0.0f, 255.0f)),
 			static_cast<unsigned char>(glm::clamp(green * value, 0.0f, 255.0f)),
-			static_cast<unsigned char>(glm::clamp(blue * value, 0.0f, 255.0f))
+			static_cast<unsigned char>(glm::clamp(blue  * value, 0.0f, 255.0f))
 		};
 	}
 

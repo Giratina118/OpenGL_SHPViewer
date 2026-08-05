@@ -351,8 +351,8 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 				glm::dvec3 v1 = glm::dvec3(polygonVertices[index1].x, polygonVertices[index1].y, polygonVertices[index1].z);
 				glm::dvec3 v2 = glm::dvec3(polygonVertices[index2].x, polygonVertices[index2].y, polygonVertices[index2].z);
 
-				
 				double triCollisionDistance = RayTriangle(rayStart, rayDir, v0, v1, v2);
+
 				if (triCollisionDistance >= 0.0 && triCollisionDistance < minDistance) {
 					minDistance = triCollisionDistance;
 					selectDataId = dataId;
@@ -375,26 +375,8 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 	return selectDataId; // 충돌하는 데이터가 없다면 -1 반환
 }
 
-double QuadTree::OnCollisionRayTriangle(glm::dvec3& rayStart, glm::dvec3& rayDir, glm::dvec3& trianglePoint1, glm::dvec3& trianglePoint2, glm::dvec3& trianglePoint3)
-{
-	glm::dvec3 edge1 = trianglePoint2 - trianglePoint1;
-	glm::dvec3 edge2 = trianglePoint3 - trianglePoint1;
-	glm::dvec3 normal = glm::normalize(glm::cross(edge1, edge2)); // 평면의 법선벡터
-	double planeNumber = -glm::dot(normal, trianglePoint1); // 평면 방정식의 상수항
-
-	double rayToPlaneDot = glm::dot(normal, rayDir); // 광선이 평면을 얼마나 향하고 있는가
-	if (std::abs(rayToPlaneDot) < 1e-10) return -1.0; // 레이와 평면이 평행하면 충돌X
-
-	double distance = -(glm::dot(normal, rayStart) + planeNumber) / rayToPlaneDot;
-	if (distance < 0.0) return -1.0;
-	glm::dvec3 hitPoint = rayStart + rayDir * distance;
-
-
-}
-
 // 뮐러 - 트럼보어 교차 알고리즘 (Muller-Trumbore intersection algorithm)
-double QuadTree::RayTriangle(const glm::dvec3& rayOrigin, const glm::dvec3& rayDir, 
-	const glm::dvec3& trianglePoint1, const glm::dvec3& trianglePoint2, const glm::dvec3& trianglePoint3)
+double QuadTree::RayTriangle(const glm::dvec3& rayOrigin, const glm::dvec3& rayDir, const glm::dvec3& trianglePoint1, const glm::dvec3& trianglePoint2, const glm::dvec3& trianglePoint3)
 {
 	glm::dvec3 edge1  = trianglePoint2 - trianglePoint1;
 	glm::dvec3 edge2  = trianglePoint3 - trianglePoint1;
@@ -412,5 +394,6 @@ double QuadTree::RayTriangle(const glm::dvec3& rayOrigin, const glm::dvec3& rayD
 	double v = glm::dot(rayDir, qVec) * invDet;
 	if (v < 0.0 || u + v > 1.0)	return -1.0;       // V는 0.0 ~ 1.0 사이이고, U+V <= 1.0 이어야 함
 
-	return glm::dot(edge2, qVec) * invDet;         // 거리 계산
+	double t = glm::dot(edge2, qVec) * invDet;
+	return (t >= 0.0) ? t : -1.0;
 }

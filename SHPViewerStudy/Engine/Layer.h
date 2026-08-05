@@ -5,7 +5,8 @@
 #include <variant>
 #include <unordered_map>
 
-class CRightPanel;
+class  CRightPanel;
+struct LayerItemData;
 
 // 레이어 클래스, 하나의 레이어 클래스가 하나의 shp파일을 담당
 class Layer
@@ -17,6 +18,7 @@ public:
 	int32_t     m_length;      // 데이터 개수 (startIndex부터 m_length 개의 데이터가 해당 레이어에 속함)
 	double	    m_objSize =  5.0; // 객체 크기   (선 객체 -> 너비, 점 객체 -> 반지름)
 	int32_t     m_id      = -1;   // 레이어 인덱스 (LayerManager에서 관리하는 layers 벡터의 인덱스)
+	UCharColor  m_baseColor = { 255, 255, 255, 255 }; // 레이어 색상 (선/면 객체에 적용)
 
 	std::unique_ptr<Renderer> m_renderer;
 	std::unique_ptr<QuadTree> m_quadTree;
@@ -41,16 +43,17 @@ class LayerManager
 {
 public:
 	std::vector<std::unique_ptr<Layer>>  layers; // 레이어 목록
+	std::vector<int32_t> m_layerOrder; // 레이어 순서, UI에서 레이어 순서 변경 시 이 벡터를 재정렬하고 Render에서 이 순서대로 그리기 수행
 	std::unordered_map<int32_t, int32_t> m_layerIdToIndex; // 레이어 아이디(생성 순서)와 현재 벡터 번호(다른 레이어 삭제에 따라 당겨짐) 연결
-	int32_t m_nextLayerId =  0; // 다음 생성될 레이어의 id
-	int32_t m_hitLayerId  = -1; // 현재 UI에서 선택한 레이어 id
+	int32_t m_nextLayerId   =  0; // 다음 생성될 레이어의 id
+	int32_t m_hitLayerId    = -1; // 현재 UI에서 선택한 레이어 id
 	bool    m_drawedFrustum = false; // 절투체 표현 여부
 
 	// 셰이더
 	Shader m_shader;
-	GLint  m_viewProjectionLocation  = -1; // u_viewProjection uniform 슬롯 ID
-	GLint  m_colorMultiplierLocation = -1; // 라인 어둡게: 1.0 → 0.6
-	GLuint m_debugVAO = 0, m_debugVBO = 0;
+	GLint  m_viewProjectionLocation   = -1; // u_viewProjection uniform 슬롯 ID
+	GLint  m_colorMultiplierLocation  = -1; // 라인 어둡게: 1.0 → 0.6
+	GLuint m_debugVAO = 0, m_debugVBO =  0;
 	std::vector<Vertex> m_frustumLineVertices;
 
 	// EGL
@@ -76,6 +79,7 @@ public:
 	void ApplyObjectColorWithLevel(); // 객체 색상 설정
 
 	void MoveObject(glm::dvec3& moveDelta);
+	void RotateObject(glm::dvec3& moveDelta);
 
 	void DrawCameraFrustum(CameraController& camera);         // 카메라 절두체 시각화
 	void DrawDebugRect(const glm::dvec3& center, float size); // 피킹 지점 사각형 표시
@@ -83,4 +87,5 @@ public:
 
 	void ReDraw() { m_needRedraw = true; } // 화면 상태가 바뀔 시 그리기 실행
 	void SetDrawFrustum(bool isDrawed) { m_drawedFrustum = isDrawed; } // 프러스텀 그리기 토글
+	void ReOrderLayer(std::vector<LayerItemData>& items);
 };

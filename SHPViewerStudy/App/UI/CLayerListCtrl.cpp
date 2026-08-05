@@ -4,6 +4,9 @@
 
 BEGIN_MESSAGE_MAP(CLayerListCtrl, CListCtrl)
     ON_WM_LBUTTONDOWN()
+    ON_WM_MOUSEMOVE()
+    ON_WM_LBUTTONUP()
+    ON_WM_MOUSELEAVE()
 END_MESSAGE_MAP()
 
 // 초기화
@@ -33,6 +36,7 @@ void CLayerListCtrl::AddLayer(const CString& name, int32_t iconType, bool isVisi
     InsertItem(&lvItem);
 
     RedrawItems(index, index);
+	m_layerManager->ReOrderLayer(m_items); // 레이어 순서 재정렬
     UpdateWindow();
 }
 
@@ -148,7 +152,9 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
 
     // Shape Type 아이콘
     CRect    rectIcon  = GetIconRect(rectItem);
-    COLORREF iconColor = GetIconColor(item.iconType);
+	UCharColor color   = m_layerManager->layers[m_layerManager->m_layerIdToIndex[item.layerId]]->m_baseColor; // LayerManager에서 색상 가져오기
+    COLORREF iconColor = RGB(color.red, color.green, color.blue);
+
     CString  iconLabel = GetIconLabel(item.iconType); // 아이콘 레이블 (P / L / A)
     pDC->FillSolidRect(rectIcon, iconColor); // 아이콘 배경 (둥근 사각형 효과를 직사각형으로)
     pDC->SetTextColor(RGB(255, 255, 255));
@@ -173,6 +179,30 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
 
     // 포커스 사각형
     if (lpDIS->itemState & ODS_FOCUS) pDC->DrawFocusRect(rectItem);
+
+
+    // 드래그 중 삽입선
+    if (m_isDragging && (int)lpDIS->itemID == m_dragDropIndex) {
+        CDC* pDC = CDC::FromHandle(lpDIS->hDC);
+        CRect rcItem = lpDIS->rcItem;
+
+        CPen insertPen(PS_SOLID, 2, RGB(70, 130, 220));
+        CPen* pOldPen = pDC->SelectObject(&insertPen);
+
+        // 삽입 위치 위쪽에 선 그리기
+        int lineY = (m_dragDropIndex < m_dragHoldIndex) ? rcItem.top + 1 : rcItem.bottom - 1;
+
+        pDC->MoveTo(rcItem.left,  lineY);
+        pDC->LineTo(rcItem.right, lineY);
+
+        // 양 끝 작은 화살표
+        pDC->MoveTo(rcItem.left,      lineY - 4);
+        pDC->LineTo(rcItem.left,      lineY + 4);
+        pDC->MoveTo(rcItem.right - 1, lineY - 4);
+        pDC->LineTo(rcItem.right - 1, lineY + 4);
+
+        pDC->SelectObject(pOldPen);
+    }
 }
 
 // 체크박스 영역 클릭 시 토글
@@ -198,6 +228,12 @@ void CLayerListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
         m_hitItemIndex = (m_hitItemIndex == index) ? -1 : index;
         m_layerManager->m_hitLayerId = GetHitLayerId(); // 현재 클릭한 레이어 반영 -> 해당 레이어만 노드mbr, 객체mbr 그리기
         m_layerManager->ApplyObjectColorWithLevel();
+
+		// 레이어 드래그 준비
+		m_dragHoldIndex  = index;
+        m_dragStartPoint = point;
+        m_isDragging     = false;
+		SetCapture(); // 마우스 캡처 시작
     }
 
     RedrawItems(index, index);
@@ -205,4 +241,89 @@ void CLayerListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
     UpdateWindow();
 
     CListCtrl::OnLButtonDown(nFlags, point);
+}
+
+void CLayerListCtrl::OnMouseMove(UINT nFlags, CPoint point)
+{
+    if (m_dragHoldIndex < 0) { CListCtrl::OnMouseMove(nFlags, point); return; }
+     
+    // 일정 거리 이상 움직이면 드래그 시작
+    if (!m_isDragging) {
+        if (abs(point.y - m_dragStartPoint.y) > 4) m_isDragging = true;
+        else { CListCtrl::OnMouseMove(nFlags, point); return; }
+    }
+
+    // 현재 마우스 위치의 아이템 계산
+    LVHITTESTINFO hitTestInfo = {};
+    hitTestInfo.pt = point;
+    int32_t hitIndex = HitTest(&hitTestInfo);
+
+    // 리스트 위/아래 경계 처리
+    if (hitIndex < 0) {
+        CRect rectClient;
+        GetClientRect(&rectClient);
+        if      (point.y <= rectClient.top)    hitIndex = 0;
+        else if (point.y >= rectClient.bottom) hitIndex = static_cast<int32_t>(m_items.size()) - 1;
+    }
+
+    if (hitIndex >= 0 && hitIndex != m_dragDropIndex) {
+        m_dragDropIndex = hitIndex;
+        Invalidate(FALSE); // 삽입선 갱신
+        UpdateWindow();
+    }
+
+    // 커서를 드래그 모양으로
+    SetCursor(LoadCursor(nullptr, IDC_SIZENS));
+    CListCtrl::OnMouseMove(nFlags, point);
+}
+
+void CLayerListCtrl::OnLButtonUp(UINT nFlags, CPoint point)
+{
+    ReleaseCapture();
+
+    if (m_isDragging && m_dragHoldIndex >= 0 && m_dragDropIndex >= 0 && m_dragHoldIndex != m_dragDropIndex) {
+
+        // 아이템 데이터 이동
+        LayerItemData moved = m_items[m_dragHoldIndex];
+        m_items.erase(m_items.begin() + m_dragHoldIndex);
+
+        // erase 후 인덱스 보정
+        int insertAt = m_dragDropIndex;
+        if (m_dragHoldIndex < m_dragDropIndex) insertAt = m_dragDropIndex; // erase로 하나 당겨졌으니 그대로
+        else                                   insertAt = m_dragDropIndex;
+        m_items.insert(m_items.begin() + insertAt, moved);
+
+        // CListCtrl 아이템 텍스트도 갱신
+        DeleteItem(m_dragHoldIndex);
+        LVITEM lvi  = {};
+        lvi.mask    = LVIF_TEXT;
+        lvi.iItem   = insertAt;
+        lvi.pszText = (LPTSTR)(LPCTSTR)moved.name;
+        InsertItem(&lvi);
+
+		m_layerManager->ReOrderLayer(m_items); // LayerManager에도 반영
+
+        // 부모에게 순서 변경 알림
+        m_layerManager->ReDraw();
+        Invalidate(FALSE);
+    }
+
+    // 상태 초기화
+    m_isDragging    = false;
+    m_dragHoldIndex = -1;
+    m_dragDropIndex = -1;
+    SetCursor(LoadCursor(nullptr, IDC_ARROW));
+
+    CListCtrl::OnLButtonUp(nFlags, point);
+}
+
+// 마우스가 리스트 컨트롤 영역을 벗어나면 드래그 상태 초기화
+void CLayerListCtrl::OnMouseLeave()
+{
+    if (m_isDragging && GetCapture() != this) {
+        m_isDragging    = false;
+        m_dragHoldIndex = -1;
+        m_dragDropIndex = -1;
+        Invalidate(FALSE);
+    }
 }

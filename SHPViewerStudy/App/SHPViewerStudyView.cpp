@@ -334,12 +334,12 @@ glm::dvec3 CSHPViewerStudyView::ClientToWorldPos(CPoint clientPos)
 void CSHPViewerStudyView::PickingObj(CPoint clientPos)
 {
 	m_hitPoint = ClientToWorldPos(clientPos);
+
 	m_layerManager.Picking(m_rayStart, m_rayDir, m_panelRight);
 
 	m_layerManager.ReDraw();
 	Invalidate(FALSE);
 }
-
 #pragma endregion
 
 #pragma region 키보드 이벤트
@@ -446,10 +446,10 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 		if (m_keyState.keyF) m_camera.ZoomLocal(-1.0);
 	}
 	
-
 	// UO (월드 좌표 줌)
 	if (m_keyState.keyU) m_camera.ZoomWorld(1.0);
 	if (m_keyState.keyO) m_camera.ZoomWorld(-1.0);
+
 
 	// QE, 방향키 (로컬 회전)
 	double rotX = 0.0f, rotY = 0.0f, rotZ = 0.0f;
@@ -459,7 +459,10 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 	if (m_keyState.keyRight) rotX += rotateSpeed;
 	if (m_keyState.keyUp)    rotY -= rotateSpeed;
 	if (m_keyState.keyDown)  rotY += rotateSpeed;
-	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) { m_camera.RotateLocal(rotX, rotY, rotZ); reDraw = true; }
+	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) {
+		if (m_uiState.isEditObjectMode) { moveDelta = { rotX, rotY, rotZ }; m_layerManager.RotateObject(moveDelta); reDraw = true; }
+		else { m_camera.RotateLocal(rotX, rotY, rotZ); reDraw = true; }
+	}
 
 	// 숫자패드 (월드 회전)
 	rotX = rotY = rotZ = 0.0f;
@@ -469,7 +472,11 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 	if (m_keyState.numPad6)  rotX += rotateSpeed;
 	if (m_keyState.numPad8)  rotY -= rotateSpeed;
 	if (m_keyState.numPad5)  rotY += rotateSpeed;
-	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) { m_camera.RotateWorld(rotX, rotY, rotZ); reDraw = true; }
+	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) {
+		m_camera.RotateWorld(rotX, rotY, rotZ); 
+		reDraw = true;
+	}
+	
 
 	if (reDraw) m_layerManager.ReDraw();
 }

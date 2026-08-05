@@ -107,7 +107,7 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     if (hasPrj) { 
         prjCoordinate.PrjParse(prjBuffer);
         transformer.TransformCoordinate(prjCoordinate, newLayer);
-        
+
         /*
         // PROJ 라이브러리 사용
         int srcEpsg = prjCoordinate.GuessEpsg();

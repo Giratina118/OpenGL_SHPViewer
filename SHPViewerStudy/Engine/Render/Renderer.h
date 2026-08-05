@@ -54,6 +54,16 @@ private:
 	std::vector<uint32_t> m_fakeVisibleIndices;
 
 
+	// 변환 중인 객체
+	GLuint m_transformVAO = 0;
+	GLuint m_transformVBO = 0;
+	GLuint m_transformIBO = 0;
+	std::vector<Vertex>   m_transformVertices;	// 면 vertex (BuildMapMesh에서 만든 라인 vertex와 별개)
+	std::vector<uint32_t> m_transformIndices;   // 면 삼각형 인덱스
+	std::vector<DrawInfo> m_transformDrawInfos;	// 객체별 인덱스 범위 (indexOffset, indexCount)
+
+
+
 	std::vector<int32_t> m_renderObjectIds; // 렌더링 할 객체(컬링 통과 객체) ID 목록
 	bool m_isCDTTriangluate = true; // 삼각분할, true: cdt, false: ear clipping, TODO: 안 할거면 지우기
 
@@ -91,6 +101,7 @@ public:
 	void RestoreObjectColor(int32_t objectId, UIState& uiState, bool isSelectedLayer); // 강조했던 색상 복구
 	
 	void MoveObject(int32_t objectId, glm::dvec3& moveDelta);
+	void RotateObject(int32_t objectId, glm::dvec3& moveDelta);
 
 	std::vector<DrawInfo>& GetPolygonDrawInfo() { return m_polygonDrawInfos; } // 면 객체별 인덱스 범위 반환
 	std::vector<uint32_t>& GetPolygonIndices()  { return m_polygonIndices;   } // 면 인덱스 반환

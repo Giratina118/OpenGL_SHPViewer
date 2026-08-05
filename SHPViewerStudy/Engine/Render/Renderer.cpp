@@ -29,6 +29,8 @@ bool Renderer::Initialize(HWND hWnd)
 	InitBuffer(m_polygonVAO, m_polygonVBO, &m_polygonIBO); // 폴리곤 버퍼
 	InitBuffer(m_mbrVAO,     m_mbrVBO,     nullptr);       // MBR박스 그리기 버퍼
 
+	InitBuffer(m_transformVAO, m_transformVBO, &m_transformIBO); // 변환 중인 객체 버퍼
+
 	glGenBuffers(1, &m_polygonIBOVisible); // 가시 폴리곤 인덱스 버퍼
 	glGenBuffers(1, &m_lineIBOVisible);	   // 가시 라인 인덱스 전용 버퍼
 	glGenBuffers(1, &m_fakeIBO);           // 가상 객체 인덱스 버퍼
@@ -522,7 +524,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 		m_currentRenderFakeCount = static_cast<int32_t>(m_quadTree.m_visibleNodeFakeObjIds.size());
 	}
 
-
+	
 	// TODO: 면, 라인, fake 그리는 함수를 한데 묶어 처리
 	// 면 가시 인덱스, 가시 인덱스를 모아서 GPU에 stream 업로드
 	size_t  totalPolygonIndices = 0;
@@ -736,7 +738,7 @@ void Renderer::ApplyLevelColors(bool useLevelColor)
 		//unsigned char r, g, b;
 		UCharColor color;
 		if (useLevelColor) GetLevelColor(m_quadTree.m_objectLevels[dataId], color);
-		else               color = { 190, 190, 220, 255 };
+		else               color = m_layer.m_baseColor;
 
 		uint32_t end = info.indexOffset + info.indexCount;
 		for (uint32_t ii = info.indexOffset; ii < end; ii++) {
@@ -745,7 +747,7 @@ void Renderer::ApplyLevelColors(bool useLevelColor)
 			Vertex& vertex = m_polygonVertices[vertexIndex];
 
 			// z = 0 → 벽 하단 (어둡게), z = 1 → 지붕/벽 상단 (밝게)
-			int32_t shade = (vertex.z < 0.5f) ? 3 : 2;
+			int32_t shade = (vertex.z < 0.5f && m_layer.m_isBuilding) ? 3 : 2;
 			vertex.color = color / shade * 2;
 		}
 	}
@@ -788,11 +790,11 @@ void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState, bool isSel
 	// 원래 색상으로 복원, ApplyLevelColors와 동일한 로직
 	UCharColor color;
 	if (uiState.isShowLevelColor && isSelectedLayer) GetLevelColor(m_quadTree.m_objectLevels[objectId], color);
-	else color = { 190, 190, 220, 255 };
+	else color = m_layer.m_baseColor;
 
 	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
 		Vertex& vertex = m_polygonVertices[i];
-		int32_t shade = (vertex.z < 0.5f) ? 3 : 2;
+		int32_t shade = (vertex.z < 0.5f && m_layer.m_isBuilding) ? 3 : 2;
 		vertex.color = color / shade * 2;
 	}
 
@@ -815,4 +817,50 @@ void Renderer::MoveObject(int32_t objectId, glm::dvec3& moveDelta)
 	// GPU의 해당 위치만 덮어쓰기
 	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
 	glBufferSubData(GL_ARRAY_BUFFER, info.vertexOffset * sizeof(Vertex), info.vertexCount * sizeof(Vertex), m_polygonVertices.data() + info.vertexOffset);
+}
+
+void Renderer::RotateObject(int32_t objectId, glm::dvec3& rotateDelta)
+{
+	const DrawInfo& info = m_polygonDrawInfos[objectId];
+	if (info.vertexCount == 0) return;
+
+	// 1. 객체의 중심점(Centroid) 계산
+	double centerX = 0.0;
+	double centerY = 0.0;
+	double centerZ = 0.0;
+	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
+		centerX += m_polygonVertices[i].x;
+		centerY += m_polygonVertices[i].y;
+		centerZ += m_polygonVertices[i].z;
+	}
+	centerX /= info.vertexCount;
+	centerY /= info.vertexCount;
+	centerZ /= info.vertexCount;
+
+	// 2. 중심점 기준 회전 행렬 생성 (Translate -> Rotate -> Translate(-Pivot))
+	glm::mat4 rotMatrix = glm::mat4(1.0f);
+	rotMatrix = glm::translate(rotMatrix, glm::vec3(centerX, centerY, centerZ));
+	rotMatrix = glm::rotate(rotMatrix, (float)rotateDelta.y * 0.005f, glm::vec3(0.0f, 0.0f, 1.0f)); // Z축 회전
+	rotMatrix = glm::translate(rotMatrix, glm::vec3(-centerX, -centerY, -centerZ));
+
+	// 3. CPU 버퍼에서 해당 vertex 범위만 회전 변환 적용
+	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
+		Vertex& v = m_polygonVertices[i];
+		glm::vec4 pos(v.x, v.y, v.z, 1.0f);
+		glm::vec4 rotatedPos = rotMatrix * pos;
+
+		v.x = rotatedPos.x;
+		v.y = rotatedPos.y;
+		v.z = rotatedPos.z;
+	}
+
+	// 4. GPU의 해당 위치만 덮어쓰기
+	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
+	glBufferSubData(
+		GL_ARRAY_BUFFER,
+		info.vertexOffset * sizeof(Vertex),
+		info.vertexCount * sizeof(Vertex),
+		m_polygonVertices.data() + info.vertexOffset
+	);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }

@@ -7,10 +7,7 @@
 std::string ToLower(std::string str)
 {
     for (char& ch : str)
-    {
-        if (ch >= 'A' && ch <= 'Z')
-            ch += 'a' - 'A';
-    }
+        if (ch >= 'A' && ch <= 'Z') ch += 'a' - 'A';
 
     return str;
 }
@@ -160,9 +157,9 @@ void CoordinateTransformer::TransformCoordinate(CoordinateSystem& prjCoordinate,
         newLayer.SetMBRBox(layerMinX, layerMinY, layerMaxX, layerMaxY); // 레이어 mbr 갱신
 
         // 변환 결과 출력
-        //TCHAR buf[256];
-        //_stprintf_s(buf, _T("[PROJ] 변환 완료: MBR (%.6f,%.6f)~(%.6f,%.6f)\n"), layerMinX, layerMinY, layerMaxX, layerMaxY);
-        //OutputDebugString(buf);
+        TCHAR buf[256];
+        _stprintf_s(buf, _T("[PROJ] 변환 완료: MBR (%.6f,%.6f)~(%.6f,%.6f)\n"), layerMinX, layerMinY, layerMaxX, layerMaxY);
+        OutputDebugString(buf);
     }
 }
 
@@ -252,6 +249,8 @@ void CoordinateTransformer::InverseProjection(glm::dvec2& point, CoordinateSyste
     double c1 = secondEccentricitySquared * glm::pow(glm::cos(footpointLatitude), 2.0);
     double d = point.x / transverseRadius; // 가로 이동 각도 비율, 순수 가로 이동 거리를 횡곡률로 나누어 라디안 형태의 각도 비율로 만든다
 
+
+    /*
     // 최종 위도, 경도 도출, 준비한 파라미터들을 테일러 급수에 대입하여 최종 각도를 구함
     double latitudeRadian = footpointLatitude - (transverseRadius * glm::tan(footpointLatitude) / meridionalRadius) * (glm::pow(d, 2.0) / 2.0
         - (5.0  + 3.0  * t1 + 10.0  * c1 - 4.0  * glm::pow(c1, 2.0) - 9.0   * secondEccentricitySquared) * glm::pow(d, 4.0) / 24.0
@@ -259,6 +258,29 @@ void CoordinateTransformer::InverseProjection(glm::dvec2& point, CoordinateSyste
 
     double longitudeRadian = longitudeOrigin + (1.0 / glm::cos(footpointLatitude)) * (d - (1.0 + 2.0 * t1 + c1) * glm::pow(d, 3.0) / 6.0
         + (5.0 - 2.0 * c1 + 28.0 * t1 - 3.0 * glm::pow(c1, 2.0) + 8.0 * secondEccentricitySquared + 24.0 * glm::pow(t1, 2.0)) * glm::pow(d, 5.0) / 120.0);
+    */
+
+    
+    // 테일러 급수 차수 증가
+    double latitudeRadian = footpointLatitude - (transverseRadius * glm::tan(footpointLatitude) / meridionalRadius) * (glm::pow(d, 2.0) / 2.0
+        - (5.0 + 3.0 * t1 + 10.0 * c1 - 4.0 * glm::pow(c1, 2.0) - 9.0 * secondEccentricitySquared) * glm::pow(d, 4.0) / 24.0
+        + (61.0 + 90.0 * t1 + 298.0 * c1 + 45.0 * glm::pow(t1, 2.0) - 252.0 * secondEccentricitySquared - 3.0 * glm::pow(c1, 2.0)) * glm::pow(d, 6.0) / 720.0
+        - (1385.0 + 3633.0 * t1 + 4095.0 * glm::pow(t1, 2.0) + 1575.0 * glm::pow(t1, 3.0)) * glm::pow(d, 8.0) / 40320.0); // <-- 8차항 추가
+
+    double longitudeRadian = longitudeOrigin + (1.0 / glm::cos(footpointLatitude)) * (d
+        - (1.0 + 2.0 * t1 + c1) * glm::pow(d, 3.0) / 6.0
+        + (5.0 - 2.0 * c1 + 28.0 * t1 - 3.0 * glm::pow(c1, 2.0) + 8.0 * secondEccentricitySquared + 24.0 * glm::pow(t1, 2.0)) * glm::pow(d, 5.0) / 120.0
+        - (61.0 + 662.0 * t1 + 1320.0 * glm::pow(t1, 2.0) + 720.0 * glm::pow(t1, 3.0)) * glm::pow(d, 7.0) / 5040.0); // <-- 7차항 추가
+    
+
+    /*
+    // 테일러 급수 차수 감소
+    double latitudeRadian = footpointLatitude - (transverseRadius * glm::tan(footpointLatitude) / meridionalRadius) * (glm::pow(d, 2.0) / 2.0
+        - (5.0 + 3.0 * t1 + 10.0 * c1 - 4.0 * glm::pow(c1, 2.0) - 9.0 * secondEccentricitySquared) * glm::pow(d, 4.0) / 24.0);
+
+    double longitudeRadian = longitudeOrigin + (1.0 / glm::cos(footpointLatitude)) * (d
+        - (1.0 + 2.0 * t1 + c1) * glm::pow(d, 3.0) / 6.0);
+    */
 
     point.x = longitudeRadian / source.gcs.unit; // 경도 (x축에 매핑)
     point.y = latitudeRadian  / source.gcs.unit; // 위도 (y축에 매핑)
@@ -305,6 +327,7 @@ void CoordinateTransformer::Projection(glm::dvec2& point, CoordinateSystem& dest
     double c = secondEccentricitySquared * glm::pow(glm::cos(latitudeRadian), 2.0); // 이심률 코사인 항
     double a = (longitudeRadian - longitudeOrigin) * glm::cos(latitudeRadian);      // 경도차 보정 항
 
+    /*
     // 최종 x, y 계산, 테일러 급수를 통한 평면 거리 전개
     point.x = transverseRadius * (a + (1.0 - t + c) * glm::pow(a, 3.0) / 6.0
         + (5.0 - 18.0 * t + t * t + 14.0 * c - 58.0 * t * c) * glm::pow(a, 5.0) / 120.0);
@@ -312,7 +335,27 @@ void CoordinateTransformer::Projection(glm::dvec2& point, CoordinateSystem& dest
     point.y = arcLengthDelta + transverseRadius * glm::tan(latitudeRadian)
         * (a * a / 2.0 + (5.0 - t + 9.0 * c + 4.0 * c * c)      * glm::pow(a, 4.0) / 24.0
         + (61.0 - 58.0 * t + t * t + 270.0 * c - 330.0 * t * c) * glm::pow(a, 6.0) / 720.0);
+    */
+
     
+    // 테일러 급수 차수 증가
+    point.x = transverseRadius * (a + (1.0 - t + c) * glm::pow(a, 3.0) / 6.0
+        + (5.0 - 18.0 * t + t * t + 14.0 * c - 58.0 * t * c) * glm::pow(a, 5.0) / 120.0
+        + (61.0 - 479.0 * t + 179.0 * t * t - t * t * t) * glm::pow(a, 7.0) / 5040.0); // <-- 7차항 추가
+
+    point.y = arcLengthDelta + transverseRadius * glm::tan(latitudeRadian)
+        * (a * a / 2.0 + (5.0 - t + 9.0 * c + 4.0 * c * c) * glm::pow(a, 4.0) / 24.0
+        + (61.0 - 58.0 * t + t * t + 270.0 * c - 330.0 * t * c) * glm::pow(a, 6.0) / 720.0
+        + (1385.0 - 3111.0 * t + 543.0 * t * t - t * t * t) * glm::pow(a, 8.0) / 40320.0); // <-- 8차항 추가
+    
+	// 테일러 급수 차수 감소
+    /*
+    point.x = transverseRadius * (a + (1.0 - t + c) * glm::pow(a, 3.0) / 6.0);
+
+    point.y = arcLengthDelta + transverseRadius * glm::tan(latitudeRadian)
+        * (a * a / 2.0 + (5.0 - t + 9.0 * c + 4.0 * c * c) * glm::pow(a, 4.0) / 24.0);
+    */
+
     point.x *= param[Parameter::ScaleFactor];
     point.y *= param[Parameter::ScaleFactor];
 
@@ -439,22 +482,19 @@ int CoordinateSystem::GuessEpsg() const
         return 0;
     }
 
-    double centralMeridian = param.count(Parameter::CentralMeridian)
-        ? param.at(Parameter::CentralMeridian) : 0.0;
-    double falseEasting = param.count(Parameter::FalseEasting)
-        ? param.at(Parameter::FalseEasting) : 0.0;
-    double falseNorthing = param.count(Parameter::FalseNorthing)
-        ? param.at(Parameter::FalseNorthing) : 0.0;
-    double scaleFactor = param.count(Parameter::ScaleFactor)
-        ? param.at(Parameter::ScaleFactor) : 1.0;
+    double centralMeridian = param.count(Parameter::CentralMeridian) ? param.at(Parameter::CentralMeridian) : 0.0;
+    double falseEasting    = param.count(Parameter::FalseEasting)    ? param.at(Parameter::FalseEasting)    : 0.0;
+    double falseNorthing   = param.count(Parameter::FalseNorthing)   ? param.at(Parameter::FalseNorthing)   : 0.0;
+    double scaleFactor     = param.count(Parameter::ScaleFactor)     ? param.at(Parameter::ScaleFactor)     : 1.0;
 
     // 2. 통합 좌표계 (5178 / 5179) - Bessel 체크보다 먼저
-    if (std::abs(centralMeridian - 127.5) < 0.001 &&
-        std::abs(falseEasting - 1000000.0) < 1.0 &&
-        std::abs(falseNorthing - 2000000.0) < 1.0 &&
-        std::abs(scaleFactor - 0.9996) < 0.00001)
+    if (std::abs(centralMeridian - 127.5)     < 0.001 &&
+        std::abs(falseEasting    - 1000000.0) < 1.0   &&
+        std::abs(falseNorthing   - 2000000.0) < 1.0   &&
+        std::abs(scaleFactor     - 0.9996)    < 0.00001)
     {
-        if (ellipsoidLower.find("bessel") != std::string::npos) return 5178;
+        if (ellipsoidLower.find("bessel") != std::string::npos) 
+            return 5178;
         return 5179;
     }
 
@@ -463,9 +503,9 @@ int CoordinateSystem::GuessEpsg() const
         return 2097;
 
     // 4. GRS80 + 벨트 계열 (5185 ~ 5188)
-    if (std::abs(falseEasting - 200000.0) < 1.0 &&
+    if (std::abs(falseEasting  - 200000.0) < 1.0 &&
         std::abs(falseNorthing - 600000.0) < 1.0 &&
-        std::abs(scaleFactor - 1.0) < 0.00001)
+        std::abs(scaleFactor   - 1.0)      < 0.00001)
     {
         if (std::abs(centralMeridian - 125.0) < 0.001) return 5185;
         if (std::abs(centralMeridian - 127.0) < 0.001) return 5186;
