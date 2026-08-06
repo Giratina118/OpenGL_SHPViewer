@@ -163,6 +163,9 @@
     <ClInclude Include="Engine\Parser\ProjTransformer.h">
       <Filter>Engine\Parser</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\MeshManager.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Render\Renderer.cpp">
@@ -242,6 +245,9 @@
     </ClCompile>
     <ClCompile Include="Engine\Parser\ProjTransformer.cpp">
       <Filter>Engine\Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\MeshManager.cpp">
+      <Filter>Engine</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

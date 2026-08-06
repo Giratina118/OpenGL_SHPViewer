@@ -27,4 +27,6 @@ public:
     void RotateWorld(double yawDeg, double pitchDeg, double rollDeg); // 월드 회전
     void RotateFirst(double yawDeg, double pitchDeg, double rollDeg); // 로컬 회전
     void RotateThird(double yawDeg, double pitchDeg, const glm::dvec3& point); // 3인칭 회전
+
+	void ScaleWorld(const glm::dvec3& delta); // 월드 스케일
 };

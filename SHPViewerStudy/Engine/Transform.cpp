@@ -95,3 +95,10 @@ void Transform::RotateThird(double yawDeg, double pitchDeg, const glm::dvec3& po
     // 5. 물체 자체의 방향(회전값)도 함께 갱신하여 공전 중에도 기준점을 계속 바라보도록 처리
     rotation = glm::normalize(deltaRot * rotation);
 }
+
+void Transform::ScaleWorld(const glm::dvec3& delta)
+{
+	scale.x = std::max(0.1, scale.x + delta.x);
+	scale.y = std::max(0.1, scale.y + delta.y);
+	scale.z = std::max(0.1, scale.z + delta.z);
+}
