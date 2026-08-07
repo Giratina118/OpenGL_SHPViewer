@@ -64,7 +64,7 @@ public:
 	GLuint m_transformVBO = 0;
 	GLuint m_transformIBO = 0;
 	GLuint m_transformLineIBO = 0;
-	std::vector<Vertex>   m_transformVertices;	// 면 vertex (BuildMapMesh에서 만든 라인 vertex와 별개)
+	std::vector<Vertex>   m_transformVertices; // 면 vertex (BuildMapMesh에서 만든 라인 vertex와 별개)
 	std::vector<uint32_t> m_transformPolygonIndices;
 	std::vector<Vertex>   m_transformLineVertices;
 	std::vector<uint32_t> m_transformLineIndices;
@@ -82,8 +82,18 @@ public:
 
 	bool m_needRedraw    = true;    // true면 다음 Render에서 컬링/업로드 수행
 	UIState* m_uiState   = nullptr; // UI 버튼 토글 상태
-	int32_t m_pickingDataId  = -1;  // 피킹한 데이터 아이디, 이전 피킹과 현재 피킹 객체가 같은지 아닌지 판별 시 사용하기 위해 저장
 	int32_t m_pickingLayerId = -1;  // 피킹한 데이터의 레이어 아이디
+	int32_t m_pickingDataId  = -1;  // 피킹한 데이터 아이디, 이전 피킹과 현재 피킹 객체가 같은지 아닌지 판별 시 사용하기 위해 저장
+
+
+	// Hover(연속 피킹) 전용 변수
+	bool m_isHovering = false;
+	GLuint m_hoverVAO = 0, m_hoverVBO = 0, m_hoverIBO = 0, m_hoverLineIBO = 0;
+
+	std::vector<Vertex> m_hoverVertices;
+	std::vector<uint32_t> m_hoverPolygonIndices;
+	std::vector<uint32_t> m_hoverLineIndices;
+
 
 	Layer& CreateLayer(std::string name, uint32_t shpType, BoundingBox& layerBox); // 레이어 생성
 	void DeleteLayer(int32_t layerId); // 레이어 삭제
@@ -112,4 +122,7 @@ public:
 	void ReDraw() { m_needRedraw = true; } // 화면 상태가 바뀔 시 그리기 실행
 	void SetDrawFrustum(bool isDrawed) { m_drawedFrustum = isDrawed; } // 프러스텀 그리기 토글
 	void ReOrderLayer(std::vector<LayerItemData>& items);
+
+
+	void SetHoverObject();
 };

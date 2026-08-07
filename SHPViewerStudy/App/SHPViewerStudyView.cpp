@@ -125,7 +125,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 
 	callback.pickingCallbacks.onPicking          = [this](bool value) { m_uiState.isPickingMode     = value; SetFocus(); };
 	callback.pickingCallbacks.onThirdMode        = [this](bool value) { m_uiState.isCameraThirdMode = value; SetFocus(); };
-	callback.pickingCallbacks.onEditObjectMode   = [this](bool value) { m_uiState.isEditObjectMode  = value; SetFocus(); };
+	callback.pickingCallbacks.onEditObjectMode   = [this](bool value) { m_uiState.isEditObjectMode  = value; m_uiState.isPickingMode = false;   SetFocus(); };
 	callback.pickingCallbacks.onEditObjectSave   = [this](bool value) { m_uiState.isEditObjectMode  = false; m_layerManager.SaveEditObject();   SetFocus(); };
 	callback.pickingCallbacks.onEditObjectCancle = [this](bool value) { m_uiState.isEditObjectMode  = false; m_layerManager.CancelEditObject(); SetFocus(); };
 	m_panelLeft.SetCallbacks(callback);
@@ -163,15 +163,15 @@ void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
 	m_frameCount++;
 
 	
-	/*
+	
 	// 클릭하지 않아도 마우스가 위치해 있는 곳의 객체 피킹
 	m_pickingUpdateTimeStack += deltaTime.count();
-	if (m_isUpdatePicking && m_pickingUpdateTimeStack > m_pickingUpdatePeriod) {
+	if (m_uiState.isPickingMode && m_isUpdatePicking && m_pickingUpdateTimeStack > m_pickingUpdatePeriod) {
 		m_pickingUpdateTimeStack = 0.0;
 		m_isUpdatePicking = false;
 		PickingObj(m_mouseClientPos);
 	}
-	*/
+	
 
 	// m_updatePeriod 주기마다 1번씩 갱신 (ui 정보 출력)
 	if (m_deltaTimeStack > m_updatePeriod) {
@@ -197,7 +197,7 @@ void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
 void CSHPViewerStudyView::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	if (IsInUIPanel(point))  return; // UI 패널 위에서는 카메라가 반응하지 않도록 차단
-	if (m_uiState.isPickingMode)     { PickingObj(point); m_panelLeft.UpdatePickingInfo(m_hitPoint); } // 피킹 모드
+	//if (m_uiState.isPickingMode)     { PickingObj(point); m_panelLeft.UpdatePickingInfo(m_hitPoint); } // 피킹 모드
 	if (m_uiState.isEditObjectMode)  { PickingObj(point); m_panelLeft.UpdatePickingInfo(m_hitPoint); m_layerManager.SetEditObject(); } // 객체 편집 모드
 	if (m_uiState.isCameraThirdMode) { // 3인칭 카메라 조작 모드
 		glm::dvec3 hit = ClientToWorldPos(point);
@@ -256,7 +256,7 @@ void CSHPViewerStudyView::OnMouseMove(UINT nFlags, CPoint point)
 
 	// 화면 픽셀 이동량 -> 세계 좌표 이동량으로 변환
 	CPoint mouseDelta = point - m_mouseClientPos;
-	m_mouseClientPos = point;
+	m_mouseClientPos  = point;
 
 	if (m_isLButtonDragging) { // 좌클릭
 		if (m_uiState.isCameraThirdMode) { // 3인칭 이동
@@ -313,12 +313,12 @@ glm::dvec3 CSHPViewerStudyView::ClientToWorldPos(CPoint clientPos)
 
 	// inverse 변환 후 w로 나누기
 	glm::vec4 nearWorld = inverseViewProjection * glm::vec4(ndcX, ndcY, -1.0f, 1.0f);
-	glm::vec4 farWorld  = inverseViewProjection * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);
+	glm::vec4 farWorld  = inverseViewProjection * glm::vec4(ndcX, ndcY,  1.0f, 1.0f);
 	nearWorld /= nearWorld.w;
 	farWorld  /= farWorld.w;
 
 	m_rayStart = glm::dvec3(nearWorld);
-	m_rayDir = glm::normalize(glm::dvec3(farWorld) - m_rayStart);
+	m_rayDir   = glm::normalize(glm::dvec3(farWorld) - m_rayStart);
 
 	if (std::abs(m_rayDir.z) < 1e-6) return glm::dvec3(std::numeric_limits<double>::quiet_NaN()); // 수평 방향이면 교차 없음
 
@@ -335,8 +335,12 @@ glm::dvec3 CSHPViewerStudyView::ClientToWorldPos(CPoint clientPos)
 void CSHPViewerStudyView::PickingObj(CPoint clientPos)
 {
 	m_hitPoint = ClientToWorldPos(clientPos);
-
 	m_layerManager.Picking(m_rayStart, m_rayDir, m_panelRight);
+
+	m_layerManager.SetHoverObject();
+	//m_layerManager.m_isEdittingObject = false;
+	//m_layerManager.SetEditObject();
+	//m_layerManager.UpdateEditObject();
 
 	m_layerManager.ReDraw();
 	Invalidate(FALSE);
@@ -404,22 +408,20 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 	double moveSpeed   = 300.0 * deltaTime;
 	double rotateSpeed = 900.0 * deltaTime;
 	glm::dvec3 transformDelta = { 0.0, 0.0, 0.0 };
-	bool  reDraw = false;
+	bool   reDraw = false;
+	double speedPerHeight = abs(m_camera.transform.position.z) * m_camera.moveSpeedCorrection;
+	if (speedPerHeight < 1.0f) speedPerHeight = 1.0f;
 	
 	if (m_uiState.isEditObjectMode) { // 객체 편집 모드
 		// WASD (객체 이동)
-		double speedPerHeight = abs(m_camera.transform.position.z) * m_camera.moveSpeedCorrection;
-		if (speedPerHeight < 1.0f) speedPerHeight = 1.0f;
-
 		if (m_keyState.keyW) transformDelta.y += moveSpeed;
 		if (m_keyState.keyS) transformDelta.y -= moveSpeed;
 		if (m_keyState.keyA) transformDelta.x -= moveSpeed;
 		if (m_keyState.keyD) transformDelta.x += moveSpeed;
 		if (m_keyState.keyR) transformDelta.z += moveSpeed;
 		if (m_keyState.keyF) transformDelta.z -= moveSpeed;
-		if (transformDelta.x != 0.0f || transformDelta.y != 0.0f) {
-			transformDelta.x *= speedPerHeight;
-			transformDelta.y *= speedPerHeight;
+		if (transformDelta.x != 0.0 || transformDelta.y != 0.0 || transformDelta.z != 0.0) {
+			transformDelta *= speedPerHeight;
 			m_layerManager.MoveObject(transformDelta);
 			reDraw = true;
 		}
@@ -430,7 +432,10 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 		if (m_keyState.keyS) transformDelta.y -= moveSpeed;
 		if (m_keyState.keyA) transformDelta.x += moveSpeed;
 		if (m_keyState.keyD) transformDelta.x -= moveSpeed;
-		if (transformDelta.x != 0.0f || transformDelta.y != 0.0f) { m_camera.MoveLocal(transformDelta.x, transformDelta.y); reDraw = true; }
+		if (transformDelta.x != 0.0f || transformDelta.y != 0.0f) { 
+			m_camera.MoveLocal(transformDelta.x, transformDelta.y); 
+			reDraw = true;
+		}
 
 		// IJKL (월드 좌표 이동)
 		transformDelta = { 0.0, 0.0, 0.0 };
@@ -438,7 +443,10 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 		if (m_keyState.keyK) transformDelta.y -= moveSpeed;
 		if (m_keyState.keyJ) transformDelta.x += moveSpeed;
 		if (m_keyState.keyL) transformDelta.x -= moveSpeed;
-		if (transformDelta.x != 0.0f || transformDelta.y != 0.0f) { m_camera.MoveWorld(transformDelta.x, transformDelta.y); reDraw = true; }
+		if (transformDelta.x != 0.0f || transformDelta.y != 0.0f) { 
+			m_camera.MoveWorld(transformDelta.x, transformDelta.y); 
+			reDraw = true;
+		}
 
 		// RF (로컬 좌표 줌)
 		if (m_keyState.keyR) m_camera.ZoomLocal(1.0);
@@ -459,8 +467,15 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 	if (m_keyState.keyUp)    rotY -= rotateSpeed;
 	if (m_keyState.keyDown)  rotY += rotateSpeed;
 	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) {
-		if (m_uiState.isEditObjectMode) { transformDelta = { rotX, rotY, -rotZ }; m_layerManager.RotateObject(transformDelta); reDraw = true; }
-		else { m_camera.RotateLocal(rotX, rotY, rotZ); reDraw = true; }
+		if (m_uiState.isEditObjectMode) {
+			transformDelta = { rotX, rotY, -rotZ };
+			m_layerManager.RotateObject(transformDelta);
+			reDraw = true;
+		}
+		else {
+			m_camera.RotateLocal(rotX, rotY, rotZ);
+			reDraw = true;
+		}
 	}
 
 	// 숫자패드 (월드 회전, 객체 편집 시 스케일)
@@ -472,8 +487,16 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 	if (m_keyState.numPad8)  rotY -= rotateSpeed;
 	if (m_keyState.numPad5)  rotY += rotateSpeed;
 	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) {
-		if (m_uiState.isEditObjectMode) { transformDelta = { rotX, -rotY, -rotZ }; m_layerManager.ScaleObject(transformDelta); reDraw = true; }
-		else { m_camera.RotateWorld(rotX, rotY, rotZ); reDraw = true; }
+		if (m_uiState.isEditObjectMode) { 
+			transformDelta = { rotX, -rotY, -rotZ }; 
+			transformDelta *= speedPerHeight;
+			m_layerManager.ScaleObject(transformDelta); 
+			reDraw = true;
+		}
+		else {
+			m_camera.RotateWorld(rotX, rotY, rotZ);
+			reDraw = true;
+		}
 	}
 
 	if (reDraw) m_layerManager.ReDraw();

@@ -25,7 +25,7 @@ bool Renderer::Initialize(HWND hWnd)
 
 
 // 메인 렌더 함수
-void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize, bool isSelected)
+void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize, bool isSelected, bool hasPickingData, int32_t pickingDataId)
 {
 	// 쿼드트리에서 가시 객체 검색 (컬링, LOD)
 	if (!uiState.isShowFrustumView) {
@@ -34,10 +34,10 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 		m_quadTree.m_visibleNodeFakeObjIds.clear();
 
 		double halfFovRad = glm::radians(camera.fov * 0.5);
-		double lodFactor = std::max(uiSize.clientHeight, 1) / (2.0 * std::tan(halfFovRad));
+		double lodFactor  = std::max(uiSize.clientHeight, 1) / (2.0 * std::tan(halfFovRad));
 		m_quadTree.SearchRenderingData(m_renderObjectIds, 0, camera, camera.transform.position, lodFactor);
 
-		m_currentRenderCount = static_cast<int32_t>(m_renderObjectIds.size());
+		m_currentRenderCount     = static_cast<int32_t>(m_renderObjectIds.size());
 		m_currentRenderFakeCount = static_cast<int32_t>(m_quadTree.m_visibleNodeFakeObjIds.size());
 	}
 
@@ -56,9 +56,9 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 
 		// 컬링 통과한 객체 ID 순회하면서 가시 인덱스 버퍼 채우기
 		for (int32_t id : m_renderObjectIds) {
-			if (id < 0 || id >= polygonCount) continue; // ID 유효성 체크
+			if (id < 0 || id >= polygonCount || uiState.isEditObjectMode && hasPickingData && id == pickingDataId) continue; // ID 유효성 체크
 			const DrawInfo& info = m_mesh->m_polygonDrawInfos[id]; // 객체별 인덱스 범위 정보
-			if (info.indexCount == 0) continue; // 인덱스 없는 객체는 건너뛰기
+			if (info.indexCount == 0)         continue; // 인덱스 없는 객체는 건너뛰기
 			memcpy(writePtr, m_mesh->m_polygonIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t)); // CPU 측 전체 인덱스에서 해당 객체의 인덱스 범위를 가시 인덱스 버퍼로 복사
 			writePtr += info.indexCount; // 가시 인덱스 버퍼 쓰기 포인터 이동
 		}
@@ -85,7 +85,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 		uint32_t* writePtr = m_mesh->m_lineVisibleIndices.data();
 
 		for (int32_t id : m_renderObjectIds) {
-			if (id < 0 || id >= lineCount) continue;
+			if (id < 0 || id >= lineCount || uiState.isEditObjectMode && hasPickingData && id == pickingDataId) continue;
 			const DrawInfo& info = m_mesh->m_lineDrawInfos[id];
 			if (info.indexCount == 0) continue;
 			memcpy(writePtr, m_mesh->m_lineIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t));

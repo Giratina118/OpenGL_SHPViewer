@@ -22,8 +22,10 @@ public:
 
 	std::vector<int32_t> m_renderObjectIds; // 렌더링 할 객체(컬링 통과 객체) ID 목록
 
-	int32_t m_currentRenderCount     = 0; // UI에 표시할 렌더링 객체 수
-	int32_t m_currentRenderFakeCount = 0; // UI에 표시할 가상 객체 수
+	int32_t m_currentRenderCount     =  0; // UI에 표시할 렌더링 객체 수
+	int32_t m_currentRenderFakeCount =  0; // UI에 표시할 가상 객체 수
+	int32_t m_pickingObjectId        = -1; // 피킹된 객체 ID, -1이면 피킹 없음
+	bool    m_hasPickingObject       = false; // 피킹된 객체 존재 여부
 
 public:
 	Renderer(HWND hWnd, Layer& layer, QuadTree& quadtree) : m_layer(layer), m_quadTree(quadtree) { Initialize(hWnd); }
@@ -32,7 +34,7 @@ public:
 	bool Initialize(HWND hWnd); // 전체 초기화 진입점
 	
 	// 렌더링
-	void Render(CameraController& camera, UIState& uiState, UISize& uiSize, bool isSelected); // 메인 렌더 함수
+	void Render(CameraController& camera, UIState& uiState, UISize& uiSize, bool isSelected, bool hasPickingData, int32_t pickingDataId); // 메인 렌더 함수
 	void DrawObjectMBR();       // 객체 MBR 박스 그리기
 	void DrawQuadTreeNodeMBR(); // 노드 MBR 박스 그리기
 	void UploadAndDraw(GLuint& vao, GLuint& vbo, std::vector<Vertex>& vertices, int drawType); // 업로드 & 그리기 (객체 mbr, 노드 mbr)

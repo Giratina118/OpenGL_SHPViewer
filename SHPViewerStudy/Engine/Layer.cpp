@@ -110,6 +110,26 @@ bool LayerManager::InitRenderer(HWND hWnd, UIState* uiState)
     glBindVertexArray(0);
 
 
+
+    glGenVertexArrays(1, &m_hoverVAO);
+    glGenBuffers(1, &m_hoverVBO);
+    glGenBuffers(1, &m_hoverIBO);
+    glGenBuffers(1, &m_hoverLineIBO);
+
+    glBindVertexArray(m_hoverVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_hoverVBO);
+
+    // location 0: position (vec3)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // location 1: color (vec4)
+    glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void*)(sizeof(float) * 3));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+
+
     return true;
 }
 
@@ -235,15 +255,36 @@ void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 h
         if (!layers[layerIndex]->m_isVisible)
             continue;
 
-        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layers[layerIndex]->m_id) ? true : false;
-        Renderer* renderer = layers[layerIndex]->m_renderer.get();
+        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layers[layerIndex]->m_id);
+		bool hasPickingData  = (m_pickingLayerId == layerIndex && m_pickingDataId != -1);
+        Renderer* renderer   = layers[layerIndex]->m_renderer.get();
 
         if (renderer != nullptr && !(!m_uiState->isShowBuilding && layers[layerIndex]->m_isBuilding)) {
-            renderer->Render(camera, *m_uiState, uiSize, isSelectedLayer);
+            renderer->Render(camera, *m_uiState, uiSize, isSelectedLayer, hasPickingData, m_pickingDataId);
             glClear(GL_DEPTH_BUFFER_BIT);
         }
     }
 
+
+    if (m_isHovering) {
+        glBindVertexArray(m_hoverVAO);
+
+        // 면 그리기
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_hoverIBO);
+        glDrawElements(GL_TRIANGLES, (GLsizei)m_hoverPolygonIndices.size(), GL_UNSIGNED_INT, nullptr);
+
+        // 외곽선 그리기
+        if (!m_hoverLineIndices.empty()) {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_hoverLineIBO);
+            glLineWidth(3.0f); // Hover 시 선 두께 (원하는 대로 조절)
+            glDrawElements(GL_LINES, (GLsizei)m_hoverLineIndices.size(), GL_UNSIGNED_INT, nullptr);
+            glLineWidth(1.0f);
+        }
+
+        glBindVertexArray(0);
+    }
+
+	// 에디트 모드일 때, 변환 중인 객체의 면과 외곽선 그리기
     if (m_uiState->isEditObjectMode) {
         glBindVertexArray(m_transformVAO);
 
@@ -321,11 +362,20 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
 
     bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == beforePickingLayerId);
 
+    if ((beforePickingLayerId != m_pickingLayerId || beforePickingDataId != m_pickingDataId) && m_pickingLayerId != -1 && m_pickingDataId != -1)
+        m_isEdittingObject = false;
+
     // 객체가 없는 빈 공간 선택 또는 이전과 같은 객체 선택 시 색 복구
     if (m_pickingDataId == -1 && beforePickingDataId != -1/* || m_pickingDataId != -1 && beforePickingDataId == m_pickingDataId && beforePickingLayerId == m_pickingLayerId*/) {
-        layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState, isSelectedLayer);
+        //layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState, isSelectedLayer);
         rightPanel.Show(false);
         m_pickingLayerId = m_pickingDataId = -1;
+
+        if (m_uiState->isEditObjectMode) {
+            m_pickingLayerId = beforePickingLayerId;
+			m_pickingDataId  = beforePickingDataId;
+        }
+
         return; 
     }
 
@@ -334,8 +384,8 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
 
     // 새로운 객체 선택
     if (m_pickingDataId != -1) {
-        if (beforePickingLayerId != -1) layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState, isSelectedLayer);
-        layers[m_pickingLayerId]->m_renderer->HighlightObjectColor(m_pickingDataId);
+        //if (beforePickingLayerId != -1) layers[beforePickingLayerId]->m_renderer->RestoreObjectColor(beforePickingDataId, *m_uiState, isSelectedLayer);
+        //layers[m_pickingLayerId]->m_renderer->HighlightObjectColor(m_pickingDataId);
         rightPanel.SetPickingInfo(layers[m_pickingLayerId]->m_dbfTable.PrintAttribute(m_pickingDataId)); // 선택 객체 dbf 정보 출력
     }
 }
@@ -361,10 +411,16 @@ void LayerManager::SetEditObject()
     m_transformLineInfo = mesh->m_lineDrawInfos[m_pickingDataId];
 
     // 1. 원본 정점 복사 (하나의 정점 배열만 사용)
-    m_editOriginalVertices.assign(
-        mesh->m_polygonVertices.begin() + m_transformPolygonInfo.vertexOffset,
+    m_editOriginalVertices.assign(mesh->m_polygonVertices.begin() + m_transformPolygonInfo.vertexOffset,
         mesh->m_polygonVertices.begin() + m_transformPolygonInfo.vertexOffset + m_transformPolygonInfo.vertexCount);
     m_transformVertices = m_editOriginalVertices;
+
+    for (Vertex& vertex : m_transformVertices) {
+        vertex.color.red   = 20;
+        vertex.color.green = 230;
+        vertex.color.blue  = 50;
+        vertex.color.alpha = 100;
+	}
 
     // 2-1. 면 인덱스 리매핑
     m_transformPolygonIndices.clear();
@@ -384,7 +440,7 @@ void LayerManager::SetEditObject()
     m_editCenter = glm::dvec3(0.0);
     for (const Vertex& vertex : m_editOriginalVertices)
         m_editCenter += glm::dvec3(vertex.x, vertex.y, vertex.z);
-    m_editCenter /= (double)m_editOriginalVertices.size();
+    m_editCenter /= static_cast<double>(m_editOriginalVertices.size());
 
     // 4. Transform 초기화
     m_editTransform = Transform();
@@ -423,9 +479,9 @@ void LayerManager::UpdateEditObject()
         glm::dvec4 pos(origin.x, origin.y, origin.z, 1.0);
         glm::dvec4 transformedPos = finalMatrix * pos;
 
-        m_transformVertices[i].x = (float)transformedPos.x;
-        m_transformVertices[i].y = (float)transformedPos.y;
-        m_transformVertices[i].z = (float)transformedPos.z;
+        m_transformVertices[i].x = static_cast<float>(transformedPos.x);
+        m_transformVertices[i].y = static_cast<float>(transformedPos.y);
+        m_transformVertices[i].z = static_cast<float>(transformedPos.z);
     }
 
     // 2. 라인(Line) 정점도 동일하게 변환 갱신
@@ -434,9 +490,10 @@ void LayerManager::UpdateEditObject()
         glm::dvec4 pos(origin.x, origin.y, origin.z, 1.0);
         glm::dvec4 transformedPos = finalMatrix * pos;
 
-        m_transformLineVertices[i].x = (float)transformedPos.x;
-        m_transformLineVertices[i].y = (float)transformedPos.y;
-        m_transformLineVertices[i].z = (float)transformedPos.z;
+        m_transformLineVertices[i].x = static_cast<float>(transformedPos.x);
+        m_transformLineVertices[i].y = static_cast<float>(transformedPos.y);
+        m_transformLineVertices[i].z = static_cast<float>(transformedPos.z);
+        m_transformLineVertices[i].color *= 0.6f;
     }
 
     // 3. 면 VBO 갱신
@@ -474,17 +531,23 @@ void LayerManager::RotateObject(glm::dvec3& rotateDelta)
 void LayerManager::ScaleObject(glm::dvec3& scaleDelta)
 {
     if (m_transformPolygonInfo.vertexCount == 0) return;
-	m_editTransform.ScaleWorld(scaleDelta * 0.01);
+	m_editTransform.ScaleWorld(scaleDelta * 0.001);
     UpdateEditObject(); // 버퍼 갱신
 }
 
 void LayerManager::SaveEditObject()
 {
+    m_isEdittingObject = false;
+    m_uiState->isEditObjectMode = false;
+
+
 
 }
 
 void LayerManager::CancelEditObject()
 {
+    m_isEdittingObject = false;
+    m_uiState->isEditObjectMode = false;
 
 }
 
@@ -567,4 +630,66 @@ void LayerManager::ReOrderLayer(std::vector<LayerItemData>& items)
     m_layerOrder.clear();
     for (int32_t order = 0; order < static_cast<int32_t>(items.size()); order++)
         m_layerOrder.push_back(items[order].layerId);
+}
+
+// LayerManager.cpp
+void LayerManager::SetHoverObject()
+{
+    // 피킹된 객체가 없으면 Hover 상태 해제
+    if (m_pickingLayerId == -1 || m_pickingDataId == -1) {
+        m_isHovering = false;
+        return;
+    }
+
+    // 편집 중인 객체에 마우스가 올라간 경우 Hover를 무시하고 싶다면 아래 주석 해제
+    // if (m_uiState->isEditObjectMode && m_isEdittingObject) return;
+
+    m_isHovering = true;
+
+    MeshManager* mesh = layers[m_pickingLayerId]->m_renderer->m_mesh.get();
+    DrawInfo polyInfo = mesh->m_polygonDrawInfos[m_pickingDataId];
+    DrawInfo lineInfo = mesh->m_lineDrawInfos[m_pickingDataId];
+
+    // 1. 원본 정점 복사 및 색상 변경 (초록색)
+    m_hoverVertices.assign(mesh->m_polygonVertices.begin() + polyInfo.vertexOffset,
+        mesh->m_polygonVertices.begin() + polyInfo.vertexOffset + polyInfo.vertexCount);
+
+    for (Vertex& vertex : m_hoverVertices) {
+        vertex.color.red   = 20;
+        vertex.color.green = 230;
+        vertex.color.blue  = 50;
+        vertex.color.alpha = 100;
+
+        // Z축 값을 아주 살짝 높여주면 원본 메시와 겹칠 때 발생하는 Z-Fighting 현상을 방지할 수 있습니다.
+        vertex.z += 0.1f;
+    }
+
+    // 2. 인덱스 리매핑
+    m_hoverPolygonIndices.clear();
+    for (uint32_t i = 0; i < polyInfo.indexCount; i++) {
+        uint32_t originalIndex = mesh->m_polygonIndices[polyInfo.indexOffset + i];
+        m_hoverPolygonIndices.push_back(originalIndex - polyInfo.vertexOffset);
+    }
+
+    m_hoverLineIndices.clear();
+    for (uint32_t i = 0; i < lineInfo.indexCount; i++) {
+        uint32_t originalIndex = mesh->m_lineIndices[lineInfo.indexOffset + i];
+        m_hoverLineIndices.push_back(originalIndex - polyInfo.vertexOffset);
+    }
+
+    // 3. GPU 업로드
+    glBindVertexArray(m_hoverVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_hoverVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * m_hoverVertices.size(), m_hoverVertices.data(), GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_hoverIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_hoverPolygonIndices.size(), m_hoverPolygonIndices.data(), GL_DYNAMIC_DRAW);
+
+    if (m_hoverLineIndices.size() > 0) {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_hoverLineIBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_hoverLineIndices.size(), m_hoverLineIndices.data(), GL_DYNAMIC_DRAW);
+    }
+
+    glBindVertexArray(0);
 }

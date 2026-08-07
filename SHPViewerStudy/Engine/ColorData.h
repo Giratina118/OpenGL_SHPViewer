@@ -13,6 +13,12 @@ struct UCharColor
 		};
 	}
 
+	void operator*=(float value) {
+		red   = static_cast<unsigned char>(glm::clamp(red   * value, 0.0f, 255.0f));
+		green = static_cast<unsigned char>(glm::clamp(green * value, 0.0f, 255.0f));
+		blue  = static_cast<unsigned char>(glm::clamp(blue  * value, 0.0f, 255.0f));
+	}
+
 	UCharColor operator/(float value) const {
 		return (*this) * (1.0f / value);
 	}
