@@ -249,7 +249,7 @@ void CLayerListCtrl::OnMouseMove(UINT nFlags, CPoint point)
      
     // 일정 거리 이상 움직이면 드래그 시작
     if (!m_isDragging) {
-        if (abs(point.y - m_dragStartPoint.y) > 4) m_isDragging = true;
+        if (abs(point.y - m_dragStartPoint.y) > 10) m_isDragging = true;
         else { CListCtrl::OnMouseMove(nFlags, point); return; }
     }
 
@@ -282,36 +282,39 @@ void CLayerListCtrl::OnLButtonUp(UINT nFlags, CPoint point)
     ReleaseCapture();
 
     if (m_isDragging && m_dragHoldIndex >= 0 && m_dragDropIndex >= 0 && m_dragHoldIndex != m_dragDropIndex) {
+        int32_t sourceIndex = m_dragHoldIndex;
+        int32_t targetIndex = m_dragDropIndex;
 
-        // 아이템 데이터 이동
-        LayerItemData moved = m_items[m_dragHoldIndex];
-        m_items.erase(m_items.begin() + m_dragHoldIndex);
+        LayerItemData moved = m_items[sourceIndex];
 
-        // erase 후 인덱스 보정
-        int insertAt = m_dragDropIndex;
-        if (m_dragHoldIndex < m_dragDropIndex) insertAt = m_dragDropIndex; // erase로 하나 당겨졌으니 그대로
-        else                                   insertAt = m_dragDropIndex;
-        m_items.insert(m_items.begin() + insertAt, moved);
+        m_items.erase(m_items.begin() + sourceIndex);
 
-        // CListCtrl 아이템 텍스트도 갱신
-        DeleteItem(m_dragHoldIndex);
-        LVITEM lvi  = {};
-        lvi.mask    = LVIF_TEXT;
-        lvi.iItem   = insertAt;
-        lvi.pszText = (LPTSTR)(LPCTSTR)moved.name;
-        InsertItem(&lvi);
+        if (sourceIndex < targetIndex)
+            targetIndex--;
 
-		m_layerManager->ReOrderLayer(m_items); // LayerManager에도 반영
+        m_items.insert(m_items.begin() + targetIndex, moved);
 
-        // 부모에게 순서 변경 알림
+        DeleteAllItems();
+
+        for (int32_t i = 0; i < static_cast<int32_t>(m_items.size()); i++) {
+            LVITEM lvi = {};
+            lvi.mask = LVIF_TEXT;
+            lvi.iItem = i;
+            lvi.pszText = (LPTSTR)(LPCTSTR)m_items[i].name;
+            InsertItem(&lvi);
+        }
+
+        m_layerManager->ReOrderLayer(m_items);
         m_layerManager->ReDraw();
+
         Invalidate(FALSE);
+        UpdateWindow();
     }
 
-    // 상태 초기화
-    m_isDragging    = false;
+    m_isDragging = false;
     m_dragHoldIndex = -1;
     m_dragDropIndex = -1;
+
     SetCursor(LoadCursor(nullptr, IDC_ARROW));
 
     CListCtrl::OnLButtonUp(nFlags, point);

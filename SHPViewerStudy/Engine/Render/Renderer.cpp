@@ -41,13 +41,26 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 		m_currentRenderFakeCount = static_cast<int32_t>(m_quadTree.m_visibleNodeFakeObjIds.size());
 	}
 
-	
-	// TODO: 면, 라인, fake 그리는 함수를 한데 묶어 처리
 	// 면 가시 인덱스, 가시 인덱스를 모아서 GPU에 stream 업로드
 	size_t  totalPolygonIndices = 0;
 	int32_t polygonCount = static_cast<int32_t>(m_mesh->m_polygonDrawInfos.size());
+
+
+	if (uiState.isEditObjectMode && hasPickingData) {
+		TCHAR buf[256];
+		_stprintf_s(buf, _T("[Render] pickingDataId=%d\n"), pickingDataId);
+		OutputDebugString(buf);
+		for (int32_t id : m_renderObjectIds) {
+			if (id == pickingDataId) {
+				OutputDebugString(_T("[Render] pickingDataId가 renderObjectIds에 있음 → 숨겨져야 함\n"));
+				break;
+			}
+		}
+	}
+
+
 	for (int32_t id : m_renderObjectIds) { // 컬링 통과한 객체 ID를 순회
-		if (id < 0 || id >= polygonCount) continue; // ID 유효성 체크 (안전장치)
+		if (id < 0 || id >= polygonCount || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId)) continue; // ID 유효성 체크 (안전장치)
 		totalPolygonIndices += m_mesh->m_polygonDrawInfos[id].indexCount; // 총 가시 인덱스 수 계산
 	}
 	if (totalPolygonIndices > 0) { // 가시 인덱스가 하나라도 있으면 진행
@@ -56,7 +69,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 
 		// 컬링 통과한 객체 ID 순회하면서 가시 인덱스 버퍼 채우기
 		for (int32_t id : m_renderObjectIds) {
-			if (id < 0 || id >= polygonCount || uiState.isEditObjectMode && hasPickingData && id == pickingDataId) continue; // ID 유효성 체크
+			if (id < 0 || id >= polygonCount || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId)) continue; // ID 유효성 체크
 			const DrawInfo& info = m_mesh->m_polygonDrawInfos[id]; // 객체별 인덱스 범위 정보
 			if (info.indexCount == 0)         continue; // 인덱스 없는 객체는 건너뛰기
 			memcpy(writePtr, m_mesh->m_polygonIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t)); // CPU 측 전체 인덱스에서 해당 객체의 인덱스 범위를 가시 인덱스 버퍼로 복사
@@ -77,7 +90,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 	size_t  totalLineIndices = 0;
 	int32_t lineCount = static_cast<int32_t>(m_mesh->m_lineDrawInfos.size());
 	for (int32_t id : m_renderObjectIds) {
-		if (id < 0 || id >= lineCount) continue;
+		if (id < 0 || id >= lineCount || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId)) continue;
 		totalLineIndices += m_mesh->m_lineDrawInfos[id].indexCount;
 	}
 	if (totalLineIndices > 0) {
@@ -85,7 +98,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 		uint32_t* writePtr = m_mesh->m_lineVisibleIndices.data();
 
 		for (int32_t id : m_renderObjectIds) {
-			if (id < 0 || id >= lineCount || uiState.isEditObjectMode && hasPickingData && id == pickingDataId) continue;
+			if (id < 0 || id >= lineCount || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId)) continue;
 			const DrawInfo& info = m_mesh->m_lineDrawInfos[id];
 			if (info.indexCount == 0) continue;
 			memcpy(writePtr, m_mesh->m_lineIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t));

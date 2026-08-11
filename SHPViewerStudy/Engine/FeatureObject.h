@@ -76,6 +76,7 @@ public:
 	double m = 0.0; // m °ª
 
 	void SetMBRBox();
+	void SetMBRBox(double minX, double minY, double maxX, double maxY);
 };
 
 class MultiPointObject : public ObjectBase

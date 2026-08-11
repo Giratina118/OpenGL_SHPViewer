@@ -155,6 +155,15 @@ double PolyObject::OnCollisionRay(glm::dvec3& start, glm::dvec3& dir, double& ro
     return result;
 }
 
+void PointObject::SetMBRBox(double minX, double minY, double maxX, double maxY)
+{
+    mbrBox.minX = minX;
+    mbrBox.minY = minY;
+    mbrBox.maxX = maxX;
+    mbrBox.maxY = maxY;
+    transform.position = { mbrBox.GetCenter(), 0.0 };
+}
+
 void PolyObject::SetMBRBox(double minX, double minY, double maxX, double maxY)
 {
     mbrBox.minX = minX;

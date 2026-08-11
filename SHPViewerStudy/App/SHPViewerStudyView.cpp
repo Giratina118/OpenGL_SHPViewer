@@ -125,9 +125,12 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 
 	callback.pickingCallbacks.onPicking          = [this](bool value) { m_uiState.isPickingMode     = value; SetFocus(); };
 	callback.pickingCallbacks.onThirdMode        = [this](bool value) { m_uiState.isCameraThirdMode = value; SetFocus(); };
-	callback.pickingCallbacks.onEditObjectMode   = [this](bool value) { m_uiState.isEditObjectMode  = value; m_uiState.isPickingMode = false;   SetFocus(); };
-	callback.pickingCallbacks.onEditObjectSave   = [this](bool value) { m_uiState.isEditObjectMode  = false; m_layerManager.SaveEditObject();   SetFocus(); };
-	callback.pickingCallbacks.onEditObjectCancle = [this](bool value) { m_uiState.isEditObjectMode  = false; m_layerManager.CancelEditObject(); SetFocus(); };
+	callback.pickingCallbacks.onEditObjectMode   = [this](bool value) { m_uiState.isEditObjectMode  = value; if (value) m_uiState.isPickingMode = false;   SetFocus(); };
+	callback.pickingCallbacks.onEditObjectSave   = [this](bool value) { m_layerManager.SaveEditObject();     m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onEditObjectCancle = [this](bool value) { m_layerManager.CancelEditObject();   m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onCreateCircle     = [this](bool value) { m_layerManager.CreateObject(1); m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onCreateRectangle  = [this](bool value) { m_layerManager.CreateObject(2); m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onCreateTriangle   = [this](bool value) { m_layerManager.CreateObject(3); m_layerManager.ReDraw(); SetFocus(); };
 	m_panelLeft.SetCallbacks(callback);
 }
 

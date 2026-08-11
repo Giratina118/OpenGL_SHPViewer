@@ -75,6 +75,8 @@ public:
 	void SearchRenderingData  (std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraController& camera, const glm::dvec3& cameraPos, double worldToScreenScale);
 	void InputRenderingDataAll(std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraController& camera, const glm::dvec3& cameraPos, double worldToScreenScale);
 	
-	int32_t SearchPickingData(glm::dvec3& cameraPos, glm::dvec3& rayDir, int32_t currentNodeId, double& minDistance, std::vector<DrawInfo>& polygonDrawInfos, std::vector<uint32_t>& polygonIndices, std::vector<Vertex>& polygonVertices); // 피킹 데이터 탐색 및 반환
+	int32_t SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, int32_t currentNodeId, double& minDistance, std::vector<DrawInfo>& polygonDrawInfos, std::vector<uint32_t>& polygonIndices, std::vector<Vertex>& polygonVertices, int32_t& nodeId); // 피킹 데이터 탐색 및 반환
 	double RayTriangle(const glm::dvec3& rayStart, const glm::dvec3& rayDir, const glm::dvec3& trianglePoint1, const glm::dvec3& trianglePoint2, const glm::dvec3& trianglePoint3);
+
+	void UpdateTransformObject(int32_t pickingNodeId, int32_t pickingDataId);
 };

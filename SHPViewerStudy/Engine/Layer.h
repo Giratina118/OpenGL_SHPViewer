@@ -84,6 +84,7 @@ public:
 	UIState* m_uiState   = nullptr; // UI 버튼 토글 상태
 	int32_t m_pickingLayerId = -1;  // 피킹한 데이터의 레이어 아이디
 	int32_t m_pickingDataId  = -1;  // 피킹한 데이터 아이디, 이전 피킹과 현재 피킹 객체가 같은지 아닌지 판별 시 사용하기 위해 저장
+	int32_t m_pickingNodeId  = -1;  // 피킹한 데이터의 노드 아이디
 
 
 	// Hover(연속 피킹) 전용 변수
@@ -114,6 +115,10 @@ public:
 	void ScaleObject (glm::dvec3& scaleDelta);
 	void SaveEditObject();
 	void CancelEditObject();
+	void SetHoverObject();
+
+	void CreateObject(int32_t shape);
+
 
 	void DrawCameraFrustum(CameraController& camera);         // 카메라 절두체 시각화
 	void DrawDebugRect(const glm::dvec3& center, float size); // 피킹 지점 사각형 표시
@@ -122,7 +127,4 @@ public:
 	void ReDraw() { m_needRedraw = true; } // 화면 상태가 바뀔 시 그리기 실행
 	void SetDrawFrustum(bool isDrawed) { m_drawedFrustum = isDrawed; } // 프러스텀 그리기 토글
 	void ReOrderLayer(std::vector<LayerItemData>& items);
-
-
-	void SetHoverObject();
 };

@@ -43,12 +43,32 @@ Layer& LayerManager::CreateLayer(std::string name, uint32_t shpType, BoundingBox
 // 레이어 삭제
 void LayerManager::DeleteLayer(int32_t layerId)
 {
-    int32_t deleteLayerIndex = m_layerIdToIndex[layerId]; // 삭제할 레이어 인덱스 번호
-    layers.erase(layers.begin() + deleteLayerIndex);
-    m_layerIdToIndex.erase(layerId);
+    std::unordered_map<int32_t, int32_t>::iterator mapIt = m_layerIdToIndex.find(layerId);
+    if (mapIt == m_layerIdToIndex.end())
+        return;
 
-    for (int32_t i = deleteLayerIndex; i < layers.size(); ++i)
+    int32_t deleteLayerIndex = mapIt->second;
+
+    layers.erase(layers.begin() + deleteLayerIndex);
+    m_layerIdToIndex.erase(mapIt);
+
+    for (int32_t i = deleteLayerIndex; i < static_cast<int32_t>(layers.size()); i++)
         m_layerIdToIndex[layers[i]->m_id] = i;
+
+    for (std::vector<int32_t>::iterator orderIt = m_layerOrder.begin(); orderIt != m_layerOrder.end(); ++orderIt) {
+        if (*orderIt == layerId) {
+            m_layerOrder.erase(orderIt);
+            break;
+        }
+    }
+
+    if (m_hitLayerId == layerId)
+        m_hitLayerId = -1;
+
+    if (m_pickingLayerId == layerId) {
+        m_pickingLayerId = -1;
+        m_pickingDataId = -1;
+    }
 
     ReDraw();
 }
@@ -239,25 +259,29 @@ void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 h
         }
     }
     */
-    // 만약 프로그램 초기화 직후라 m_layerOrder가 비어있다면, 기본 layers 배열의 순서대로 채워줌 (렌더링이 아예 안되는 현상 방지)
-    if (m_layerOrder.empty() && !layers.empty()) 
+
+    if (m_layerOrder.empty() && !layers.empty()) {
         for (int32_t i = 0; i < static_cast<int32_t>(layers.size()); i++)
-            if (layers[i] != nullptr) m_layerOrder.push_back(i); // 여기서 i는 고유ID가 아니라 인덱스라면 i를 넣음
+            if (layers[i] != nullptr)
+                m_layerOrder.push_back(i);
+    }
 
 
     // 레이어 순회 렌더링
-    for (int32_t i = m_layerOrder.size() - 1; i >= 0; i--) {
-        // 안전장치: index가 범위를 벗어났거나 유효하지 않은 데이터면 무시 (크래시 및 꼬임 방지)
+    for (int32_t i = static_cast<int32_t>(m_layerOrder.size()) - 1; i >= 0; i--) {
         int32_t layerIndex = m_layerOrder[i];
         if (layerIndex < 0 || layerIndex >= static_cast<int32_t>(layers.size()) || layers[layerIndex] == nullptr)
             continue;
 
-        if (!layers[layerIndex]->m_isVisible)
+        int32_t layerId = layers[layerIndex]->m_id;
+
+
+        if (layers[layerIndex] == nullptr || !layers[layerIndex]->m_isVisible)
             continue;
 
-        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layers[layerIndex]->m_id);
-		bool hasPickingData  = (m_pickingLayerId == layerIndex && m_pickingDataId != -1);
-        Renderer* renderer   = layers[layerIndex]->m_renderer.get();
+        bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == layerId);
+        bool hasPickingData = (m_pickingLayerId == layerIndex && m_pickingDataId != -1);
+        Renderer* renderer = layers[layerIndex]->m_renderer.get();
 
         if (renderer != nullptr && !(!m_uiState->isShowBuilding && layers[layerIndex]->m_isBuilding)) {
             renderer->Render(camera, *m_uiState, uiSize, isSelectedLayer, hasPickingData, m_pickingDataId);
@@ -265,6 +289,9 @@ void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 h
         }
     }
 
+    if (m_uiState->isEditObjectMode) {
+        m_isHovering = false; // 에디트 모드 진입 시 호버링 잔상 강제 차단
+    }
 
     if (m_isHovering) {
         glBindVertexArray(m_hoverVAO);
@@ -276,28 +303,37 @@ void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 h
         // 외곽선 그리기
         if (!m_hoverLineIndices.empty()) {
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_hoverLineIBO);
-            glLineWidth(3.0f); // Hover 시 선 두께 (원하는 대로 조절)
-            glDrawElements(GL_LINES, (GLsizei)m_hoverLineIndices.size(), GL_UNSIGNED_INT, nullptr);
+
+            glDisable(GL_DEPTH_TEST);
+
             glLineWidth(1.0f);
+            glDrawElements(GL_LINES, (GLsizei)m_hoverLineIndices.size(), GL_UNSIGNED_INT, nullptr);
+            glEnable(GL_DEPTH_TEST);
         }
 
         glBindVertexArray(0);
     }
 
 	// 에디트 모드일 때, 변환 중인 객체의 면과 외곽선 그리기
-    if (m_uiState->isEditObjectMode) {
+    if (m_uiState->isEditObjectMode && m_isEdittingObject) {
         glBindVertexArray(m_transformVAO);
 
-        // 1. 면(Polygon) 그리기
+        // 1. 면(Polygon) 그리기 (뎁스 테스트 켜진 상태)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_transformIBO);
         glDrawElements(GL_TRIANGLES, (GLsizei)m_transformPolygonIndices.size(), GL_UNSIGNED_INT, nullptr);
 
         // 2. 외곽선(Line) 그리기
         if (m_transformLineInfo.indexCount > 0) {
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_transformLineIBO); // 선 IBO로 교체
-            glLineWidth(20.0f);
-            glDrawElements(GL_LINES, (GLsizei)m_transformLineIndices.size(), GL_UNSIGNED_INT, nullptr); // GL_LINES 사용
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_transformLineIBO);
+
+            // 면에 파묻히지 않도록 뎁스 테스트를 잠시 끔
+            glDisable(GL_DEPTH_TEST);
+
             glLineWidth(1.0f);
+            glDrawElements(GL_LINES, (GLsizei)m_transformLineIndices.size(), GL_UNSIGNED_INT, nullptr);
+
+            // 뎁스 테스트 원상 복구
+            glEnable(GL_DEPTH_TEST);
         }
 
         glBindVertexArray(0);
@@ -348,14 +384,17 @@ void LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel
 
     for (int32_t i = 0; i < m_layerOrder.size(); i++) {
         int32_t layerId = m_layerOrder[i];
+		int32_t nodeId = -1;
 
         if (layers[layerId] == nullptr || !layers[layerId]->m_isVisible) continue;
         
         // 현재 가장 가까운 거리보다 더 가까운 거리에서 객체와 접했을 경우 -1 이외의 수 저장
-        hitObj = layers[layerId]->m_quadTree->SearchPickingData(rayStart, rayDir, 0, collisionDistance, layers[layerId]->m_renderer->m_mesh->GetPolygonDrawInfo(), layers[layerId]->m_renderer->m_mesh->GetPolygonIndices(), layers[layerId]->m_renderer->m_mesh->GetPolygonVertices());
+		MeshManager& mesh = *layers[layerId]->m_renderer->m_mesh;
+        hitObj = layers[layerId]->m_quadTree->SearchPickingData(rayStart, rayDir, 0, collisionDistance, mesh.GetPolygonDrawInfo(), mesh.GetPolygonIndices(), mesh.GetPolygonVertices(), nodeId);
         if (hitObj != -1) { 
             m_pickingDataId  = hitObj;
             m_pickingLayerId = layerId;
+            m_pickingNodeId  = nodeId;
 			break; // 레이어 우선순위에 따라 가장 가까운 객체를 찾았으므로 루프 종료
         }
     }
@@ -410,53 +449,63 @@ void LayerManager::SetEditObject()
     m_transformPolygonInfo = mesh->m_polygonDrawInfos[m_pickingDataId];
     m_transformLineInfo = mesh->m_lineDrawInfos[m_pickingDataId];
 
-    // 1. 원본 정점 복사 (하나의 정점 배열만 사용)
-    m_editOriginalVertices.assign(mesh->m_polygonVertices.begin() + m_transformPolygonInfo.vertexOffset,
+    // 1. 면(Polygon) 정점 복사 및 면 색상 설정 (연한 초록색)
+    m_editOriginalVertices.assign(
+        mesh->m_polygonVertices.begin() + m_transformPolygonInfo.vertexOffset,
         mesh->m_polygonVertices.begin() + m_transformPolygonInfo.vertexOffset + m_transformPolygonInfo.vertexCount);
     m_transformVertices = m_editOriginalVertices;
 
-    for (Vertex& vertex : m_transformVertices) {
-        vertex.color.red   = 20;
-        vertex.color.green = 230;
-        vertex.color.blue  = 50;
-        vertex.color.alpha = 100;
-	}
+    for (Vertex& v : m_transformVertices) {
+        v.color.red = 20; v.color.green = 230; v.color.blue = 50; v.color.alpha = 100;
+    }
 
-    // 2-1. 면 인덱스 리매핑
+    // 2. 선(Line) 정점 복사 및 외곽선 색상 설정 (노란색)
+    m_editOriginalLineVertices.assign(
+        mesh->m_polygonVertices.begin() + m_transformPolygonInfo.vertexOffset, // 동일한 폴리곤 정점 범위 공유
+        mesh->m_polygonVertices.begin() + m_transformPolygonInfo.vertexOffset + m_transformPolygonInfo.vertexCount);
+    m_transformLineVertices = m_editOriginalLineVertices;
+
+    for (Vertex& v : m_transformLineVertices) {
+        v.color.red = 230; v.color.green = 230; v.color.blue = 230; v.color.alpha = 255;
+    }
+
+    // 3. VBO 합치기
+    std::vector<Vertex> combinedVertices;
+    combinedVertices.insert(combinedVertices.end(), m_transformVertices.begin(), m_transformVertices.end());
+    combinedVertices.insert(combinedVertices.end(), m_transformLineVertices.begin(), m_transformLineVertices.end());
+
+    // 4. 면 인덱스 리매핑
     m_transformPolygonIndices.clear();
     for (uint32_t i = 0; i < m_transformPolygonInfo.indexCount; i++) {
         uint32_t originalIndex = mesh->m_polygonIndices[m_transformPolygonInfo.indexOffset + i];
         m_transformPolygonIndices.push_back(originalIndex - m_transformPolygonInfo.vertexOffset);
     }
 
-    // 2-2. 선 인덱스 리매핑 (선 오프셋 기준)
+    // 5. 선 인덱스 리매핑
+    uint32_t lineIndexOffset = static_cast<uint32_t>(m_transformVertices.size());
     m_transformLineIndices.clear();
     for (uint32_t i = 0; i < m_transformLineInfo.indexCount; i++) {
         uint32_t originalIndex = mesh->m_lineIndices[m_transformLineInfo.indexOffset + i];
-        m_transformLineIndices.push_back(originalIndex - m_transformPolygonInfo.vertexOffset);
+        m_transformLineIndices.push_back((originalIndex - m_transformPolygonInfo.vertexOffset) + lineIndexOffset);
     }
 
-    // 3. 중심점(Centroid) 계산
+    // 6. 중심점 계산
     m_editCenter = glm::dvec3(0.0);
     for (const Vertex& vertex : m_editOriginalVertices)
         m_editCenter += glm::dvec3(vertex.x, vertex.y, vertex.z);
     m_editCenter /= static_cast<double>(m_editOriginalVertices.size());
 
-    // 4. Transform 초기화
     m_editTransform = Transform();
 
-    // 5. GPU 업로드
+    // 7. GPU 업로드
     glBindVertexArray(m_transformVAO);
 
-    // VBO 업로드 (정점 하나만 관리)
     glBindBuffer(GL_ARRAY_BUFFER, m_transformVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * m_transformVertices.size(), m_transformVertices.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * combinedVertices.size(), combinedVertices.data(), GL_DYNAMIC_DRAW);
 
-    // 면 IBO 업로드
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_transformIBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_transformPolygonIndices.size(), m_transformPolygonIndices.data(), GL_DYNAMIC_DRAW);
 
-    // 선 IBO 업로드
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_transformLineIBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_transformLineIndices.size(), m_transformLineIndices.data(), GL_DYNAMIC_DRAW);
 
@@ -473,36 +522,31 @@ void LayerManager::UpdateEditObject()
     finalMatrix = finalMatrix * transformMatrix;
     finalMatrix = glm::translate(finalMatrix, -m_editCenter);
 
-    // 1. 면(Polygon) 정점 변환 갱신
+    // 면 정점 변환 갱신 및 색상 재적용 (이동 시 원복 방지)
     for (size_t i = 0; i < m_editOriginalVertices.size(); i++) {
         const Vertex& origin = m_editOriginalVertices[i];
-        glm::dvec4 pos(origin.x, origin.y, origin.z, 1.0);
-        glm::dvec4 transformedPos = finalMatrix * pos;
-
+        glm::dvec4 transformedPos = finalMatrix * glm::dvec4(origin.x, origin.y, origin.z, 1.0);
         m_transformVertices[i].x = static_cast<float>(transformedPos.x);
         m_transformVertices[i].y = static_cast<float>(transformedPos.y);
         m_transformVertices[i].z = static_cast<float>(transformedPos.z);
     }
 
-    // 2. 라인(Line) 정점도 동일하게 변환 갱신
+    // 선 정점 변환 갱신 및 색상 재적용
     for (size_t i = 0; i < m_editOriginalLineVertices.size(); i++) {
         const Vertex& origin = m_editOriginalLineVertices[i];
-        glm::dvec4 pos(origin.x, origin.y, origin.z, 1.0);
-        glm::dvec4 transformedPos = finalMatrix * pos;
-
+        glm::dvec4 transformedPos = finalMatrix * glm::dvec4(origin.x, origin.y, origin.z, 1.0);
         m_transformLineVertices[i].x = static_cast<float>(transformedPos.x);
         m_transformLineVertices[i].y = static_cast<float>(transformedPos.y);
         m_transformLineVertices[i].z = static_cast<float>(transformedPos.z);
-        m_transformLineVertices[i].color *= 0.6f;
     }
 
-    // 3. 면 VBO 갱신
+    // VBO 단일 갱신
+    std::vector<Vertex> combinedVertices;
+    combinedVertices.insert(combinedVertices.end(), m_transformVertices.begin(), m_transformVertices.end());
+    combinedVertices.insert(combinedVertices.end(), m_transformLineVertices.begin(), m_transformLineVertices.end());
+
     glBindBuffer(GL_ARRAY_BUFFER, m_transformVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Vertex) * m_transformVertices.size(), m_transformVertices.data());
-
-    // 4. 라인 VBO 갱신
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Vertex) * m_transformLineVertices.size(), m_transformLineVertices.data());
-
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Vertex) * combinedVertices.size(), combinedVertices.data());
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -535,21 +579,194 @@ void LayerManager::ScaleObject(glm::dvec3& scaleDelta)
     UpdateEditObject(); // 버퍼 갱신
 }
 
+// 객체 편집 완료, 원본 데이터에 적용
 void LayerManager::SaveEditObject()
 {
+    TCHAR buf[256];
+    _stprintf_s(buf, _T("세이브\n"));
+    OutputDebugString(buf);
+
     m_isEdittingObject = false;
     m_uiState->isEditObjectMode = false;
 
+    if (m_pickingLayerId != -1 && m_pickingDataId != -1 && m_pickingNodeId != -1) {
+        if (layers[m_pickingLayerId]->m_shapeType != 5) {
+            m_pickingLayerId = -1;
+            m_pickingDataId = -1;
+            m_pickingNodeId = -1;
+            return;
+        }
 
+        MeshManager* mesh = layers[m_pickingLayerId]->m_renderer->m_mesh.get();
+        glm::dmat4 transformMatrix = m_editTransform.GetMatrix();
+        glm::dmat4 finalMatrix = glm::dmat4(1.0);
 
+        finalMatrix = glm::translate(finalMatrix,  m_editCenter);
+        finalMatrix = finalMatrix * transformMatrix;
+        finalMatrix = glm::translate(finalMatrix, -m_editCenter);
+
+        double minX   = std::numeric_limits<double>::max();
+        double minY   = std::numeric_limits<double>::max();
+        double maxX   = std::numeric_limits<double>::lowest();
+        double maxY   = std::numeric_limits<double>::lowest();
+		double height = 0.0;
+
+        // 원본 데이터에 적용
+        for (size_t i = 0; i < m_editOriginalVertices.size(); i++) {
+            const Vertex& origin = m_editOriginalVertices[i];
+            glm::dvec4 transformedPos = finalMatrix * glm::dvec4(origin.x, origin.y, origin.z, 1.0);
+			Vertex& targetVertex = mesh->m_polygonVertices[mesh->m_polygonDrawInfos[m_pickingDataId].vertexOffset + i];
+            targetVertex.x = static_cast<float>(transformedPos.x);
+            targetVertex.y = static_cast<float>(transformedPos.y);
+            targetVertex.z = static_cast<float>(transformedPos.z);
+
+			// MBR 찾기
+			if (targetVertex.x < minX)   minX   = targetVertex.x;
+			if (targetVertex.y < minY)   minY   = targetVertex.y;
+			if (targetVertex.x > maxX)   maxX   = targetVertex.x;
+			if (targetVertex.y > maxY)   maxY   = targetVertex.y;
+			if (targetVertex.z > height) height = targetVertex.z;
+        }
+
+        // MBR박스 갱신
+        switch (layers[m_pickingLayerId]->m_shapeType) {
+        case 1:
+			layers[m_pickingLayerId]->pointObjects[m_pickingDataId].SetMBRBox(minX, minY, maxX, maxY);
+            layers[m_pickingLayerId]->pointObjects[m_pickingDataId].mbrBox.height = height;
+			break;
+        case 3:
+			layers[m_pickingLayerId]->polyLineObjects[m_pickingDataId].SetMBRBox(minX, minY, maxX, maxY);
+			layers[m_pickingLayerId]->polyLineObjects[m_pickingDataId].mbrBox.height = height;
+            break;
+		case 5:
+			layers[m_pickingLayerId]->polygonObjects[m_pickingDataId].SetMBRBox(minX, minY, maxX, maxY);
+            layers[m_pickingLayerId]->polygonObjects[m_pickingDataId].mbrBox.height = height;
+            break;
+        }
+
+        // 쿼드트리 갱신
+		layers[m_pickingLayerId]->m_quadTree->UpdateTransformObject(m_pickingNodeId, m_pickingDataId);
+
+		// GPU VBO 갱신
+        glBindBuffer(GL_ARRAY_BUFFER, mesh->m_polygonVBO);
+
+        GLintptr    offset = mesh->m_polygonDrawInfos[m_pickingDataId].vertexOffset * sizeof(Vertex);
+        GLsizeiptr  size   = m_editOriginalVertices.size() * sizeof(Vertex);
+        const void* data   = &mesh->m_polygonVertices[mesh->m_polygonDrawInfos[m_pickingDataId].vertexOffset];
+
+        glBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+    m_pickingLayerId = -1;
+	m_pickingDataId  = -1;
+    m_pickingNodeId  = -1;
 }
 
+// 객체 편집 취소, 원본 데이터에 적용하지 않고 편집 모드 종료
 void LayerManager::CancelEditObject()
 {
+    TCHAR buf[256];
+    _stprintf_s(buf, _T("캔슬\n"));
+    OutputDebugString(buf);
+
     m_isEdittingObject = false;
     m_uiState->isEditObjectMode = false;
 
+    m_pickingLayerId = -1;
+    m_pickingDataId  = -1;
+    m_pickingNodeId  = -1;
 }
+
+void LayerManager::SetHoverObject()
+{
+    // 피킹된 객체가 없으면 Hover 상태 해제
+    if (m_pickingLayerId == -1 || m_pickingDataId == -1) {
+        m_isHovering = false;
+        return;
+    }
+
+    // 편집 중인 객체에 마우스가 올라간 경우 Hover를 무시하고 싶다면 아래 주석 해제
+    // if (m_uiState->isEditObjectMode && m_isEdittingObject) return;
+
+    m_isHovering = true;
+
+    MeshManager* mesh = layers[m_pickingLayerId]->m_renderer->m_mesh.get();
+    DrawInfo polyInfo = mesh->m_polygonDrawInfos[m_pickingDataId];
+    DrawInfo lineInfo = mesh->m_lineDrawInfos[m_pickingDataId];
+
+    // 1. 원본 정점 복사 및 색상 변경 (초록색)
+    m_hoverVertices.assign(mesh->m_polygonVertices.begin() + polyInfo.vertexOffset,
+        mesh->m_polygonVertices.begin() + polyInfo.vertexOffset + polyInfo.vertexCount);
+
+    for (Vertex& vertex : m_hoverVertices) {
+        vertex.color.red = 100;
+        vertex.color.green = 240;
+        vertex.color.blue = 120;
+        vertex.color.alpha = 100;
+
+        vertex.z += 0.1f;
+    }
+
+    // 2. 인덱스 리매핑
+    m_hoverPolygonIndices.clear();
+    for (uint32_t i = 0; i < polyInfo.indexCount; i++) {
+        uint32_t originalIndex = mesh->m_polygonIndices[polyInfo.indexOffset + i];
+        m_hoverPolygonIndices.push_back(originalIndex - polyInfo.vertexOffset);
+    }
+
+    m_hoverLineIndices.clear();
+    for (uint32_t i = 0; i < lineInfo.indexCount; i++) {
+        uint32_t originalIndex = mesh->m_lineIndices[lineInfo.indexOffset + i];
+        m_hoverLineIndices.push_back(originalIndex - polyInfo.vertexOffset);
+    }
+
+    // 3. GPU 업로드
+    glBindVertexArray(m_hoverVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_hoverVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * m_hoverVertices.size(), m_hoverVertices.data(), GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_hoverIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_hoverPolygonIndices.size(), m_hoverPolygonIndices.data(), GL_DYNAMIC_DRAW);
+
+    if (m_hoverLineIndices.size() > 0) {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_hoverLineIBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_hoverLineIndices.size(), m_hoverLineIndices.data(), GL_DYNAMIC_DRAW);
+    }
+
+    glBindVertexArray(0);
+}
+
+void LayerManager::CreateObject(int32_t shape)
+{
+	int32_t insertLayerId = m_hitLayerId;
+    if (insertLayerId == -1 || insertLayerId != -1 && layers[insertLayerId]->m_shapeType != 5) { // 선택된 레이어가 없거나 선택된 레이어가 폴리곤이 아닌 경우, 첫 번째 폴리곤 레이어에 삽입
+        for (int32_t i = 0; i < layers.size(); i++) {
+            if (layers[i] != nullptr && layers[i]->m_shapeType == 5) {
+                insertLayerId = i;
+                break;
+            }
+		}
+
+        if (insertLayerId == -1) return;
+    }
+
+    switch (shape)
+    {
+    case 1: // 원
+
+	    break;
+    case 2: // 사각형
+
+        break;
+    case 3: // 삼각형
+
+		break;
+    }
+
+}
+
 
 // 카메라 절두체 시각화 (지면과 교차하는 4개 변), NDC 모서리 4개를 unproject해서 z=0 평면과의 교차점을 구해 라인으로 표시
 void LayerManager::DrawCameraFrustum(CameraController& camera)
@@ -628,68 +845,10 @@ void LayerManager::DrawDebugPrimitives(const std::vector<Vertex>& vertices, GLen
 void LayerManager::ReOrderLayer(std::vector<LayerItemData>& items)
 {
     m_layerOrder.clear();
-    for (int32_t order = 0; order < static_cast<int32_t>(items.size()); order++)
-        m_layerOrder.push_back(items[order].layerId);
-}
 
-// LayerManager.cpp
-void LayerManager::SetHoverObject()
-{
-    // 피킹된 객체가 없으면 Hover 상태 해제
-    if (m_pickingLayerId == -1 || m_pickingDataId == -1) {
-        m_isHovering = false;
-        return;
+    for (int32_t order = 0; order < static_cast<int32_t>(items.size()); order++) {
+        std::unordered_map<int32_t, int32_t>::const_iterator mapIt = m_layerIdToIndex.find(items[order].layerId);
+        if (mapIt != m_layerIdToIndex.end())
+            m_layerOrder.push_back(mapIt->second);
     }
-
-    // 편집 중인 객체에 마우스가 올라간 경우 Hover를 무시하고 싶다면 아래 주석 해제
-    // if (m_uiState->isEditObjectMode && m_isEdittingObject) return;
-
-    m_isHovering = true;
-
-    MeshManager* mesh = layers[m_pickingLayerId]->m_renderer->m_mesh.get();
-    DrawInfo polyInfo = mesh->m_polygonDrawInfos[m_pickingDataId];
-    DrawInfo lineInfo = mesh->m_lineDrawInfos[m_pickingDataId];
-
-    // 1. 원본 정점 복사 및 색상 변경 (초록색)
-    m_hoverVertices.assign(mesh->m_polygonVertices.begin() + polyInfo.vertexOffset,
-        mesh->m_polygonVertices.begin() + polyInfo.vertexOffset + polyInfo.vertexCount);
-
-    for (Vertex& vertex : m_hoverVertices) {
-        vertex.color.red   = 20;
-        vertex.color.green = 230;
-        vertex.color.blue  = 50;
-        vertex.color.alpha = 100;
-
-        // Z축 값을 아주 살짝 높여주면 원본 메시와 겹칠 때 발생하는 Z-Fighting 현상을 방지할 수 있습니다.
-        vertex.z += 0.1f;
-    }
-
-    // 2. 인덱스 리매핑
-    m_hoverPolygonIndices.clear();
-    for (uint32_t i = 0; i < polyInfo.indexCount; i++) {
-        uint32_t originalIndex = mesh->m_polygonIndices[polyInfo.indexOffset + i];
-        m_hoverPolygonIndices.push_back(originalIndex - polyInfo.vertexOffset);
-    }
-
-    m_hoverLineIndices.clear();
-    for (uint32_t i = 0; i < lineInfo.indexCount; i++) {
-        uint32_t originalIndex = mesh->m_lineIndices[lineInfo.indexOffset + i];
-        m_hoverLineIndices.push_back(originalIndex - polyInfo.vertexOffset);
-    }
-
-    // 3. GPU 업로드
-    glBindVertexArray(m_hoverVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, m_hoverVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * m_hoverVertices.size(), m_hoverVertices.data(), GL_DYNAMIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_hoverIBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_hoverPolygonIndices.size(), m_hoverPolygonIndices.data(), GL_DYNAMIC_DRAW);
-
-    if (m_hoverLineIndices.size() > 0) {
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_hoverLineIBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_hoverLineIndices.size(), m_hoverLineIndices.data(), GL_DYNAMIC_DRAW);
-    }
-
-    glBindVertexArray(0);
 }

@@ -43,9 +43,9 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 {
 	QuadTreeNode& curNode    = m_nodes[currentNodeId]; // 현재 노드
 	BoundingBox&  curNodeBox = curNode.m_boundingBox;  // 현재 노드 mbr박스
-	BoundingBox*  curObjBox  = nullptr;                // 현재 데이터 mbr박스
+	BoundingBox*  curObjBox  = nullptr;                // 현재 객체 mbr박스
 	glm::dvec2    nodeCenter = curNodeBox.GetCenter(); // 노드 중점
-	glm::dvec2    dataCenter = dataMbrBox.GetCenter(); // 데이터 중점
+	glm::dvec2    dataCenter = dataMbrBox.GetCenter(); // 객체 중점
 
 	switch (m_layer.m_shapeType) {
 	case 1: curObjBox = &m_layer.pointObjects[dataId].mbrBox;    break;
@@ -53,7 +53,7 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	case 5: curObjBox = &m_layer.polygonObjects[dataId].mbrBox;  break;
 	}
 	
-	// 최대 깊이일 경우 현재 노드에 데이터 삽입
+	// 최대 깊이일 경우 현재 노드에 객체 삽입
 	if (curNode.m_level == m_maxLevel) {
 		curNode.m_objectIds.push_back(dataId);
 
@@ -318,7 +318,7 @@ void QuadTree::InputRenderingDataAll(std::vector<int32_t>& renderObjectIds, int3
 }
 
 // 피킹 데이터 탐색 및 반환
-int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, int32_t currentNodeId, double& minDistance, std::vector<DrawInfo>& polygonDrawInfos, std::vector<uint32_t>& polygonIndices, std::vector<Vertex>& polygonVertices)
+int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, int32_t currentNodeId, double& minDistance, std::vector<DrawInfo>& polygonDrawInfos, std::vector<uint32_t>& polygonIndices, std::vector<Vertex>& polygonVertices, int32_t& nodeId)
 {
 	// 루트노드 높이 접촉점 -> z=0 라인
 	// 자신 노드 데이터와 비교
@@ -356,6 +356,7 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 				if (triCollisionDistance >= 0.0 && triCollisionDistance < minDistance) {
 					minDistance = triCollisionDistance;
 					selectDataId = dataId;
+					nodeId = currentNodeId;
 				}
 			}
 		}
@@ -368,7 +369,7 @@ int32_t QuadTree::SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, in
 		//if (!childNode.m_boundingBox.IsOnCollisionRay(rayStart, rayDir)) continue; // 자식노드와 접하지 않으면 넘기기
 		if (!childNode.m_boundingBox.GetLooseBox(m_looseBoxRate).IsOnCollisionRay(rayStart, rayDir)) continue; // 자식노드와 접하지 않으면 넘기기
 
-		int32_t childPickingId = SearchPickingData(rayStart, rayDir, childNodeId, minDistance, polygonDrawInfos, polygonIndices, polygonVertices);
+		int32_t childPickingId = SearchPickingData(rayStart, rayDir, childNodeId, minDistance, polygonDrawInfos, polygonIndices, polygonVertices, nodeId);
 		if (childPickingId != -1) selectDataId = childPickingId;
 	}
 	
@@ -396,4 +397,27 @@ double QuadTree::RayTriangle(const glm::dvec3& rayOrigin, const glm::dvec3& rayD
 
 	double t = glm::dot(edge2, qVec) * invDet;
 	return (t >= 0.0) ? t : -1.0;
+}
+
+void QuadTree::UpdateTransformObject(int32_t pickingNodeId, int32_t pickingDataId)
+{
+	// 쿼드트리 노드의 transform 업데이트
+	// 기존 트리에 들어있던 객체 id를 빼고, 그 id를 새로 삽입
+	std::vector<int32_t>& objectIds = m_nodes[pickingNodeId].m_objectIds;
+	auto it = std::find(objectIds.begin(), objectIds.end(), pickingDataId);
+	if (it != objectIds.end()) objectIds.erase(it);
+
+
+	switch (m_layer.m_shapeType) {
+	case 1:
+		InsertData(0, pickingDataId, m_layer.pointObjects[pickingDataId].mbrBox, false);
+		break;
+	case 3:
+		InsertData(0, pickingDataId, m_layer.polyLineObjects[pickingDataId].mbrBox, false);
+		break;
+	case 5:
+		InsertData(0, pickingDataId, m_layer.polygonObjects[pickingDataId].mbrBox, false);
+		break;
+	}
+
 }
