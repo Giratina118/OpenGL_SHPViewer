@@ -166,6 +166,15 @@
     <ClInclude Include="Engine\MeshManager.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\VertexBuffer.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\EditObject.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\LayerManager.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Render\Renderer.cpp">
@@ -234,9 +243,6 @@
     <ClCompile Include="App\UI\CVisibilityPage.cpp">
       <Filter>App\UI</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\Layer.cpp">
-      <Filter>Engine</Filter>
-    </ClCompile>
     <ClCompile Include="App\UI\CLayerListCtrl.cpp">
       <Filter>App\UI</Filter>
     </ClCompile>
@@ -247,6 +253,15 @@
       <Filter>Engine\Parser</Filter>
     </ClCompile>
     <ClCompile Include="Engine\MeshManager.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\VertexBuffer.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\EditObject.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\LayerManager.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
   </ItemGroup>

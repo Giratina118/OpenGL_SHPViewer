@@ -1,6 +1,6 @@
 #include <pch.h>
 #include "CControlPage.h"
-#include "Layer.h"
+#include "LayerManager.h"
 #include <resource.h>
 #include <algorithm>
 
@@ -68,7 +68,7 @@ void CControlPage::RefreshLayerList(LayerManager& layerManager)
 {
 	m_listCtrlLayer.ClearItems(&layerManager);
 
-    for (const auto& layer : layerManager.layers) {
+    for (const auto& layer : layerManager.m_layers) {
         int32_t iconType = 0;
         if      (layer->m_shapeType == 3) iconType = 1; // Line
         else if (layer->m_shapeType == 5) iconType = 2; // Polygon

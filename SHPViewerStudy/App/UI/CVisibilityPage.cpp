@@ -36,7 +36,6 @@ void CVisibilityPage::CreateTabControls()
     m_buttonFakeObject.Create (_T("가상 객체"),   tog, CRect(0, 0, 10, 10), this, ID_BTN_FAKE_OBJECT);
     m_buttonBuilding.Create   (_T("건물"),        tog, CRect(0, 0, 10, 10), this, ID_BTN_BUILDING);
     m_buttonMap.Create        (_T("지도"),        tog, CRect(0, 0, 10, 10), this, ID_BTN_MAP);
-    m_radioCDT.GetCheck();
 
     m_staticViewRange.Create  (_T("가시거리 배율: 40"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this);
     m_sliderViewRange.Create  (WS_CHILD | WS_VISIBLE | TBS_AUTOTICKS, CRect(0, 0, 10, 10), this, ID_SLIDER_VIEW_RANGE);

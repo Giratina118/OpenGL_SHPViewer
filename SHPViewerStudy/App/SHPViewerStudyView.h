@@ -4,10 +4,11 @@
 #include "UI/CPanelLeft.h"
 #include "UI/CPanelRight.h"
 
-#include "Layer.h"
+#include "LayerManager.h"
 #include "Render/Renderer.h"
 #include "Parser/SHPLoader.h"
 #include "CameraController.h"
+#include "EditObject.h"
 
 // 키보드 버튼 눌림 상태 관리
 struct KeyState
@@ -99,7 +100,7 @@ public:
 	void LinkCallbacksToUI();                      // 좌측 패널 콜백 연결
 	void InputKey(float deltaTime);                // 키 입력
 	glm::dvec3 ClientToWorldPos(CPoint clientPos); // 피킹 위치
-	void PickingObj(CPoint clientPos);             // 피킹 객체
+	glm::dvec3 PickingObj(CPoint clientPos);       // 피킹 객체
 	void OpenFileCommon();                         // 파일 열기 공통 (파일 연 이후 공통동작)
 	bool IsInUIPanel(const CPoint& mousePoint) const { return mousePoint.x < m_panelLeft.GetWidth() || mousePoint.x > m_uiSize.clientWidth - m_panelRight.GetWidth(); } // UI 마우스 이벤트가 3D 영역인지 판별
 

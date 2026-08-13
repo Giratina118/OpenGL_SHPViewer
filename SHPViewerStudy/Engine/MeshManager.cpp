@@ -7,22 +7,16 @@
 
 bool MeshManager::InitRenderMesh()
 {
-	// 셰이더 설정
-	if (!m_shader.CreateProgram("Resource/Shader/shader.vert", "Resource/Shader/shader.frag")) return false;
-	m_viewProjectionLocation = glGetUniformLocation(m_shader.GetProgram(), "u_viewProjection");
-	m_colorMultiplierLocation = glGetUniformLocation(m_shader.GetProgram(), "u_colorMultiplier");
+	UploadBuffer(m_polygonVAO, m_polygonVBO, nullptr);
 
-	// 버퍼 등록
-	GLuint iboNull = -1; // 인덱스버퍼 없는 것들
-	UploadBuffer(m_polygonVAO, m_polygonVBO, &m_polygonIBO); // 폴리곤 버퍼
-	UploadBuffer(m_mbrVAO, m_mbrVBO, nullptr);       // MBR박스 그리기 버퍼
+	//glGenBuffers(1, &m_polygonIBOVisible);
+	//glGenBuffers(1, &m_lineIBOVisible);
+	//glGenBuffers(1, &m_fakeIBO);
+	//glGenBuffers(1, &m_fakeIBOVisible);
+	glGenBuffers(1, &m_visibleIBO);
 
-	glGenBuffers(1, &m_polygonIBOVisible); // 가시 폴리곤 인덱스 버퍼
-	glGenBuffers(1, &m_lineIBOVisible);	   // 가시 라인 인덱스 전용 버퍼
-	glGenBuffers(1, &m_fakeIBO);           // 가상 객체 인덱스 버퍼
-	glGenBuffers(1, &m_fakeIBOVisible);	   // 가시 가상 객체 인덱스 버퍼
-
-	BuildMesh(); // 메시 빌드
+	BuildMesh();
+	BuildFakeMeshes(); // fake object 활성화
 
 	return true;
 }
@@ -51,26 +45,12 @@ void MeshManager::UploadBuffer(GLuint& vao, GLuint& vbo, GLuint* ibo)
 }
 
 // GPU 리소스 해제
-void MeshManager::Shutdown(HWND m_hWnd)
+void MeshManager::Shutdown()
 {
-	if (m_shader.GetProgram() != 0) glDeleteProgram(m_shader.GetProgram());
+	if (m_visibleIBO) { glDeleteBuffers     (1, &m_visibleIBO); m_visibleIBO = 0; }
+	if (m_polygonVBO) { glDeleteBuffers     (1, &m_polygonVBO); m_polygonVBO = 0; }
+	if (m_polygonVAO) { glDeleteVertexArrays(1, &m_polygonVAO); m_polygonVAO = 0; }
 
-	// 라인 메쉬 버퍼 해제
-	if (m_lineIBOVisible)    glDeleteBuffers(1, &m_lineIBOVisible);
-	if (m_polygonIBOVisible) glDeleteBuffers(1, &m_polygonIBOVisible);
-	if (m_fakeIBOVisible)    glDeleteBuffers(1, &m_fakeIBOVisible);
-
-	// 면 메쉬 버퍼 해제
-	if (m_polygonIBO)        glDeleteBuffers(1, &m_polygonIBO);
-	if (m_polygonVBO)        glDeleteBuffers(1, &m_polygonVBO);
-	if (m_polygonVAO)        glDeleteVertexArrays(1, &m_polygonVAO);
-
-	// MBR 버퍼 해제
-	if (m_mbrVBO)            glDeleteBuffers(1, &m_mbrVBO);
-	if (m_mbrVAO)            glDeleteVertexArrays(1, &m_mbrVAO);
-
-	// 가상 객체 버퍼 해제
-	if (m_fakeIBO)           glDeleteBuffers(1, &m_fakeIBO);
 }
 
 
@@ -82,10 +62,10 @@ void MeshManager::BuildMesh()
 	m_polygonVertices.clear();
 	m_polygonIndices.clear();
 	m_polygonDrawInfos.clear();
-	m_polygonVisibleIndices.clear();
+	//m_polygonVisibleIndices.clear();
 	m_lineIndices.clear();
 	m_lineDrawInfos.clear();
-	m_lineVisibleIndices.clear();
+	//m_lineVisibleIndices.clear();
 
 	switch (m_layer.m_shapeType) {
 	case 1: BuildPointMesh();    break;
@@ -100,15 +80,15 @@ void MeshManager::BuildMesh()
 	glBindVertexArray(m_polygonVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * m_polygonVertices.size(), m_polygonVertices.data(), GL_DYNAMIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_polygonIndices.size(), m_polygonIndices.data(), GL_STATIC_DRAW);
+	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBO);
+	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_polygonIndices.size(), m_polygonIndices.data(), GL_STATIC_DRAW);
 	glBindVertexArray(0);
 
 	// 라인 IBO 업로드
-	if (!m_lineIndices.empty()) {
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_lineIndices.size(), m_lineIndices.data(), GL_STATIC_DRAW);
-	}
+	//if (!m_lineIndices.empty()) {
+		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
+		//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_lineIndices.size(), m_lineIndices.data(), GL_STATIC_DRAW);
+	//}
 
 	// GPU 업로드 완료, CPU 사본 해제 (더 이상 안 쓰임)
 	m_polygonVertices.shrink_to_fit();
@@ -354,10 +334,10 @@ void MeshManager::BuildFakeMeshes()
 
 	m_fakeIndices.clear();
 	BuildConvexHullNode(m_quadTree.m_nodes[0]); // 루트 노드부터 재귀적으로 가상 객체 생성 (자식 노드가 없으면 객체 중심점으로, 있으면 자식 노드의 LOD 점들로 볼록껍질 생성)
-	if (m_fakeIndices.empty()) return; // 데이터 없으면 업로드 스킵
+	//if (m_fakeIndices.empty()) return; // 데이터 없으면 업로드 스킵
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_fakeIndices.size(), m_fakeIndices.data(), GL_STATIC_DRAW);
+	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBO);
+	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_fakeIndices.size(), m_fakeIndices.data(), GL_STATIC_DRAW);
 
 	//m_fakeVisibleIndices.reserve(m_fakeIndices.size());
 	m_fakeIndices.shrink_to_fit();
@@ -498,7 +478,7 @@ void MeshManager::ApplyLevelColors(bool useLevelColor)
 
 		//unsigned char r, g, b;
 		UCharColor color;
-		if (useLevelColor) GetLevelColor(m_quadTree.m_objectLevels[dataId], color);
+		if (useLevelColor) SetColorFromLevel(m_quadTree.m_objectLevels[dataId], color);
 		else               color = m_layer.m_baseColor;
 
 		uint32_t end = info.indexOffset + info.indexCount;
@@ -518,11 +498,4 @@ void MeshManager::ApplyLevelColors(bool useLevelColor)
 		glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Vertex) * m_polygonVertices.size(), m_polygonVertices.data());
 	}
-}
-
-// 트리 레벨에 따른 색상 설정
-void MeshManager::GetLevelColor(int32_t level, UCharColor& color)
-{
-	int32_t levelToColor = level % (sizeof(palette) / sizeof(palette[0]));
-	color = palette[levelToColor];
 }

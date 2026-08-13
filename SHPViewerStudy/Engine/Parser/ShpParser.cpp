@@ -60,11 +60,11 @@ void ShpParser::ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxInd
     case 15: parseLoop(layer.polygonObjects,    [&](const uint8_t*& ptr, PolyObject& obj)       { ReadPolyZ(ptr, obj); });       break;
     case 25: parseLoop(layer.polygonObjects,    [&](const uint8_t*& ptr, PolyObject& obj)       { ReadPolyM(ptr, obj); });       break;
 
-    case 8:  parseLoop(layer.multiPointObjects, [&](const uint8_t*& ptr, MultiPointObject& obj) { ReadMultiPoint (ptr, obj); }); break;
-    case 18: parseLoop(layer.multiPointObjects, [&](const uint8_t*& ptr, MultiPointObject& obj) { ReadMultiPointZ(ptr, obj); }); break;
-    case 28: parseLoop(layer.multiPointObjects, [&](const uint8_t*& ptr, MultiPointObject& obj) { ReadMultiPointM(ptr, obj); }); break;
+    //case 8:  parseLoop(layer.multiPointObjects, [&](const uint8_t*& ptr, MultiPointObject& obj) { ReadMultiPoint (ptr, obj); }); break;
+    //case 18: parseLoop(layer.multiPointObjects, [&](const uint8_t*& ptr, MultiPointObject& obj) { ReadMultiPointZ(ptr, obj); }); break;
+    //case 28: parseLoop(layer.multiPointObjects, [&](const uint8_t*& ptr, MultiPointObject& obj) { ReadMultiPointM(ptr, obj); }); break;
     
-    case 31: parseLoop(layer.multiPatchObjects, [&](const uint8_t*& ptr, MultiPatchObject& obj) { ReadMultiPatch(ptr, obj); });  break;
+    //case 31: parseLoop(layer.multiPatchObjects, [&](const uint8_t*& ptr, MultiPatchObject& obj) { ReadMultiPatch(ptr, obj); });  break;
     }
 }
 

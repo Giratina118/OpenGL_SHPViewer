@@ -71,13 +71,6 @@ void Transform::RotateThird(double yawDeg, double pitchDeg, const glm::dvec3& po
     glm::dvec3 currentPos = position;
     glm::dvec3 movePos = currentPos - point;
 
-    /*
-    TCHAR buf[256];
-    _stprintf_s(buf, _T("[targetPos] x: %f,  y: %f,  z: %f  /  [currentPos] x: %f,  y: %f,  z: %f  /  [movePos] x: %f,  y: %f,  z: %f\n"),
-        point.x, point.y, point.z, currentPos.x, currentPos.y, currentPos.z, movePos.x, movePos.y, movePos.z);
-    OutputDebugString(buf);
-    */
-
     // 1. 회전 변화량(Quaternion) 생성
     glm::dquat yawRotation   = glm::angleAxis(glm::radians(yawDeg), glm::dvec3(0.0, 0.0, 1.0));
     glm::dquat pitchRotation = glm::angleAxis(glm::radians(pitchDeg), GetRight());

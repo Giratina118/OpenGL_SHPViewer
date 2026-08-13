@@ -5,7 +5,7 @@
 #include "ShxParser.h"
 #include "DbfParser.h"
 #include "CoordinateSystem.h"
-#include "Layer.h"
+#include "LayerManager.h"
 
 
 #include "ProjTransformer.h"

@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "CLayerListCtrl.h"
-#include "Layer.h"
+#include "LayerManager.h"
 
 BEGIN_MESSAGE_MAP(CLayerListCtrl, CListCtrl)
     ON_WM_LBUTTONDOWN()
@@ -152,7 +152,7 @@ void CLayerListCtrl::DrawItem(LPDRAWITEMSTRUCT lpDIS)
 
     // Shape Type 아이콘
     CRect    rectIcon  = GetIconRect(rectItem);
-	UCharColor color   = m_layerManager->layers[m_layerManager->m_layerIdToIndex[item.layerId]]->m_baseColor; // LayerManager에서 색상 가져오기
+	UCharColor color   = m_layerManager->m_layers[m_layerManager->m_layerIdToIndex[item.layerId]]->m_baseColor; // LayerManager에서 색상 가져오기
     COLORREF iconColor = RGB(color.red, color.green, color.blue);
 
     CString  iconLabel = GetIconLabel(item.iconType); // 아이콘 레이블 (P / L / A)
@@ -222,7 +222,7 @@ void CLayerListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
 
     if (rectCheck.PtInRect(point)) { // 체크박스 클릭 -> 토글
         m_items[index].isVisible = !m_items[index].isVisible;
-        m_layerManager->layers[m_layerManager->m_layerIdToIndex[m_items[index].layerId]]->m_isVisible = m_items[index].isVisible; // LayerManager에도 반영
+        m_layerManager->m_layers[m_layerManager->m_layerIdToIndex[m_items[index].layerId]]->m_isVisible = m_items[index].isVisible; // LayerManager에도 반영
     }
     else { // 레이어 선택/취소
         m_hitItemIndex = (m_hitItemIndex == index) ? -1 : index;
@@ -284,14 +284,9 @@ void CLayerListCtrl::OnLButtonUp(UINT nFlags, CPoint point)
     if (m_isDragging && m_dragHoldIndex >= 0 && m_dragDropIndex >= 0 && m_dragHoldIndex != m_dragDropIndex) {
         int32_t sourceIndex = m_dragHoldIndex;
         int32_t targetIndex = m_dragDropIndex;
-
         LayerItemData moved = m_items[sourceIndex];
 
         m_items.erase(m_items.begin() + sourceIndex);
-
-        if (sourceIndex < targetIndex)
-            targetIndex--;
-
         m_items.insert(m_items.begin() + targetIndex, moved);
 
         DeleteAllItems();

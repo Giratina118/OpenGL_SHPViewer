@@ -25,7 +25,7 @@ bool Renderer::Initialize(HWND hWnd)
 
 
 // 메인 렌더 함수
-void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize, bool isSelected, bool hasPickingData, int32_t pickingDataId)
+void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize, bool isSelected, bool hasPickingData, int32_t pickingDataId, GLint colorMultiplierLocation, DebugVertexBuffer& mbrBuffer)
 {
 	// 쿼드트리에서 가시 객체 검색 (컬링, LOD)
 	if (!uiState.isShowFrustumView) {
@@ -42,123 +42,48 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 	}
 
 	// 면 가시 인덱스, 가시 인덱스를 모아서 GPU에 stream 업로드
-	size_t  totalPolygonIndices = 0;
 	int32_t polygonCount = static_cast<int32_t>(m_mesh->m_polygonDrawInfos.size());
+	int32_t lineCount    = static_cast<int32_t>(m_mesh->m_lineDrawInfos.size());
 
+	auto skipPicked = [&](int32_t id) { return id < 0 || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId); };
 
-	if (uiState.isEditObjectMode && hasPickingData) {
-		TCHAR buf[256];
-		_stprintf_s(buf, _T("[Render] pickingDataId=%d\n"), pickingDataId);
-		OutputDebugString(buf);
-		for (int32_t id : m_renderObjectIds) {
-			if (id == pickingDataId) {
-				OutputDebugString(_T("[Render] pickingDataId가 renderObjectIds에 있음 → 숨겨져야 함\n"));
-				break;
-			}
-		}
-	}
+	// 면
+	DrawVisibleIndexed(m_renderObjectIds, m_mesh->m_polygonIndices, m_mesh->m_visibleIndices,
+		m_mesh->m_polygonVAO, m_mesh->m_visibleIBO, GL_TRIANGLES,
+		[&](int32_t id) { return skipPicked(id) || id >= polygonCount; },
+		[&](int32_t id) { return m_mesh->m_polygonDrawInfos[id].indexOffset; },
+		[&](int32_t id) { return m_mesh->m_polygonDrawInfos[id].indexCount; });
 
+	// 라인 (어둡게 표시)
+	glUniform1f(colorMultiplierLocation, 0.6f);
+	DrawVisibleIndexed(m_renderObjectIds, m_mesh->m_lineIndices, m_mesh->m_visibleIndices,
+		m_mesh->m_polygonVAO, m_mesh->m_visibleIBO, GL_LINES,
+		[&](int32_t id) { return skipPicked(id) || id >= lineCount; },
+		[&](int32_t id) { return m_mesh->m_lineDrawInfos[id].indexOffset; },
+		[&](int32_t id) { return m_mesh->m_lineDrawInfos[id].indexCount; });
+	glUniform1f(colorMultiplierLocation, 1.0f);
 
-	for (int32_t id : m_renderObjectIds) { // 컬링 통과한 객체 ID를 순회
-		if (id < 0 || id >= polygonCount || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId)) continue; // ID 유효성 체크 (안전장치)
-		totalPolygonIndices += m_mesh->m_polygonDrawInfos[id].indexCount; // 총 가시 인덱스 수 계산
-	}
-	if (totalPolygonIndices > 0) { // 가시 인덱스가 하나라도 있으면 진행
-		m_mesh->m_polygonVisibleIndices.resize(totalPolygonIndices); // 가시 인덱스 임시 버퍼 크기 조정
-		uint32_t* writePtr = m_mesh->m_polygonVisibleIndices.data(); // 가시 인덱스 버퍼 채우기
-
-		// 컬링 통과한 객체 ID 순회하면서 가시 인덱스 버퍼 채우기
-		for (int32_t id : m_renderObjectIds) {
-			if (id < 0 || id >= polygonCount || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId)) continue; // ID 유효성 체크
-			const DrawInfo& info = m_mesh->m_polygonDrawInfos[id]; // 객체별 인덱스 범위 정보
-			if (info.indexCount == 0)         continue; // 인덱스 없는 객체는 건너뛰기
-			memcpy(writePtr, m_mesh->m_polygonIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t)); // CPU 측 전체 인덱스에서 해당 객체의 인덱스 범위를 가시 인덱스 버퍼로 복사
-			writePtr += info.indexCount; // 가시 인덱스 버퍼 쓰기 포인터 이동
-		}
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_mesh->m_polygonIBOVisible); // 가시 인덱스 버퍼 바인딩
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalPolygonIndices, nullptr, GL_STREAM_DRAW); // nullptr로 먼저 한 번 호출 = "이전 버퍼 내용 버려, 새로 할당해줘"
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalPolygonIndices, m_mesh->m_polygonVisibleIndices.data(), GL_STREAM_DRAW); // 가시 인덱스 데이터 GPU로 업로드 (stream draw: 매 프레임 바뀌는 데이터 -> 드라이버가 빠른 쓰기용 메모리에 배치)
-
-		// 면 그리기
-		glBindVertexArray(m_mesh->m_polygonVAO); // 면 VAO 바인딩
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_mesh->m_polygonIBOVisible); // 가시 인덱스 버퍼 바인딩
-		glDrawElements(GL_TRIANGLES, (GLsizei)totalPolygonIndices, GL_UNSIGNED_INT, nullptr); // 인덱스 드로우콜, 가시 인덱스 수만큼 그리기, 실제 그리기 명령
-		glBindVertexArray(0); // VAO 바인딩 해제
-	}
-
-	// 라인 가시 인덱스
-	size_t  totalLineIndices = 0;
-	int32_t lineCount = static_cast<int32_t>(m_mesh->m_lineDrawInfos.size());
-	for (int32_t id : m_renderObjectIds) {
-		if (id < 0 || id >= lineCount || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId)) continue;
-		totalLineIndices += m_mesh->m_lineDrawInfos[id].indexCount;
-	}
-	if (totalLineIndices > 0) {
-		m_mesh->m_lineVisibleIndices.resize(totalLineIndices);
-		uint32_t* writePtr = m_mesh->m_lineVisibleIndices.data();
-
-		for (int32_t id : m_renderObjectIds) {
-			if (id < 0 || id >= lineCount || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId)) continue;
-			const DrawInfo& info = m_mesh->m_lineDrawInfos[id];
-			if (info.indexCount == 0) continue;
-			memcpy(writePtr, m_mesh->m_lineIndices.data() + info.indexOffset, info.indexCount * sizeof(uint32_t));
-			writePtr += info.indexCount;
-		}
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_mesh->m_lineIBOVisible);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLineIndices, nullptr, GL_STREAM_DRAW);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLineIndices, m_mesh->m_lineVisibleIndices.data(), GL_STREAM_DRAW);
-
-		glUniform1f(m_mesh->m_colorMultiplierLocation, 0.6f); // 어둡게
-		glBindVertexArray(m_mesh->m_polygonVAO);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_mesh->m_lineIBOVisible);
-		glDrawElements(GL_LINES, (GLsizei)totalLineIndices, GL_UNSIGNED_INT, nullptr);
-		glUniform1f(m_mesh->m_colorMultiplierLocation, 1.0f); // 복원
-		glBindVertexArray(0);
-	}
-
-	/*
-	// Fake Object (LOD 메쉬) 그리기
-	int32_t quadTreenodeCount = static_cast<int32_t>(m_quadTree.m_nodes.size());
+	// 가상 객체 (Fake/LOD)
 	if (uiState.isShowFakeObject) {
-		size_t totalLodIndices = 0;
-		for (int32_t nodeId : m_quadTree.m_visibleNodeFakeObjIds) {
-			if (nodeId < 0 || nodeId >= quadTreenodeCount) continue;
-			totalLodIndices += m_quadTree.m_nodes[nodeId].m_lodIndexCount;
-		}
-		if (m_quadTree.m_visibleNodeFakeObjIds.size() > 0) {
-			m_fakeVisibleIndices.resize(totalLodIndices);
-			uint32_t* writePtr = m_fakeVisibleIndices.data();
-			for (int32_t nodeId : m_quadTree.m_visibleNodeFakeObjIds) {
-				if (nodeId < 0 || nodeId >= quadTreenodeCount) continue;
-				const QuadTreeNode& node = m_quadTree.m_nodes[nodeId];
-				if (node.m_lodIndexCount == 0) continue;
-				memcpy(writePtr, m_fakeIndices.data() + node.m_lodIndexOffset, node.m_lodIndexCount * sizeof(uint32_t));
-				writePtr += node.m_lodIndexCount;
-			}
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBOVisible);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLodIndices, nullptr, GL_STREAM_DRAW);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * totalLodIndices, m_fakeVisibleIndices.data(), GL_STREAM_DRAW);
-
-			glBindVertexArray(m_polygonVAO);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBOVisible);
-			glDrawElements(GL_TRIANGLES, (GLsizei)totalLodIndices, GL_UNSIGNED_INT, nullptr);
-			glBindVertexArray(0);
-		}
+		int32_t quadTreeNodeCount = static_cast<int32_t>(m_quadTree.m_nodes.size());
+		DrawVisibleIndexed(m_quadTree.m_visibleNodeFakeObjIds, m_mesh->m_fakeIndices, m_mesh->m_visibleIndices,
+			m_mesh->m_polygonVAO, m_mesh->m_visibleIBO, GL_TRIANGLES,
+			[&](int32_t nodeId) { return nodeId < 0 || nodeId >= quadTreeNodeCount; },
+			[&](int32_t nodeId) { return m_quadTree.m_nodes[nodeId].m_lodIndexOffset; },
+			[&](int32_t nodeId) { return m_quadTree.m_nodes[nodeId].m_lodIndexCount; });
 	}
-	*/
-
-
+	
 	if (isSelected) {
-		if (uiState.isShowObjectMBR)   DrawObjectMBR();           // 객체 MBR 그리기
-		if (uiState.isShowNodeMBR)     DrawQuadTreeNodeMBR();     // 노드 MBR 그리기
+		if (uiState.isShowObjectMBR) DrawObjectMBR(mbrBuffer);       // 객체 MBR 그리기
+		if (uiState.isShowNodeMBR)   DrawQuadTreeNodeMBR(mbrBuffer); // 노드 MBR 그리기
 	}
 }
 
 // 객체 MBR 박스 그리기 (보이는 객체만)
-void Renderer::DrawObjectMBR()
+void Renderer::DrawObjectMBR(DebugVertexBuffer& mbrBuffer)
 {
-	m_mesh->m_objMbrBoxVertices.clear();
-	m_mesh->m_objMbrBoxVertices.reserve(m_renderObjectIds.size() * 24);
+	m_mesh->m_mbrBoxVertices.clear();
+	m_mesh->m_mbrBoxVertices.reserve(m_renderObjectIds.size() * 24);
 
 	int32_t polygonCount = static_cast<int32_t>(m_layer.polygonObjects.size());
 	for (int32_t objectId : m_renderObjectIds) {
@@ -178,48 +103,38 @@ void Renderer::DrawObjectMBR()
 
 		int32_t level = (objectId < static_cast<int32_t>(m_quadTree.m_objectLevels.size())) ? m_quadTree.m_objectLevels[objectId] : 0;
 		UCharColor color;
-		GetLevelColor(level, color);
-		PushBoundingBoxLine(*mbrBox, m_mesh->m_objMbrBoxVertices, color, true);
+		SetColorFromLevel(level, color);
+		PushBoundingBoxLine(*mbrBox, m_mesh->m_mbrBoxVertices, color, true);
 	}
 
-	if (m_mesh->m_objMbrBoxVertices.empty()) return;
+	if (m_mesh->m_mbrBoxVertices.empty()) return;
 
-	UploadAndDraw(m_mesh->m_mbrVAO, m_mesh->m_mbrVBO, m_mesh->m_objMbrBoxVertices, GL_LINES);
+	mbrBuffer.Upload(m_mesh->m_mbrBoxVertices, GL_DYNAMIC_DRAW);
+	mbrBuffer.Draw(GL_LINES);
 
-	m_mesh->m_objMbrBoxVertices.clear();
-	m_mesh->m_objMbrBoxVertices.shrink_to_fit();
+	m_mesh->m_mbrBoxVertices.clear();
 }
 
 // 노드 MBR 박스 그리기 (컬링에서 통과한 노드만)
-void Renderer::DrawQuadTreeNodeMBR()
+void Renderer::DrawQuadTreeNodeMBR(DebugVertexBuffer& mbrBuffer)
 {
-	m_mesh->m_nodeMbrBoxVertices.clear();
-	m_mesh->m_nodeMbrBoxVertices.reserve(m_quadTree.m_visibleNodeIds.size() * 8);
+	m_mesh->m_mbrBoxVertices.clear();
+	m_mesh->m_mbrBoxVertices.reserve(m_quadTree.m_visibleNodeIds.size() * 8);
 
 	for (int32_t nodeId : m_quadTree.m_visibleNodeIds) {
 		if (nodeId < 0) continue;
 		const QuadTreeNode& node = m_quadTree.m_nodes[nodeId];
 		UCharColor color;
-		GetLevelColor(node.m_level, color);
-		PushBoundingBoxLine(node.m_boundingBox/*.GetLooseBox(m_quadTree.m_looseBoxRate)*/, m_mesh->m_nodeMbrBoxVertices, color, true);
+		SetColorFromLevel(node.m_level, color);
+		PushBoundingBoxLine(node.m_boundingBox/*.GetLooseBox(m_quadTree.m_looseBoxRate)*/, m_mesh->m_mbrBoxVertices, color, true);
 	}
 
-	if (m_mesh->m_nodeMbrBoxVertices.empty()) return;
+	if (m_mesh->m_mbrBoxVertices.empty()) return;
 
-	UploadAndDraw(m_mesh->m_mbrVAO, m_mesh->m_mbrVBO, m_mesh->m_nodeMbrBoxVertices, GL_LINES);
+	mbrBuffer.Upload(m_mesh->m_mbrBoxVertices, GL_DYNAMIC_DRAW);
+	mbrBuffer.Draw(GL_LINES);
 
-	m_mesh->m_nodeMbrBoxVertices.clear();
-	m_mesh->m_nodeMbrBoxVertices.shrink_to_fit();
-}
-
-// 업로드 & 그리기 (객체 mbr, 노드 mbr, 절두체 사각형 등)
-void Renderer::UploadAndDraw(GLuint& vao, GLuint& vbo, std::vector<Vertex>& vertices, int drawType)
-{
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_DYNAMIC_DRAW);
-	glDrawArrays(drawType, 0, (GLsizei)vertices.size());
-	glBindVertexArray(0);
+	m_mesh->m_mbrBoxVertices.clear();
 }
 
 // MBR 박스 출력에 사용
@@ -254,45 +169,32 @@ void Renderer::PushBoundingBoxLine(const BoundingBox& boundingBox, std::vector<V
 	}
 }
 
-// 트리 레벨에 따른 색상 설정
-void Renderer::GetLevelColor(int32_t level, UCharColor& color)
+template<typename TIdContainer, typename SkipFn, typename OffsetFn, typename CountFn>
+void Renderer::DrawVisibleIndexed(const TIdContainer& ids, const std::vector<uint32_t>& sourceIndices, std::vector<uint32_t>& scratchBuffer, GLuint vao, GLuint ibo, GLenum mode, SkipFn&& skip, OffsetFn&& offsetOf, CountFn&& countOf)
 {
-	int32_t levelToColor = level % (sizeof(palette) / sizeof(palette[0]));
-	color = palette[levelToColor];
-}
+	size_t total = 0;
+	for (auto id : ids) {
+		if (skip(id)) continue;
+		total += countOf(id);
+	}
+	if (total == 0) return;
 
-// 피킹 객체 색상 강조
-void Renderer::HighlightObjectColor(int32_t objectId)
-{
-	const DrawInfo& info = m_mesh->m_polygonDrawInfos[objectId];
-	if (info.vertexCount == 0) return;
-
-	// CPU 버퍼에서 해당 vertex 범위만 색상 변경
-	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++)
-		m_mesh->m_polygonVertices[i].color = { 20, 230, 50, 255 };
-
-	// GPU의 해당 위치만 덮어쓰기
-	glBindBuffer(GL_ARRAY_BUFFER, m_mesh->m_polygonVBO);
-	glBufferSubData(GL_ARRAY_BUFFER, info.vertexOffset * sizeof(Vertex), info.vertexCount * sizeof(Vertex), m_mesh->m_polygonVertices.data() + info.vertexOffset);
-}
-
-// 강조했던 색상 복구
-void Renderer::RestoreObjectColor(int32_t objectId, UIState& uiState, bool isSelectedLayer)
-{
-	const DrawInfo& info = m_mesh->m_polygonDrawInfos[objectId];
-	if (info.vertexCount == 0) return;
-
-	// 원래 색상으로 복원, ApplyLevelColors와 동일한 로직
-	UCharColor color;
-	if (uiState.isShowLevelColor && isSelectedLayer) GetLevelColor(m_quadTree.m_objectLevels[objectId], color);
-	else color = m_layer.m_baseColor;
-
-	for (uint32_t i = info.vertexOffset; i < info.vertexOffset + info.vertexCount; i++) {
-		Vertex& vertex = m_mesh->m_polygonVertices[i];
-		int32_t shade = (vertex.z < 0.5f && m_layer.m_isBuilding) ? 3 : 2;
-		vertex.color = color / shade * 2;
+	scratchBuffer.resize(total);
+	uint32_t* writePtr = scratchBuffer.data();
+	for (auto id : ids) {
+		if (skip(id)) continue;
+		uint32_t count = countOf(id);
+		if (count == 0) continue;
+		memcpy(writePtr, sourceIndices.data() + offsetOf(id), count * sizeof(uint32_t));
+		writePtr += count;
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, m_mesh->m_polygonVBO);
-	glBufferSubData(GL_ARRAY_BUFFER, info.vertexOffset * sizeof(Vertex), info.vertexCount * sizeof(Vertex), m_mesh->m_polygonVertices.data() + info.vertexOffset);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * total, nullptr, GL_STREAM_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * total, scratchBuffer.data(), GL_STREAM_DRAW);
+
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glDrawElements(mode, (GLsizei)total, GL_UNSIGNED_INT, nullptr);
+	glBindVertexArray(0);
 }

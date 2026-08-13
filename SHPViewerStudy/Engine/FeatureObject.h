@@ -59,12 +59,6 @@ class ObjectBase
 public:
 	uint32_t    shapeType; // 객체 타입 (1: Point, 3: PolyLine, 5: Polygon, 8: MultiPoint, 31: MultiPatch)
     BoundingBox mbrBox;    // 객체 MBR
-	Transform   transform; // 객체 위치, 회전, 스케일 관리
-
-	void Move  (glm::dvec3& delta);
-	void Rotate(glm::dvec3& delta);
-	void Scale (glm::dvec3& delta);
-	void UpdateMatrix();
 };
 
 class PointObject : public ObjectBase

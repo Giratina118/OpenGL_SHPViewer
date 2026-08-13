@@ -81,7 +81,7 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	LinkCallbacksToUI(); // 콜백 연결 (View 멤버에 접근)
 	
 	// 카메라 초기화, UI 패널 부분 남기기
-	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
+	m_camera.Init(m_layerManager.m_layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
 	m_layerManager.InitRenderer(m_hWnd, &m_uiState); // 렌더 초기화
 	m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager);
 
@@ -110,7 +110,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	LeftPanelCallbacks callback;
 	callback.controlCallbacks.onGotoLayer        = [this](int32_t value) { if (value < 0) return;
 		int32_t layerIndex = m_layerManager.m_layerIdToIndex[value];
-		m_camera.Init(m_layerManager.layers[layerIndex]->m_boundingBox, m_uiSize.clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_uiSize.clientHeight);
+		m_camera.Init(m_layerManager.m_layers[layerIndex]->m_boundingBox, m_uiSize.clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_uiSize.clientHeight);
 		m_layerManager.ReDraw(); SetFocus(); };
 	callback.controlCallbacks.onDeleteLayer      = [this](int32_t value) {m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager); m_layerManager.ReDraw(); SetFocus(); };
 
@@ -126,11 +126,11 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	callback.pickingCallbacks.onPicking          = [this](bool value) { m_uiState.isPickingMode     = value; SetFocus(); };
 	callback.pickingCallbacks.onThirdMode        = [this](bool value) { m_uiState.isCameraThirdMode = value; SetFocus(); };
 	callback.pickingCallbacks.onEditObjectMode   = [this](bool value) { m_uiState.isEditObjectMode  = value; if (value) m_uiState.isPickingMode = false;   SetFocus(); };
-	callback.pickingCallbacks.onEditObjectSave   = [this](bool value) { m_layerManager.SaveEditObject();     m_layerManager.ReDraw(); SetFocus(); };
-	callback.pickingCallbacks.onEditObjectCancle = [this](bool value) { m_layerManager.CancelEditObject();   m_layerManager.ReDraw(); SetFocus(); };
-	callback.pickingCallbacks.onCreateCircle     = [this](bool value) { m_layerManager.CreateObject(1); m_layerManager.ReDraw(); SetFocus(); };
-	callback.pickingCallbacks.onCreateRectangle  = [this](bool value) { m_layerManager.CreateObject(2); m_layerManager.ReDraw(); SetFocus(); };
-	callback.pickingCallbacks.onCreateTriangle   = [this](bool value) { m_layerManager.CreateObject(3); m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onEditObjectSave   = [this](bool value) { m_layerManager.m_editObject.SaveEditObject(m_layerManager.m_layers); m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onEditObjectCancle = [this](bool value) { m_layerManager.m_editObject.CancelEditObject();                      m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onCreateCircle     = [this](bool value) { m_uiState.isCreateObjectMode = true; m_layerManager.m_editObject.CreateObject(1, m_layerManager.m_layers, m_layerManager.m_hitLayerId, PickingObj(m_mouseClientPos)); m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onCreateRectangle  = [this](bool value) { m_uiState.isCreateObjectMode = true; m_layerManager.m_editObject.CreateObject(2, m_layerManager.m_layers, m_layerManager.m_hitLayerId, PickingObj(m_mouseClientPos)); m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onCreateTriangle   = [this](bool value) { m_uiState.isCreateObjectMode = true; m_layerManager.m_editObject.CreateObject(3, m_layerManager.m_layers, m_layerManager.m_hitLayerId, PickingObj(m_mouseClientPos)); m_layerManager.ReDraw(); SetFocus(); };
 	m_panelLeft.SetCallbacks(callback);
 }
 
@@ -145,7 +145,7 @@ void CSHPViewerStudyView::OnSize(UINT nType, int clientWidth, int clientHeight)
 void CSHPViewerStudyView::OnDestroy()
 {
 	KillTimer(1); // SetTimer로 생성한 타이머(현재 OnTimer 반복 실행 중) 제거
-	m_layerManager.Shutdown(m_hWnd);
+	m_layerManager.Shutdown();
 	CView::OnDestroy();
 }
 
@@ -166,13 +166,13 @@ void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
 	m_frameCount++;
 
 	
-	
 	// 클릭하지 않아도 마우스가 위치해 있는 곳의 객체 피킹
 	m_pickingUpdateTimeStack += deltaTime.count();
-	if (m_uiState.isPickingMode && m_isUpdatePicking && m_pickingUpdateTimeStack > m_pickingUpdatePeriod) {
+	if (m_uiState.isPickingMode && m_isUpdatePicking && m_pickingUpdateTimeStack > m_pickingUpdatePeriod || m_uiState.isCreateObjectMode) {
 		m_pickingUpdateTimeStack = 0.0;
 		m_isUpdatePicking = false;
-		PickingObj(m_mouseClientPos);
+		glm::dvec3 pickingPos = PickingObj(m_mouseClientPos);
+		if (m_uiState.isCreateObjectMode) m_layerManager.m_editObject.UpdateCreateObject(pickingPos);
 	}
 	
 
@@ -201,13 +201,18 @@ void CSHPViewerStudyView::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	if (IsInUIPanel(point))  return; // UI 패널 위에서는 카메라가 반응하지 않도록 차단
 	//if (m_uiState.isPickingMode)     { PickingObj(point); m_panelLeft.UpdatePickingInfo(m_hitPoint); } // 피킹 모드
-	if (m_uiState.isEditObjectMode)  { PickingObj(point); m_panelLeft.UpdatePickingInfo(m_hitPoint); m_layerManager.SetEditObject(); } // 객체 편집 모드
+	if (m_uiState.isEditObjectMode)  { PickingObj(point); m_panelLeft.UpdatePickingInfo(m_hitPoint); m_layerManager.m_editObject.SetEditObject(m_layerManager.m_layers); } // 객체 편집 모드
 	if (m_uiState.isCameraThirdMode) { // 3인칭 카메라 조작 모드
 		glm::dvec3 hit = ClientToWorldPos(point);
 		if (std::isfinite(hit.x) && std::isfinite(hit.y)) { // nan 체크
 			m_hitPoint = hit;
 			m_camera.m_thirdMovePos = m_camera.transform.position;
 		}
+	}
+	if (m_uiState.isCreateObjectMode) {
+		m_uiState.isCreateObjectMode = false;
+		// TODO: 생성할 객체 자리 확정, 해당 레이어의 뒤에 새로 추가하기, DrawInfo 업데이트, mbr박스 계산, 쿼드트리 삽입
+		// 삭제까지 한 다음에 shp파일에 저장하는 방식으로
 	}
 
 	m_isLButtonDragging = true;
@@ -335,10 +340,10 @@ glm::dvec3 CSHPViewerStudyView::ClientToWorldPos(CPoint clientPos)
 }
 
 // 객체 선택 (픽킹)
-void CSHPViewerStudyView::PickingObj(CPoint clientPos)
+glm::dvec3 CSHPViewerStudyView::PickingObj(CPoint clientPos)
 {
 	m_hitPoint = ClientToWorldPos(clientPos);
-	m_layerManager.Picking(m_rayStart, m_rayDir, m_panelRight);
+	glm::dvec3 pickingPos = m_layerManager.Picking(m_rayStart, m_rayDir, m_panelRight);
 
 	m_layerManager.SetHoverObject();
 	//m_layerManager.m_isEdittingObject = false;
@@ -347,6 +352,8 @@ void CSHPViewerStudyView::PickingObj(CPoint clientPos)
 
 	m_layerManager.ReDraw();
 	Invalidate(FALSE);
+
+	return (pickingPos == glm::dvec3()) ? m_hitPoint : pickingPos;
 }
 #pragma endregion
 
@@ -425,7 +432,7 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 		if (m_keyState.keyF) transformDelta.z -= moveSpeed;
 		if (transformDelta.x != 0.0 || transformDelta.y != 0.0 || transformDelta.z != 0.0) {
 			transformDelta *= speedPerHeight;
-			m_layerManager.MoveObject(transformDelta);
+			m_layerManager.m_editObject.MoveObject(transformDelta);
 			reDraw = true;
 		}
 	}
@@ -472,7 +479,7 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 	if (rotX != 0.0f || rotY != 0.0f || rotZ != 0.0f) {
 		if (m_uiState.isEditObjectMode) {
 			transformDelta = { rotX, rotY, -rotZ };
-			m_layerManager.RotateObject(transformDelta);
+			m_layerManager.m_editObject.RotateObject(transformDelta);
 			reDraw = true;
 		}
 		else {
@@ -493,7 +500,7 @@ void CSHPViewerStudyView::InputKey(float deltaTime)
 		if (m_uiState.isEditObjectMode) { 
 			transformDelta = { rotX, -rotY, -rotZ }; 
 			transformDelta *= speedPerHeight;
-			m_layerManager.ScaleObject(transformDelta); 
+			m_layerManager.m_editObject.ScaleObject(transformDelta);
 			reDraw = true;
 		}
 		else {
@@ -627,9 +634,9 @@ void CSHPViewerStudyView::OnFileOpenFolder()
 // 파일 열기 공통 (파일 연 이후 공통동작)
 void CSHPViewerStudyView::OpenFileCommon()
 {
-	m_camera.Init(m_layerManager.layers.back()->m_boundingBox, m_uiSize.clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_uiSize.clientHeight);
+	m_camera.Init(m_layerManager.m_layers.back()->m_boundingBox, m_uiSize.clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_uiSize.clientHeight);
 	m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager);
-	m_layerManager.layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.layers.back(), *m_layerManager.layers.back()->m_quadTree);
+	m_layerManager.m_layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.m_layers.back(), *m_layerManager.m_layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 }
 

@@ -35,8 +35,6 @@ private:
     CButton m_buttonFakeObject;
     CButton m_buttonBuilding;
     CButton m_buttonMap;
-    CButton m_radioCDT;
-    CButton m_radioEarClipping;
 
     CStatic m_staticViewRange;
     CStatic m_staticSliderValueMin;

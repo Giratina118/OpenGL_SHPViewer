@@ -36,3 +36,10 @@ constexpr UCharColor palette[9]
     {150, 20,  255, 255},
     {240, 80,  150, 255},
 };
+
+// 트리 레벨에 따른 색상 설정
+inline void SetColorFromLevel(int32_t level, UCharColor& color)
+{
+	int32_t levelToColor = level % (sizeof(palette) / sizeof(palette[0]));
+	color = palette[levelToColor];
+}
