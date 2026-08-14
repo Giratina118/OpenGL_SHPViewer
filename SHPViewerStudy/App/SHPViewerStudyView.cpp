@@ -212,7 +212,7 @@ void CSHPViewerStudyView::OnLButtonDown(UINT nFlags, CPoint point)
 	if (m_uiState.isCreateObjectMode) {
 		m_uiState.isCreateObjectMode = false;
 		// TODO: 생성할 객체 자리 확정, 해당 레이어의 뒤에 새로 추가하기, DrawInfo 업데이트, mbr박스 계산, 쿼드트리 삽입
-		// 삭제까지 한 다음에 shp파일에 저장하는 방식으로
+		m_layerManager.m_editObject.SaveCreateObject(m_layerManager.m_layers);
 	}
 
 	m_isLButtonDragging = true;

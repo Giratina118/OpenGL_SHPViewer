@@ -36,7 +36,7 @@ public:
     // 정점 + 면 인덱스 + 선 인덱스를 한 번에 업로드 (구조가 바뀔 때, 예: 새 객체를 편집/호버 대상으로 잡을 때)
     void Upload(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& polygonIndices, const std::vector<uint32_t>& lineIndices, GLenum usage = GL_DYNAMIC_DRAW);
     void UpdateVertices(const std::vector<Vertex>& vertices); // 인덱스 구조는 그대로 두고 정점 좌표/색상만 갱신
-    void Draw()  const; // 면 -> (depth test 끄고) 외곽선 순서로 그리기
+    void Draw(GLint colorMultiplierLocation)  const; // 면 -> (depth test 끄고) 외곽선 순서로 그리기
     bool Empty() const { return m_polygonIndexCount == 0 && m_lineIndexCount == 0; }
 
 private:

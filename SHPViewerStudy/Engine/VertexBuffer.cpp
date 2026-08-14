@@ -101,7 +101,7 @@ void OverlayMesh::UpdateVertices(const std::vector<Vertex>& vertices)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void OverlayMesh::Draw() const
+void OverlayMesh::Draw(GLint colorMultiplierLocation) const
 {
     if (Empty()) return;
 
@@ -114,6 +114,7 @@ void OverlayMesh::Draw() const
     }
 
     // 2. ¿Ü°û¼± (¸é¿¡ ÆÄ¹¯È÷Áö ¾Êµµ·Ï depth test Àá½Ã ²û)
+    glUniform1f(colorMultiplierLocation, 0.6f);
     if (m_lineIndexCount > 0) {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBO);
         glDisable(GL_DEPTH_TEST);
@@ -121,6 +122,6 @@ void OverlayMesh::Draw() const
         glDrawElements(GL_LINES, m_lineIndexCount, GL_UNSIGNED_INT, nullptr);
         glEnable(GL_DEPTH_TEST);
     }
-
+    glUniform1f(colorMultiplierLocation, 1.0f);
     glBindVertexArray(0);
 }

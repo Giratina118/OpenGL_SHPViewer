@@ -18,8 +18,7 @@ private:
 	OverlayMesh m_createOverlay; // 생성 중인 오브젝트
 
 	Transform   m_editTransform; // 편집 중인 객체의 변환 정보
-	std::vector<Vertex>   m_transformVertices; // 면 vertex (BuildMapMesh에서 만든 라인 vertex와 별개)
-	std::vector<Vertex>   m_transformLineVertices;
+	std::vector<Vertex>   m_transformVertices; // 면 vertex
 	std::vector<uint32_t> m_transformPolygonIndices;
 	std::vector<uint32_t> m_transformLineIndices;
 	DrawInfo m_transformPolygonInfo; // 편집하는 객체의 면   DrawInfo
@@ -30,10 +29,13 @@ private:
 
 	// 객체 생성 시 사용
 	std::vector<Vertex>   m_createVertices;
-	std::vector<Vertex>   m_createLineVertices;
 	std::vector<uint32_t> m_createPolygonIndices;
 	std::vector<uint32_t> m_createLineIndices;
 	glm::dvec3 m_createCenter;
+
+	//std::vector<glm::dvec2> m_createPoint;
+	int32_t m_createLayerId = -1;
+	double m_createHeight;
 
 
 	Layer* ResolveLayer(std::vector<std::unique_ptr<Layer>>& layers, int32_t layerId) const;
@@ -41,7 +43,7 @@ private:
 public:
 	void Init(UIState* uiState, int32_t* pickingLayerId, int32_t* pickingObjectId, int32_t* pickingNodeId, const std::unordered_map<int32_t, int32_t>* layerIdToIndex);
 	void Shutdown() { m_editOverlay.Shutdown(); m_createOverlay.Shutdown(); }
-	void DrawEditObject() { if (m_uiState->isEditObjectMode && m_isEdittingObject) m_editOverlay.Draw(); }
+	void DrawEditObject(GLint colorMultiplierLocation) { if (m_uiState->isEditObjectMode && m_isEdittingObject) m_editOverlay.Draw(colorMultiplierLocation); }
 	void SetIsEditting(bool value) { m_isEdittingObject = value; }
 
 	// 객체 편집
@@ -55,5 +57,6 @@ public:
 
 	void CreateObject(int32_t shape, std::vector<std::unique_ptr<Layer>>& layers, int32_t hitLayerId, glm::dvec3 createPos);
 	void UpdateCreateObject(glm::dvec3 pickingPos);
-	void DrawCreateObject() { if (m_uiState->isCreateObjectMode) m_createOverlay.Draw(); }
+	void DrawCreateObject(GLint colorMultiplierLocation) { if (m_uiState->isCreateObjectMode) m_createOverlay.Draw(colorMultiplierLocation); }
+	void SaveCreateObject(std::vector<std::unique_ptr<Layer>>& layers);
 };

@@ -72,7 +72,7 @@ bool LayerManager::InitRenderer(HWND hWnd, UIState* uiState)
 
     // 셰이더 설정
     if (!m_shader.CreateProgram("Resource/Shader/shader.vert", "Resource/Shader/shader.frag")) return false;
-    m_viewProjectionLocation = glGetUniformLocation(m_shader.GetProgram(), "u_viewProjection");
+    m_viewProjectionLocation  = glGetUniformLocation(m_shader.GetProgram(), "u_viewProjection");
     m_colorMultiplierLocation = glGetUniformLocation(m_shader.GetProgram(), "u_colorMultiplier");
 
     // 깊이 테스트 활성화 (3D 건물, 면/라인 z-fighting 해결에 필요)
@@ -208,10 +208,10 @@ void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 h
     }
 
     if (m_uiState->isEditObjectMode) m_isHovering = false; // 에디트 모드 진입 시 호버링 잔상 강제 차단
-    if (m_isHovering)                m_hoverOverlay.Draw();
+    if (m_isHovering)                m_hoverOverlay.Draw(m_colorMultiplierLocation);
 
-    m_editObject.DrawEditObject();   // 에디트 모드일 때, 변환 중인 객체의 면과 외곽선 그리기
-    m_editObject.DrawCreateObject(); // 객체 생성 모드일때 그리기
+    m_editObject.DrawEditObject(m_colorMultiplierLocation);   // 에디트 모드일 때, 변환 중인 객체의 면과 외곽선 그리기
+    m_editObject.DrawCreateObject(m_colorMultiplierLocation); // 객체 생성 모드일때 그리기
 
     if (m_uiState->isShowFrustumView) DrawCameraFrustum(camera); // 카메라 절두체 라인 그리기
     DrawDebugRect(hitPoint, 10.0f);

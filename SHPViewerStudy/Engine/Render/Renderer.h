@@ -17,13 +17,13 @@ class QuadTreeNode;
 class Renderer
 {
 public:
-	QuadTree&   m_quadTree; // 쿼드트리 클래스
-	Layer&      m_layer;    // 레이어   클래스
-	std::unique_ptr<MeshManager> m_mesh; // 메쉬관리 클래스
+	QuadTree& m_quadTree; // 쿼드트리 클래스
+	Layer&    m_layer;    // 레이어   클래스
+	std::unique_ptr<MeshManager> m_mesh;    // 메쉬관리 클래스
 	std::vector<int32_t> m_renderObjectIds; // 렌더링 할 객체(컬링 통과 객체) ID 목록
 
-	int32_t m_currentRenderCount     =  0; // UI에 표시할 렌더링 객체 수
-	int32_t m_currentRenderFakeCount =  0; // UI에 표시할 가상 객체 수
+	int32_t m_currentRenderCount     = 0;   // UI에 표시할 렌더링 객체 수
+	int32_t m_currentRenderFakeCount = 0;   // UI에 표시할 가상 객체 수
 
 public:
 	Renderer(HWND hWnd, Layer& layer, QuadTree& quadtree) : m_layer(layer), m_quadTree(quadtree) { Initialize(hWnd); }

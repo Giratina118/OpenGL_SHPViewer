@@ -8,11 +8,6 @@
 bool MeshManager::InitRenderMesh()
 {
 	UploadBuffer(m_polygonVAO, m_polygonVBO, nullptr);
-
-	//glGenBuffers(1, &m_polygonIBOVisible);
-	//glGenBuffers(1, &m_lineIBOVisible);
-	//glGenBuffers(1, &m_fakeIBO);
-	//glGenBuffers(1, &m_fakeIBOVisible);
 	glGenBuffers(1, &m_visibleIBO);
 
 	BuildMesh();
@@ -50,7 +45,6 @@ void MeshManager::Shutdown()
 	if (m_visibleIBO) { glDeleteBuffers     (1, &m_visibleIBO); m_visibleIBO = 0; }
 	if (m_polygonVBO) { glDeleteBuffers     (1, &m_polygonVBO); m_polygonVBO = 0; }
 	if (m_polygonVAO) { glDeleteVertexArrays(1, &m_polygonVAO); m_polygonVAO = 0; }
-
 }
 
 
@@ -62,10 +56,8 @@ void MeshManager::BuildMesh()
 	m_polygonVertices.clear();
 	m_polygonIndices.clear();
 	m_polygonDrawInfos.clear();
-	//m_polygonVisibleIndices.clear();
 	m_lineIndices.clear();
 	m_lineDrawInfos.clear();
-	//m_lineVisibleIndices.clear();
 
 	switch (m_layer.m_shapeType) {
 	case 1: BuildPointMesh();    break;
@@ -80,15 +72,7 @@ void MeshManager::BuildMesh()
 	glBindVertexArray(m_polygonVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * m_polygonVertices.size(), m_polygonVertices.data(), GL_DYNAMIC_DRAW);
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_polygonIBO);
-	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_polygonIndices.size(), m_polygonIndices.data(), GL_STATIC_DRAW);
 	glBindVertexArray(0);
-
-	// 라인 IBO 업로드
-	//if (!m_lineIndices.empty()) {
-		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_lineIBOVisible);
-		//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_lineIndices.size(), m_lineIndices.data(), GL_STATIC_DRAW);
-	//}
 
 	// GPU 업로드 완료, CPU 사본 해제 (더 이상 안 쓰임)
 	m_polygonVertices.shrink_to_fit();
@@ -137,12 +121,12 @@ void MeshManager::BuildPointMesh()
 		m_lineIndices.push_back({ polygonVertStart + 11 });
 		m_lineIndices.push_back({ polygonVertStart });
 
-		uint32_t polygonVertCount = (uint32_t)m_polygonVertices.size() - polygonVertStart;
-		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size() - polygonIndexStart;
-		uint32_t lineIndexCount = (uint32_t)m_lineIndices.size() - lineIndexStart;
+		uint32_t polygonVertCount  = (uint32_t)m_polygonVertices.size() - polygonVertStart;
+		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size()  - polygonIndexStart;
+		uint32_t lineIndexCount    = (uint32_t)m_lineIndices.size()     - lineIndexStart;
 
 		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
-		m_lineDrawInfos[dataId] = { lineIndexStart, lineIndexCount, 0, 0 };
+		m_lineDrawInfos[dataId]    = { lineIndexStart, lineIndexCount, 0, 0 };
 	}
 
 	m_polygonVertices.shrink_to_fit();
@@ -165,15 +149,15 @@ void MeshManager::BuildPolyLineMesh()
 		uint32_t lineIndexStart = (uint32_t)m_lineIndices.size();
 
 		m_polygonVertices.reserve(m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
-		m_polygonIndices.reserve(m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 6);
-		m_lineIndices.reserve(m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
+		m_polygonIndices.reserve(m_polygonVertices.size()  + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 6);
+		m_lineIndices.reserve(m_polygonVertices.size()     + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
 
 		for (int32_t partNum = 0; partNum < polyLine.parts.size(); partNum++) {
 			int32_t startPoint = polyLine.parts[partNum];
 			int32_t endPoint = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : static_cast<int32_t>(polyLine.points.size());
 			for (int32_t pointNum = startPoint; pointNum < endPoint - 1; pointNum++) {
-				glm::dvec2 pointOrigin1 = polyLine.points[pointNum];     //+(point.points[pointNum]     - point.mbrBox.GetCenter()) * 100.0;
-				glm::dvec2 pointOrigin2 = polyLine.points[pointNum + 1]; //+(point.points[pointNum + 1] - point.mbrBox.GetCenter()) * 100.0;
+				glm::dvec2 pointOrigin1 = polyLine.points[pointNum];
+				glm::dvec2 pointOrigin2 = polyLine.points[pointNum + 1];
 				glm::dvec2 lineDir = pointOrigin2 - pointOrigin1;   // 이 방향 벡터에 수직인 방향으로 두 point에 m_layer.m_objSize 만큼 떨어진 거리에 점 생성
 				glm::dvec2 widthDir = glm::normalize(glm::dvec2(-lineDir.y, lineDir.x));   // 수직 벡터(너비 방향 벡터)
 				glm::dvec2 widthValue = widthDir * m_layer.m_objSize;
@@ -243,8 +227,8 @@ void MeshManager::BuildPolygonMesh()
 	for (int32_t dataId = 0; dataId < polygonCount; dataId++) {
 		PolyObject& polygon = m_layer.polygonObjects[dataId];
 		uint32_t polygonIndexStart = (uint32_t)m_polygonIndices.size();
-		uint32_t polygonVertStart = (uint32_t)m_polygonVertices.size();
-		uint32_t lineIndexStart = (uint32_t)m_lineIndices.size();
+		uint32_t polygonVertStart  = (uint32_t)m_polygonVertices.size();
+		uint32_t lineIndexStart    = (uint32_t)m_lineIndices.size();
 
 		if (results[dataId].vertices.size() < 3 || results[dataId].indices.empty()) {
 			m_polygonDrawInfos[dataId] = { polygonIndexStart, 0, polygonVertStart, 0 };
@@ -319,9 +303,6 @@ void MeshManager::BuildPolygonMesh()
 		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
 		m_lineDrawInfos[dataId] = { lineIndexStart, lineIndexCount, 0, 0 };
 	}
-	//m_polygonVisibleIndices.reserve(m_polygonIndices.size());
-	//m_lineVisibleIndices.reserve(m_lineIndices.size());
-
 	m_polygonVertices.shrink_to_fit();
 	m_polygonIndices.shrink_to_fit();
 	m_lineIndices.shrink_to_fit();
@@ -334,12 +315,6 @@ void MeshManager::BuildFakeMeshes()
 
 	m_fakeIndices.clear();
 	BuildConvexHullNode(m_quadTree.m_nodes[0]); // 루트 노드부터 재귀적으로 가상 객체 생성 (자식 노드가 없으면 객체 중심점으로, 있으면 자식 노드의 LOD 점들로 볼록껍질 생성)
-	//if (m_fakeIndices.empty()) return; // 데이터 없으면 업로드 스킵
-
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_fakeIBO);
-	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * m_fakeIndices.size(), m_fakeIndices.data(), GL_STATIC_DRAW);
-
-	//m_fakeVisibleIndices.reserve(m_fakeIndices.size());
 	m_fakeIndices.shrink_to_fit();
 }
 
@@ -399,7 +374,6 @@ void MeshManager::BuildConvexHullNode(QuadTreeNode& node)
 			const QuadTreeNode& child = m_quadTree.m_nodes[childNodeId];
 			if (child.m_lodIndexCount == 0) continue;
 
-			// child.m_lodIndexOffset ~ +m_lodVertexCount 범위가 m_lodIndices에서 hull 정점 인덱스를 저장한 위치
 			for (uint32_t i = child.m_lodVertexOffset;
 				i < child.m_lodVertexOffset + child.m_lodVertexCount; i++) {
 				uint32_t polygonVertexIndex = m_fakeIndices[i]; // 원래 폴리곤 정점 인덱스
@@ -446,7 +420,6 @@ void MeshManager::BuildConvexHullNode(QuadTreeNode& node)
 	}
 
 
-	// m_lodVertexOffset = hull 정점 인덱스들이 시작되는 m_lodIndices 위치
 	node.m_lodVertexOffset = (uint32_t)m_fakeIndices.size();
 	node.m_lodVertexCount = (uint32_t)hullPointCount;
 
