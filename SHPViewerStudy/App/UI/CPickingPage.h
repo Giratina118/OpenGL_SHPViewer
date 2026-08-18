@@ -11,6 +11,7 @@ struct PickingCallbacks
     std::function<void(bool)> onEditObjectMode;
     std::function<void(bool)> onEditObjectSave;
     std::function<void(bool)> onEditObjectCancle;
+    std::function<void(bool)> onDeleteObject;
     std::function<void(bool)> onCreateCircle;
     std::function<void(bool)> onCreateRectangle;
     std::function<void(bool)> onCreateTriangle;
@@ -32,12 +33,14 @@ private:
     CButton m_buttonEditObjectMode;
     CButton m_buttonEditObjectSave;
     CButton m_buttonEditObjectCancle;
+    CButton m_buttonDeleteObject;
     CButton m_buttonCreateCircle;
     CButton m_buttonCreateRectangle;
     CButton m_buttonCreateTriangle;
     CButton m_radioFirstPerson;
     CButton m_radioThirdPerson;
     CStatic m_staticPickingInfo;
+    CStatic m_staticCreateObject;
     CFont   m_fontIcon;
 
     //afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
@@ -47,6 +50,7 @@ private:
     afx_msg void OnBtnEditObjectMode();
     afx_msg void OnBtnEditObjectSave();
     afx_msg void OnBtnEditObjectCancle();
+    afx_msg void OnBtnDeleteObject();
     afx_msg void OnBtnCreateCircle();
     afx_msg void OnBtnCreateRectangle();
     afx_msg void OnBtnCreateTriangle();

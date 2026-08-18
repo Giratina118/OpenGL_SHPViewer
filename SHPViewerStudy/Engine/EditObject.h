@@ -59,4 +59,5 @@ public:
 	void UpdateCreateObject(glm::dvec3 pickingPos);
 	void DrawCreateObject(GLint colorMultiplierLocation) { if (m_uiState->isCreateObjectMode) m_createOverlay.Draw(colorMultiplierLocation); }
 	void SaveCreateObject(std::vector<std::unique_ptr<Layer>>& layers);
+	void DeleteObject(std::vector<std::unique_ptr<Layer>>& layers);
 };

@@ -12,6 +12,12 @@ QuadTreeNode::QuadTreeNode(int32_t level, BoundingBox& mbrBox)
 // ÄõµåÆ®¸® ºôµå
 void QuadTree::BuildQuadTree()
 {
+	m_maxLevel = 1;
+	m_nodes.clear();
+	m_objectLevels.clear();
+	m_visibleNodeIds.clear();
+	m_visibleNodeFakeObjIds.clear();
+
 	double layerLength = m_layer.m_boundingBox.GetMaxExtent();
 	if (m_layer.m_isBuilding) m_minNodeLength = 200.0;
 	while (layerLength > m_minNodeLength) { layerLength /= 2; m_maxLevel++; }

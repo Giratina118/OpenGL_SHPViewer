@@ -131,6 +131,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	callback.pickingCallbacks.onCreateCircle     = [this](bool value) { m_uiState.isCreateObjectMode = true; m_layerManager.m_editObject.CreateObject(1, m_layerManager.m_layers, m_layerManager.m_hitLayerId, PickingObj(m_mouseClientPos)); m_layerManager.ReDraw(); SetFocus(); };
 	callback.pickingCallbacks.onCreateRectangle  = [this](bool value) { m_uiState.isCreateObjectMode = true; m_layerManager.m_editObject.CreateObject(2, m_layerManager.m_layers, m_layerManager.m_hitLayerId, PickingObj(m_mouseClientPos)); m_layerManager.ReDraw(); SetFocus(); };
 	callback.pickingCallbacks.onCreateTriangle   = [this](bool value) { m_uiState.isCreateObjectMode = true; m_layerManager.m_editObject.CreateObject(3, m_layerManager.m_layers, m_layerManager.m_hitLayerId, PickingObj(m_mouseClientPos)); m_layerManager.ReDraw(); SetFocus(); };
+	callback.pickingCallbacks.onDeleteObject     = [this](bool value) { m_layerManager.m_editObject.DeleteObject(m_layerManager.m_layers); m_layerManager.ReDraw(); SetFocus(); };
 	m_panelLeft.SetCallbacks(callback);
 }
 

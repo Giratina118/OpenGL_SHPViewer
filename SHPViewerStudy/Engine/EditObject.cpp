@@ -292,73 +292,56 @@ void EditObject::UpdateCreateObject(glm::dvec3 pickingPos)
 
 void EditObject::SaveCreateObject(std::vector<std::unique_ptr<Layer>>& layers)
 {
-    // 수정해야 하는 부분들
-    // MBR박스 하나 만들어서 값 저장해놓기
-    // targetLayer.
-        // boundingBox 비교 (전체 바운딩 박스 범위를 벗어난다면 쿼드트리 리빌드)
-        // polygonObjects 추가 (push_back)
-        // m_renderer.
-            // m_mesh.
-                // m_polygonVAO
-                // m_polygonVertices
-                // m_polygonDrawInfos
-                // m_lineIndices
-                // m_lineDrawInfos
-            // m_quadTree.
-                // InsertData() (객체 삽입)
-            //m_dbfTable.
-                // columns에 따라 하나씩 기본값으로 저장 (이름은 생성된 객체 같은 느낌으로)
-
     if (m_createVertices.size() < 3) return;
 
     Layer* targetLayer = ResolveLayer(layers, m_createLayerId); // CreateObject에서 저장해둔 레이어 ID 사용
     if (!targetLayer) return;
 
-    // 1. Vertex -> 실제 폴리곤 좌표(glm::dvec2) 변환
+    // Vertex -> 실제 폴리곤 좌표(glm::dvec2) 변환
     PolyObject newObject;
     newObject.shapeType = 5;
     newObject.parts = { 0 };
     newObject.points.reserve(m_createVertices.size());
-    for (const Vertex& v : m_createVertices)
-        newObject.points.push_back({ v.x, v.y });
+    for (const Vertex& vertex : m_createVertices)
+        newObject.points.push_back({ vertex.x, vertex.y });
 
-    // 2. MBR 계산
+    // MBR 계산
     double minX = std::numeric_limits<double>::max(),    minY = std::numeric_limits<double>::max();
     double maxX = std::numeric_limits<double>::lowest(), maxY = std::numeric_limits<double>::lowest();
-    for (const glm::dvec2& p : newObject.points) {
-        minX = std::min(minX, p.x); maxX = std::max(maxX, p.x);
-        minY = std::min(minY, p.y); maxY = std::max(maxY, p.y);
+    for (const glm::dvec2& point : newObject.points) {
+        minX = std::min(minX, point.x); maxX = std::max(maxX, point.x);
+        minY = std::min(minY, point.y); maxY = std::max(maxY, point.y);
     }
     newObject.SetMBRBox(minX, minY, maxX, maxY);
-    newObject.mbrBox.height = m_createCenter.z > 0.0 ? m_createCenter.z : 3.0; // 필요시 별도 높이값으로 교체
+    newObject.mbrBox.height = m_createCenter.z > 0.0 ? m_createCenter.z : 3.0; // 1층 높이값(3m)을 기준으로 절정
 
     int32_t newObjectId = static_cast<int32_t>(targetLayer->polygonObjects.size());
     targetLayer->polygonObjects.push_back(std::move(newObject));
 
-    // 3. 쿼드트리 갱신
-    bool exceedsLayerBounds =
-        minX < targetLayer->m_boundingBox.minX || maxX > targetLayer->m_boundingBox.maxX ||
-        minY < targetLayer->m_boundingBox.minY || maxY > targetLayer->m_boundingBox.maxY;
+    // 쿼드트리 갱신
+    BoundingBox& objectBox = newObject.mbrBox;
+    BoundingBox& layerBox  = targetLayer->m_boundingBox;
 
-    if (exceedsLayerBounds) {
-        targetLayer->m_boundingBox.minX = std::min(targetLayer->m_boundingBox.minX, minX);
-        targetLayer->m_boundingBox.minY = std::min(targetLayer->m_boundingBox.minY, minY);
-        targetLayer->m_boundingBox.maxX = std::max(targetLayer->m_boundingBox.maxX, maxX);
-        targetLayer->m_boundingBox.maxY = std::max(targetLayer->m_boundingBox.maxY, maxY);
+    if (!layerBox.IsInclude(objectBox)) { // 객체가 기존 쿼드트리 밖에 생성되었다면 쿼드트리 리빌드
+        TCHAR buf[256]; _stprintf_s(buf, _T("루트노드 밖에 생성됨\n")); OutputDebugString(buf);
+
+        layerBox = layerBox.CombineBox(objectBox);
         targetLayer->m_quadTree->BuildQuadTree();
     }
-    else {
+    else { // 객체가 기존 쿼드트리 안에 생성되었다면 객체 삽입
+        TCHAR buf[256]; _stprintf_s(buf, _T("루트노드 안에 생성됨\n")); OutputDebugString(buf);
+
         if (static_cast<int32_t>(targetLayer->m_quadTree->m_objectLevels.size()) <= newObjectId)
             targetLayer->m_quadTree->m_objectLevels.resize(newObjectId + 1, 0);
         targetLayer->m_quadTree->InsertData(0, newObjectId, targetLayer->polygonObjects[newObjectId].mbrBox, false);
     }
 
-    // 4. dbf 행 추가
-    DBFTable& dbf = targetLayer->m_dbfTable;
-    for (auto& col : dbf.intColumns)     col.push_back(0);
-    for (auto& col : dbf.doubleColumns)  col.push_back(0.0);
-    for (auto& col : dbf.logicalColumns) col.push_back(0);
-    for (auto& strCol : dbf.stringColumns) {
+    // dbf 행 추가
+    DBFTable& dbfTable = targetLayer->m_dbfTable;
+    for (auto& col : dbfTable.intColumns)     col.push_back(0);
+    for (auto& col : dbfTable.doubleColumns)  col.push_back(0.0);
+    for (auto& col : dbfTable.logicalColumns) col.push_back(0);
+    for (auto& strCol : dbfTable.stringColumns) {
         int32_t oldRowCount = strCol.rowCount;
         strCol.Resize(oldRowCount + 1);
         std::string label = "New Object " + std::to_string(newObjectId);
@@ -366,16 +349,39 @@ void EditObject::SaveCreateObject(std::vector<std::unique_ptr<Layer>>& layers)
         std::memset(row, ' ', strCol.width);
         std::memcpy(row, label.data(), std::min<size_t>(label.size(), strCol.width));
     }
-    dbf.rowCount++;
+    dbfTable.rowCount++;
 
-    // 5. 메쉬 재빌드
+    // 메쉬 리빌드
     targetLayer->m_renderer->m_mesh->BuildMesh();
     targetLayer->m_renderer->m_mesh->BuildFakeMeshes();
 
-    // 6. 미리보기 정리
+    // 미리보기 정리
     m_createVertices.clear();
     m_createPolygonIndices.clear();
     m_createLineIndices.clear();
     m_createOverlay.Upload(m_createVertices, m_createPolygonIndices, m_createLineIndices, GL_DYNAMIC_DRAW);
     m_createLayerId = -1;
+}
+
+void EditObject::DeleteObject(std::vector<std::unique_ptr<Layer>>& layers)
+{
+    if (*m_pickingLayerId == -1 || *m_pickingObjectId == -1 || *m_pickingNodeId == -1) return;
+
+    TCHAR buf[256]; _stprintf_s(buf, _T("객체 삭제\n")); OutputDebugString(buf);
+    Layer* targetLayer = ResolveLayer(layers, *m_pickingLayerId);
+    
+    // 쿼드트리 노드에서 객체 ID 제거
+    auto& objectIds = targetLayer->m_quadTree->m_nodes[*m_pickingNodeId].m_objectIds;
+    std::erase(objectIds, *m_pickingObjectId);
+
+    // 실제 객체 데이터 논리적 삭제
+    //targetLayer->m_objects[*m_pickingObjectId].isDeleted = true; 
+
+    // 선택(Picking) 상태 초기화 (Dangling Index 방지)
+    *m_pickingLayerId = -1;
+    *m_pickingObjectId = -1;
+    *m_pickingNodeId = -1;
+
+    // GPU 렌더링 버퍼 업데이트 (화면에서 사라지게 갱신)
+    // targetLayer->UpdateBuffers();
 }
