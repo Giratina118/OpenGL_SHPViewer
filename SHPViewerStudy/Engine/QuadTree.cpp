@@ -1,6 +1,6 @@
 #include <pch.h>
 #include "QuadTree.h"
-#include "CameraController.h"
+#include "CameraManager.h"
 #include "Layer.h"
 
 QuadTreeNode::QuadTreeNode(int32_t level, BoundingBox& mbrBox)
@@ -29,7 +29,8 @@ void QuadTree::BuildQuadTree()
 	m_objectLevels.assign(std::max({ m_layer.pointObjects.size(), m_layer.polyLineObjects.size(), m_layer.polygonObjects.size() }), 0);
 
 	int32_t objectsCount = static_cast<int32_t>(m_layer.pointObjects.size()); // 포인트 객체 삽입
-	for (int objectNum = 0; objectNum < objectsCount; objectNum++) InsertData(rootNodeId, objectNum, m_layer.pointObjects[objectNum].mbrBox,    false);
+	for (int objectNum = 0; objectNum < objectsCount; objectNum++) 
+		if (!m_layer.polygonObjects[objectNum].isDeleted)          InsertData(rootNodeId, objectNum, m_layer.pointObjects[objectNum].mbrBox,    false);
 
 	objectsCount = static_cast<int32_t>(m_layer.polyLineObjects.size());      // 폴리라인 객체 삽입
 	for (int objectNum = 0; objectNum < objectsCount; objectNum++) InsertData(rootNodeId, objectNum, m_layer.polyLineObjects[objectNum].mbrBox, false);
@@ -143,7 +144,7 @@ double QuadTree::SettingHeight(int32_t currentNodeId)
 }
 
 // 렌더링할 객체 탐색 (+ LOD)
-void QuadTree::SearchRenderingData(std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraController& camera, const glm::dvec3& cameraPos, double worldToScreenScale)
+void QuadTree::SearchRenderingData(std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraManager& camera, const glm::dvec3& cameraPos, double worldToScreenScale)
 {
 	if (m_nodes.empty()) return;
 	if (currentNodeId < 0 || currentNodeId >= static_cast<int32_t>(m_nodes.size())) return;
@@ -206,10 +207,6 @@ void QuadTree::SearchRenderingData(std::vector<int32_t>& renderObjectIds, int32_
 	case 1:
 		for (int32_t dataId : node.m_objectIds) {
 			if (dataId < 0 || dataId >= pointObjCount) continue;
-
-			//m_objectTestCount++;
-			//m_frustumTestCount++;
-
 			if (camera.GetFrustumState(m_layer.pointObjects[dataId].mbrBox) == FrustumState::OUTSIDE) continue;
 			renderObjectIds.push_back(dataId);
 		}
@@ -217,10 +214,6 @@ void QuadTree::SearchRenderingData(std::vector<int32_t>& renderObjectIds, int32_
 	case 3:
 		for (int32_t dataId : node.m_objectIds) {
 			if (dataId < 0 || dataId >= lineObjCount) continue;
-			
-			//m_objectTestCount++;
-			//m_frustumTestCount++;
-			
 			if (camera.GetFrustumState(m_layer.polyLineObjects[dataId].mbrBox) == FrustumState::OUTSIDE) continue;
 			renderObjectIds.push_back(dataId);
 		}
@@ -228,10 +221,6 @@ void QuadTree::SearchRenderingData(std::vector<int32_t>& renderObjectIds, int32_
 	case 5:
 		for (int32_t dataId : node.m_objectIds) {
 			if (dataId < 0 || dataId >= polygonObjCount) continue;
-			
-			//m_objectTestCount++;
-			//m_frustumTestCount++;
-
 			if (camera.GetFrustumState(m_layer.polygonObjects[dataId].mbrBox) == FrustumState::OUTSIDE) continue;
 			renderObjectIds.push_back(dataId);
 		}
@@ -247,7 +236,7 @@ void QuadTree::SearchRenderingData(std::vector<int32_t>& renderObjectIds, int32_
 }
 
 // 완전 포함되는 노드는 데이터 모두 넣기
-void QuadTree::InputRenderingDataAll(std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraController& camera, const glm::dvec3& cameraPos, double worldToScreenScale)
+void QuadTree::InputRenderingDataAll(std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraManager& camera, const glm::dvec3& cameraPos, double worldToScreenScale)
 {
 	if (currentNodeId < 0 || currentNodeId >= static_cast<int32_t>(m_nodes.size())) return;
 

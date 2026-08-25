@@ -112,7 +112,19 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 		int32_t layerIndex = m_layerManager.m_layerIdToIndex[value];
 		m_camera.Init(m_layerManager.m_layers[layerIndex]->m_boundingBox, m_uiSize.clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_uiSize.clientHeight);
 		m_layerManager.ReDraw(); SetFocus(); };
-	callback.controlCallbacks.onDeleteLayer      = [this](int32_t value) {m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager); m_layerManager.ReDraw(); SetFocus(); };
+	callback.controlCallbacks.onDeleteLayer      = [this](int32_t value) { m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager); m_layerManager.ReDraw(); SetFocus(); };
+	callback.controlCallbacks.onSaveLayer = [this](int32_t value) {
+		std::vector<int32_t> targets = m_layerManager.GetDirtyLayerIds(true); // 선택된 레이어 또는 보이는 레이어들
+		if (targets.empty()) { AfxMessageBox(_T("저장할 변경사항이 없습니다.")); return; }
+
+		CString msg;
+		msg.Format(_T("%d개 레이어에 저장되지 않은 변경사항이 있습니다.\n저장하시겠습니까?"), (int)targets.size());
+		if (AfxMessageBox(msg, MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+
+		for (int32_t id : targets) m_layerManager.SaveLayer(id);
+		AfxMessageBox(_T("저장이 완료되었습니다."));
+		targets.clear();
+	};
 
 	callback.visibilityCallbacks.onObjectMBR     = [this](bool value) { m_uiState.isShowObjectMBR   = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onNodeMBR       = [this](bool value) { m_uiState.isShowNodeMBR     = value; m_layerManager.ReDraw(); SetFocus(); };
@@ -125,7 +137,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 
 	callback.pickingCallbacks.onPicking          = [this](bool value) { m_uiState.isPickingMode     = value; SetFocus(); };
 	callback.pickingCallbacks.onThirdMode        = [this](bool value) { m_uiState.isCameraThirdMode = value; SetFocus(); };
-	callback.pickingCallbacks.onEditObjectMode   = [this](bool value) { m_uiState.isEditObjectMode  = value; if (value) m_uiState.isPickingMode = false;   SetFocus(); };
+	callback.pickingCallbacks.onEditObjectMode   = [this](bool value) { m_uiState.isEditObjectMode  = value; if (value) m_uiState.isPickingMode = false; else m_layerManager.m_editObject.CancelEditObject(); m_layerManager.ReDraw(); SetFocus(); };
 	callback.pickingCallbacks.onEditObjectSave   = [this](bool value) { m_layerManager.m_editObject.SaveEditObject(m_layerManager.m_layers); m_layerManager.ReDraw(); SetFocus(); };
 	callback.pickingCallbacks.onEditObjectCancle = [this](bool value) { m_layerManager.m_editObject.CancelEditObject();                      m_layerManager.ReDraw(); SetFocus(); };
 	callback.pickingCallbacks.onCreateCircle     = [this](bool value) { m_uiState.isCreateObjectMode = true; m_layerManager.m_editObject.CreateObject(1, m_layerManager.m_layers, m_layerManager.m_hitLayerId, PickingObj(m_mouseClientPos)); m_layerManager.ReDraw(); SetFocus(); };
@@ -176,7 +188,6 @@ void CSHPViewerStudyView::OnTimer(UINT_PTR nIDEvent)
 		if (m_uiState.isCreateObjectMode) m_layerManager.m_editObject.UpdateCreateObject(pickingPos);
 	}
 	
-
 	// m_updatePeriod 주기마다 1번씩 갱신 (ui 정보 출력)
 	if (m_deltaTimeStack > m_updatePeriod) {
 		float fps        = (float)m_frameCount / m_deltaTimeStack; // 평균 fps 계산
@@ -639,6 +650,19 @@ void CSHPViewerStudyView::OpenFileCommon()
 	m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager);
 	m_layerManager.m_layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.m_layers.back(), *m_layerManager.m_layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
+}
+
+bool CSHPViewerStudyView::ConfirmSaveBeforeClose()
+{
+	std::vector<int32_t> dirtyIds = m_layerManager.GetDirtyLayerIds(false); // 전체 레이어 대상
+	if (dirtyIds.empty()) return true;
+
+	CString msg;
+	msg.Format(_T("%d개 레이어에 저장되지 않은 변경사항이 있습니다.\n저장하고 종료하시겠습니까?"), (int)dirtyIds.size());
+	int result = AfxMessageBox(msg, MB_YESNOCANCEL | MB_ICONWARNING);
+	if (result == IDCANCEL) return false;
+	if (result == IDYES) for (int32_t id : dirtyIds) m_layerManager.SaveLayer(id);
+	return true;
 }
 
 #pragma endregion

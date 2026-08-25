@@ -7,7 +7,7 @@
 #include "LayerManager.h"
 #include "Render/Renderer.h"
 #include "Parser/SHPLoader.h"
-#include "CameraController.h"
+#include "CameraManager.h"
 #include "EditObject.h"
 
 // 키보드 버튼 눌림 상태 관리
@@ -36,7 +36,7 @@ private:
 	CRightPanel      m_panelRight;   // 우측 패널
 	LayerManager	 m_layerManager; // 레이어 클래스
 	SHPLoader        m_shpLoader;    // shp로더 클래스
-	CameraController m_camera;       // 카메라 클래스
+	CameraManager m_camera;       // 카메라 클래스
 
 	// 업데이트 주기 조절
 	std::chrono::steady_clock::time_point m_lastTime; // 측정 시간
@@ -103,6 +103,7 @@ public:
 	glm::dvec3 PickingObj(CPoint clientPos);       // 피킹 객체
 	void OpenFileCommon();                         // 파일 열기 공통 (파일 연 이후 공통동작)
 	bool IsInUIPanel(const CPoint& mousePoint) const { return mousePoint.x < m_panelLeft.GetWidth() || mousePoint.x > m_uiSize.clientWidth - m_panelRight.GetWidth(); } // UI 마우스 이벤트가 3D 영역인지 판별
+	bool ConfirmSaveBeforeClose();
 
 	// 테스트용
 	void TestTimeAboutAltitude(double altitude);   // 카메라 자동 이동 (동일 환경에서 디버그 데이터 수집)

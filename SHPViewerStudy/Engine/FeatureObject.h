@@ -59,6 +59,7 @@ class ObjectBase
 public:
 	uint32_t    shapeType; // ∞¥√º ≈∏¿‘ (1: Point, 3: PolyLine, 5: Polygon, 8: MultiPoint, 31: MultiPatch)
     BoundingBox mbrBox;    // ∞¥√º MBR
+	bool        isDeleted = false;
 };
 
 class PointObject : public ObjectBase

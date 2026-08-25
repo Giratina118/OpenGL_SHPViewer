@@ -5,7 +5,7 @@
 #include <EGL/egl.h>
 
 // Engine
-#include "CameraController.h"
+#include "CameraManager.h"
 #include "UI/UIState.h"
 #include "MeshManager.h"
 #include "VertexBuffer.h"
@@ -32,7 +32,7 @@ public:
 	bool Initialize(HWND hWnd); // 전체 초기화 진입점
 	
 	// 렌더링
-	void Render(CameraController& camera, UIState& uiState, UISize& uiSize, bool isSelected, bool hasPickingData, int32_t pickingDataId, GLint colorMultiplierLocation, DebugVertexBuffer& mbrBuffer); // 메인 렌더 함수
+	void Render(CameraManager& camera, UIState& uiState, UISize& uiSize, bool isSelected, bool hasPickingData, int32_t pickingDataId, GLint colorMultiplierLocation, DebugVertexBuffer& mbrBuffer); // 메인 렌더 함수
 	void DrawObjectMBR(DebugVertexBuffer& mbrBuffer);       // 객체 MBR 박스 그리기
 	void DrawQuadTreeNodeMBR(DebugVertexBuffer& mbrBuffer); // 노드 MBR 박스 그리기
 

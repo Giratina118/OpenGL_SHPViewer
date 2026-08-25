@@ -5,7 +5,7 @@
 #include <FeatureObject.h>
 #include <glm/glm.hpp>
 
-class CameraController;
+class CameraManager;
 class Layer;
 struct DrawInfo;
 struct Vertex;
@@ -72,8 +72,8 @@ public:
 	double SettingHeight(int32_t currentNodeId);
 
 	// LOD: minScreenPixels보다 작게 그려질 노드/객체는 컬링
-	void SearchRenderingData  (std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraController& camera, const glm::dvec3& cameraPos, double worldToScreenScale);
-	void InputRenderingDataAll(std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraController& camera, const glm::dvec3& cameraPos, double worldToScreenScale);
+	void SearchRenderingData  (std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraManager& camera, const glm::dvec3& cameraPos, double worldToScreenScale);
+	void InputRenderingDataAll(std::vector<int32_t>& renderObjectIds, int32_t currentNodeId, const CameraManager& camera, const glm::dvec3& cameraPos, double worldToScreenScale);
 	
 	int32_t SearchPickingData(glm::dvec3& rayStart, glm::dvec3& rayDir, int32_t currentNodeId, double& minDistance, std::vector<DrawInfo>& polygonDrawInfos, std::vector<uint32_t>& polygonIndices, std::vector<Vertex>& polygonVertices, int32_t& nodeId); // 피킹 데이터 탐색 및 반환
 	double RayTriangle(const glm::dvec3& rayStart, const glm::dvec3& rayDir, const glm::dvec3& trianglePoint1, const glm::dvec3& trianglePoint2, const glm::dvec3& trianglePoint3);

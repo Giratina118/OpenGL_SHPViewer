@@ -59,7 +59,7 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     CoordinateSystem prjCoordinate;
     ShpfileHeader shxHeader, shpHeader;
     std::vector<ShxRecord> shxRecords;
-    CoordinateTransformer transformer;    // 좌표계 변환 클래스
+    CoordinateTransformer transformer; // 좌표계 변환 클래스
     const uint8_t* shpPtr = nullptr, * shxPtr = nullptr; // 파일 시작점
 
 	bool hasShx = true, hasDbf = true, hasPrj = true;
@@ -92,8 +92,9 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     
     // 레이어 생성
     Layer& newLayer = layerManager.CreateLayer(shpPath.stem().string(), shpHeader.shapeType, shpHeader.boundinBoxXY);
-    newLayer.m_hasShx = hasShx;
-	newLayer.m_hasDbf = hasDbf;
+    newLayer.m_hasShx   = hasShx;
+	newLayer.m_hasDbf   = hasDbf;
+    newLayer.m_filePath = shpPath;
 
 	// 레코드 파싱
     if (hasShx) shxParser.ShxParse(shxPtr,    shxRecords, shxHeader.fileLength); // shx 레코드 파싱

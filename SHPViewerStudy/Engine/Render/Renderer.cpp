@@ -25,7 +25,7 @@ bool Renderer::Initialize(HWND hWnd)
 
 
 // 메인 렌더 함수
-void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize, bool isSelected, bool hasPickingData, int32_t pickingDataId, GLint colorMultiplierLocation, DebugVertexBuffer& mbrBuffer)
+void Renderer::Render(CameraManager& camera, UIState& uiState, UISize& uiSize, bool isSelected, bool hasPickingData, int32_t pickingDataId, GLint colorMultiplierLocation, DebugVertexBuffer& mbrBuffer)
 {
 	// 쿼드트리에서 가시 객체 검색 (컬링, LOD)
 	if (!uiState.isShowFrustumView) {
@@ -48,16 +48,14 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 	auto skipPicked = [&](int32_t id) { return id < 0 || (uiState.isEditObjectMode && hasPickingData && id == pickingDataId); };
 
 	// 면
-	DrawVisibleIndexed(m_renderObjectIds, m_mesh->m_polygonIndices, m_mesh->m_visibleIndices,
-		m_mesh->m_polygonVAO, m_mesh->m_visibleIBO, GL_TRIANGLES,
+	DrawVisibleIndexed(m_renderObjectIds, m_mesh->m_polygonIndices, m_mesh->m_visibleIndices, m_mesh->m_polygonVAO, m_mesh->m_visibleIBO, GL_TRIANGLES,
 		[&](int32_t id) { return skipPicked(id) || id >= polygonCount; },
 		[&](int32_t id) { return m_mesh->m_polygonDrawInfos[id].indexOffset; },
 		[&](int32_t id) { return m_mesh->m_polygonDrawInfos[id].indexCount; });
 
 	// 라인 (어둡게 표시)
 	glUniform1f(colorMultiplierLocation, 0.6f);
-	DrawVisibleIndexed(m_renderObjectIds, m_mesh->m_lineIndices, m_mesh->m_visibleIndices,
-		m_mesh->m_polygonVAO, m_mesh->m_visibleIBO, GL_LINES,
+	DrawVisibleIndexed(m_renderObjectIds, m_mesh->m_lineIndices, m_mesh->m_visibleIndices, m_mesh->m_polygonVAO, m_mesh->m_visibleIBO, GL_LINES,
 		[&](int32_t id) { return skipPicked(id) || id >= lineCount; },
 		[&](int32_t id) { return m_mesh->m_lineDrawInfos[id].indexOffset; },
 		[&](int32_t id) { return m_mesh->m_lineDrawInfos[id].indexCount; });
@@ -66,8 +64,7 @@ void Renderer::Render(CameraController& camera, UIState& uiState, UISize& uiSize
 	// 가상 객체 (Fake/LOD)
 	if (uiState.isShowFakeObject) {
 		int32_t quadTreeNodeCount = static_cast<int32_t>(m_quadTree.m_nodes.size());
-		DrawVisibleIndexed(m_quadTree.m_visibleNodeFakeObjIds, m_mesh->m_fakeIndices, m_mesh->m_visibleIndices,
-			m_mesh->m_polygonVAO, m_mesh->m_visibleIBO, GL_TRIANGLES,
+		DrawVisibleIndexed(m_quadTree.m_visibleNodeFakeObjIds, m_mesh->m_fakeIndices, m_mesh->m_visibleIndices, m_mesh->m_polygonVAO, m_mesh->m_visibleIBO, GL_TRIANGLES,
 			[&](int32_t nodeId) { return nodeId < 0 || nodeId >= quadTreeNodeCount; },
 			[&](int32_t nodeId) { return m_quadTree.m_nodes[nodeId].m_lodIndexOffset; },
 			[&](int32_t nodeId) { return m_quadTree.m_nodes[nodeId].m_lodIndexCount; });

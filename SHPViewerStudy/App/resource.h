@@ -11,6 +11,7 @@
 
 #define ID_BTN_GOTO_LAYER			1000
 #define ID_BTN_DELETE_LAYER			1001
+#define ID_BTN_SAVE_LAYER			1002
 
 #define ID_BTN_OBJECT_MBR			1100
 #define ID_BTN_NODE_MBR				1101

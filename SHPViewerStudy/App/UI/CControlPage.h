@@ -9,6 +9,7 @@ struct ControllCallbacks
 {
     std::function<void(int32_t)> onGotoLayer;
     std::function<void(int32_t)> onDeleteLayer;
+    std::function<void(int32_t)> onSaveLayer;
 };
 
 class CControlPage : public CWnd
@@ -29,9 +30,11 @@ private:
     CStatic m_staticInfo;
     CButton m_buttonGotoLayer;
     CButton m_buttonDeleteLayer;
+    CButton m_buttonSaveLayer;
     //CFont   m_font;
 
     afx_msg void OnBtnGotoLayer();
     afx_msg void OnBtnDeleteLayer();
+    afx_msg void OnBtnSaveLayer();
     DECLARE_MESSAGE_MAP()
 };

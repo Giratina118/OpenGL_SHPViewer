@@ -3,6 +3,8 @@
 #include "Render/Renderer.h"
 #include <string>
 #include <unordered_map>
+#include <filesystem>
+
 
 class  CRightPanel;
 class  MeshManager;
@@ -18,6 +20,7 @@ public:
 	double	    m_objSize =  5.0; // 객체 크기   (선 객체 -> 너비, 점 객체 -> 반지름)
 	int32_t     m_id      = -1;   // 레이어 인덱스 (LayerManager에서 관리하는 layers 벡터의 인덱스)
 	UCharColor  m_baseColor = { 255, 255, 255, 255 }; // 레이어 색상 (선/면 객체에 적용)
+	std::filesystem::path m_filePath; // 원본 .shp 경로 (저장 시 사용)
 
 	std::unique_ptr<Renderer> m_renderer;
 	std::unique_ptr<QuadTree> m_quadTree;
@@ -28,6 +31,7 @@ public:
 	bool m_isBuilding = false; // 건물인지 여부
 	bool m_hasShx     = false; // .shx 파일 존재 여부
 	bool m_hasDbf     = false; // .dbf 파일 존재 여부
+	bool m_isDirty    = false; // 저장되지 않은 변경사항 존재 여부
 
 	std::vector<PointObject> pointObjects;    // Point      객체 배열
 	std::vector<PolyObject>  polyLineObjects; // PolyLine   객체 배열

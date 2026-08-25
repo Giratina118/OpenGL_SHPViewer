@@ -41,8 +41,8 @@ void EditObject::SetEditObject(std::vector<std::unique_ptr<Layer>>& layers)
         mesh->m_polygonVertices.begin() + m_transformPolygonInfo.vertexOffset + m_transformPolygonInfo.vertexCount);
     m_transformVertices = m_editOriginalVertices;
 
-    for (Vertex& v : m_transformVertices) {
-        v.color.red = 20; v.color.green = 230; v.color.blue = 50; v.color.alpha = 100;
+    for (Vertex& vertex : m_transformVertices) {
+        vertex.color.red = 20; vertex.color.green = 230; vertex.color.blue = 50; vertex.color.alpha = 100;
     }
 
     // 면 인덱스 리매핑
@@ -127,14 +127,14 @@ void EditObject::ScaleObject(glm::dvec3& scaleDelta)
 void EditObject::SaveEditObject(std::vector<std::unique_ptr<Layer>>& layers)
 {
     m_isEdittingObject = false;
-    m_uiState->isEditObjectMode = false;
+    //m_uiState->isEditObjectMode = false;
 
     if (*m_pickingLayerId != -1 && *m_pickingObjectId != -1 && *m_pickingNodeId != -1) {
         Layer* layer = ResolveLayer(layers, *m_pickingLayerId);
         if (!layer || layer->m_shapeType != 5) {
-            *m_pickingLayerId = -1;
+            *m_pickingLayerId  = -1;
             *m_pickingObjectId = -1;
-            *m_pickingNodeId = -1;
+            *m_pickingNodeId   = -1;
             return;
         }
 
@@ -146,57 +146,27 @@ void EditObject::SaveEditObject(std::vector<std::unique_ptr<Layer>>& layers)
         finalMatrix = finalMatrix * transformMatrix;
         finalMatrix = glm::translate(finalMatrix, -m_editCenter);
 
+        PolyObject& object = layer->polygonObjects[*m_pickingObjectId];
         double minX = std::numeric_limits<double>::max();
         double minY = std::numeric_limits<double>::max();
         double maxX = std::numeric_limits<double>::lowest();
         double maxY = std::numeric_limits<double>::lowest();
-        double height = 0.0;
 
-        // 원본 데이터에 적용
-        for (size_t i = 0; i < m_editOriginalVertices.size(); i++) {
-            const Vertex& origin = m_editOriginalVertices[i];
-            glm::dvec4 transformedPos = finalMatrix * glm::dvec4(origin.x, origin.y, origin.z, 1.0);
-            Vertex& targetVertex = mesh->m_polygonVertices[mesh->m_polygonDrawInfos[*m_pickingObjectId].vertexOffset + i];
-            targetVertex.x = static_cast<float>(transformedPos.x);
-            targetVertex.y = static_cast<float>(transformedPos.y);
-            targetVertex.z = static_cast<float>(transformedPos.z);
-
-            // MBR 찾기
-            if (targetVertex.x < minX)   minX = targetVertex.x;
-            if (targetVertex.y < minY)   minY = targetVertex.y;
-            if (targetVertex.x > maxX)   maxX = targetVertex.x;
-            if (targetVertex.y > maxY)   maxY = targetVertex.y;
-            if (targetVertex.z > height) height = targetVertex.z;
+        for (glm::dvec2& point : object.points) {
+            glm::dvec4 transformedPos = finalMatrix * glm::dvec4(point.x, point.y, 0.0, 1.0);
+            point.x = transformedPos.x;
+            point.y = transformedPos.y;
+            minX = std::min(minX, point.x); maxX = std::max(maxX, point.x);
+            minY = std::min(minY, point.y); maxY = std::max(maxY, point.y);
         }
+        object.SetMBRBox(minX, minY, maxX, maxY);
 
-        // MBR박스 갱신
-        switch (layer->m_shapeType) {
-        case 1:
-            layer->pointObjects[*m_pickingObjectId].SetMBRBox(minX, minY, maxX, maxY);
-            layer->pointObjects[*m_pickingObjectId].mbrBox.height = height;
-            break;
-        case 3:
-            layer->polyLineObjects[*m_pickingObjectId].SetMBRBox(minX, minY, maxX, maxY);
-            layer->polyLineObjects[*m_pickingObjectId].mbrBox.height = height;
-            break;
-        case 5:
-            layer->polygonObjects[*m_pickingObjectId].SetMBRBox(minX, minY, maxX, maxY);
-            layer->polygonObjects[*m_pickingObjectId].mbrBox.height = height;
-            break;
-        }
-
-        // 쿼드트리 갱신
+        layer->m_isDirty = true;
         layer->m_quadTree->UpdateTransformObject(*m_pickingNodeId, *m_pickingObjectId);
 
-        // GPU VBO 갱신
-        glBindBuffer(GL_ARRAY_BUFFER, mesh->m_polygonVBO);
-
-        GLintptr    offset = mesh->m_polygonDrawInfos[*m_pickingObjectId].vertexOffset * sizeof(Vertex);
-        GLsizeiptr  size = m_editOriginalVertices.size() * sizeof(Vertex);
-        const void* data = &mesh->m_polygonVertices[mesh->m_polygonDrawInfos[*m_pickingObjectId].vertexOffset];
-
-        glBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        // CDT 재삼각분할이 필요하므로 GPU 버퍼는 부분갱신(glBufferSubData) 대신 전체 재빌드
+        layer->m_renderer->m_mesh->BuildMesh();
+        layer->m_renderer->m_mesh->BuildFakeMeshes();
     }
 
     *m_pickingLayerId  = -1;
@@ -212,7 +182,7 @@ void EditObject::CancelEditObject()
     OutputDebugString(buf);
 
     m_isEdittingObject = false;
-    m_uiState->isEditObjectMode = false;
+    //m_uiState->isEditObjectMode = false;
 
     *m_pickingLayerId  = -1;
     *m_pickingObjectId = -1;
@@ -243,7 +213,7 @@ void EditObject::CreateObject(int32_t shape, std::vector<std::unique_ptr<Layer>>
     {
     case 1: // 원
         for (int32_t vertexIndex = 0; vertexIndex < 20; vertexIndex++) {
-            Vertex vertex = { m_createCenter.x + glm::sin(glm::radians(vertexIndex * 18.0)) * 100.0, m_createCenter.y + glm::cos(glm::radians(vertexIndex * 18.0))* 100.0, m_createCenter.z, color};
+            Vertex vertex = { m_createCenter.x + glm::sin(glm::radians(vertexIndex * 18.0)) * 100.0, m_createCenter.y + glm::cos(glm::radians(vertexIndex * 18.0)) * 100.0, m_createCenter.z, color};
             m_createVertices.push_back(vertex);
         }
         break;
@@ -351,6 +321,8 @@ void EditObject::SaveCreateObject(std::vector<std::unique_ptr<Layer>>& layers)
     }
     dbfTable.rowCount++;
 
+    targetLayer->m_isDirty = true;
+
     // 메쉬 리빌드
     targetLayer->m_renderer->m_mesh->BuildMesh();
     targetLayer->m_renderer->m_mesh->BuildFakeMeshes();
@@ -369,18 +341,29 @@ void EditObject::DeleteObject(std::vector<std::unique_ptr<Layer>>& layers)
 
     TCHAR buf[256]; _stprintf_s(buf, _T("객체 삭제\n")); OutputDebugString(buf);
     Layer* targetLayer = ResolveLayer(layers, *m_pickingLayerId);
-    
+    if (!targetLayer || targetLayer->m_shapeType != 5) return;
+
+    int32_t deleteId = *m_pickingObjectId;
+    if (deleteId < 0 || deleteId >= static_cast<int32_t>(targetLayer->polygonObjects.size())) return;
+
     // 쿼드트리 노드에서 객체 ID 제거
     auto& objectIds = targetLayer->m_quadTree->m_nodes[*m_pickingNodeId].m_objectIds;
     std::erase(objectIds, *m_pickingObjectId);
 
     // 실제 객체 데이터 논리적 삭제
-    //targetLayer->m_objects[*m_pickingObjectId].isDeleted = true; 
+    targetLayer->polygonObjects[*m_pickingObjectId].isDeleted = true;
+    targetLayer->m_isDirty = true;
 
-    // 선택(Picking) 상태 초기화 (Dangling Index 방지)
-    *m_pickingLayerId = -1;
+    if (m_isEdittingObject) {
+        m_isEdittingObject = false;
+        m_editOverlay.Upload({}, {}, {}, GL_DYNAMIC_DRAW);
+    }
+
+    // 피킹 상태 초기화
+    *m_pickingLayerId  = -1;
     *m_pickingObjectId = -1;
-    *m_pickingNodeId = -1;
+    *m_pickingNodeId   = -1;
+    m_isEdittingObject = false;
 
     // GPU 렌더링 버퍼 업데이트 (화면에서 사라지게 갱신)
     // targetLayer->UpdateBuffers();

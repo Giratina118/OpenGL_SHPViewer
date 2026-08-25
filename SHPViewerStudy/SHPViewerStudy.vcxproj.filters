@@ -91,7 +91,7 @@
     <ClInclude Include="Engine\Render\ShaderLoadAndUse.h">
       <Filter>Engine\Render</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\CameraController.h">
+    <ClInclude Include="Engine\CameraManager.h">
       <Filter>Engine</Filter>
     </ClInclude>
     <ClInclude Include="Engine\QuadTree.h">
@@ -175,6 +175,12 @@
     <ClInclude Include="Engine\LayerManager.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Parser\ShpWriter.h">
+      <Filter>Engine\Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Parser\DbfWriter.h">
+      <Filter>Engine\Parser</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Render\Renderer.cpp">
@@ -198,7 +204,7 @@
     <ClCompile Include="Engine\Render\ShaderLoadAndUse.cpp">
       <Filter>Engine\Render</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\CameraController.cpp">
+    <ClCompile Include="Engine\CameraManager.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
     <ClCompile Include="Engine\QuadTree.cpp">
@@ -263,6 +269,12 @@
     </ClCompile>
     <ClCompile Include="Engine\LayerManager.cpp">
       <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Parser\ShpWriter.cpp">
+      <Filter>Engine\Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Parser\DbfWriter.cpp">
+      <Filter>Engine\Parser</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

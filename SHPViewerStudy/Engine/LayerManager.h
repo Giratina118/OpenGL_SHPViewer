@@ -1,6 +1,7 @@
 #pragma once
 #include "EditObject.h"
 #include "Layer.h"
+#include "Parser/ShpWriter.h"
 #include <variant>
 #include <unordered_map>
 
@@ -15,6 +16,7 @@ public:
 	bool    m_drawedFrustum = false;   // 절투체 표현 여부
 
 	EditObject m_editObject; // 객체 편집 클래스
+	ShpWriter  m_shpWriter;
 
 	// 셰이더
 	Shader m_shader;
@@ -55,9 +57,9 @@ public:
 	Layer& CreateLayer(std::string name, uint32_t shpType, BoundingBox& layerBox); // 레이어 생성
 	void DeleteLayer(int32_t layerId); // 레이어 삭제
 	bool InitRenderer(HWND hWnd, UIState* uiState); // 생성 직후 렌더 초기화
-	bool InitEGL(HWND hwnd);  // EGL 초기화
+	bool InitEGL(HWND hwnd); // EGL 초기화
 	void Shutdown(); // 메모리 해제
-	void Render(CameraController& camera, UISize& uiSize, glm::dvec3 hitPoint); // 일괄 그리기 명령
+	void Render(CameraManager& camera, UISize& uiSize, glm::dvec3 hitPoint); // 일괄 그리기 명령
 	void Resize(int32_t width, int32_t height, int32_t panelWidthLeft); // 창 크기 변경
 	void CountObject(int32_t& totalObjCount, int32_t& renderObjCount, int32_t& fakeObjCount); // 객체 개수 세기
 	glm::dvec3 Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRightPanel& rightPanel); // 피킹
@@ -65,7 +67,7 @@ public:
 
 	Layer* GetLayerById(int32_t layerId) { return ResolveLayerById(m_layers, m_layerIdToIndex, layerId); }
 
-	void DrawCameraFrustum(CameraController& camera);         // 카메라 절두체 시각화
+	void DrawCameraFrustum(CameraManager& camera);         // 카메라 절두체 시각화
 	void DrawDebugRect(const glm::dvec3& center, float size); // 피킹 지점 사각형 표시
 
 	void ReDraw() { m_needRedraw = true; } // 화면 상태가 바뀔 시 그리기 실행
@@ -73,4 +75,7 @@ public:
 	void ReOrderLayer(std::vector<LayerItemData>& items);
 
 	void SetHoverObject();
+
+	bool SaveLayer(int32_t layerId); // 레이어 저장
+	std::vector<int32_t> GetDirtyLayerIds(bool onlySelectedOrVisible) const; // 수정된(저장해야 하는) 레이어 아이디 반환
 };

@@ -155,7 +155,7 @@ void LayerManager::Shutdown()
 }
 
 // 메인 렌더 함수
-void LayerManager::Render(CameraController& camera, UISize& uiSize, glm::dvec3 hitPoint)
+void LayerManager::Render(CameraManager& camera, UISize& uiSize, glm::dvec3 hitPoint)
 {
     // render여부 체크 -> 변화 없으면 그냥 return (CPU/GPU idle, 화면은 이전 프레임 유지)
     if (!m_needRedraw) return;
@@ -235,7 +235,7 @@ void LayerManager::Resize(int32_t screenWidth, int32_t screenHeight, int32_t pan
 void LayerManager::CountObject(int32_t& totalObjCount, int32_t& renderObjCount, int32_t& fakeObjCount)
 {
     for (int32_t layerIndex = 0; layerIndex < m_layers.size(); layerIndex++) {
-        if (m_layers[layerIndex] == nullptr || !m_layers[layerIndex]->m_isVisible) continue; // ★ null 체크를 먼저
+        if (m_layers[layerIndex] == nullptr || !m_layers[layerIndex]->m_isVisible) continue; // null 체크
         bool isSelectedLayer = (m_hitLayerId == -1 || m_hitLayerId == m_layers[layerIndex]->m_id);
         if (!isSelectedLayer) continue;
 
@@ -291,7 +291,7 @@ glm::dvec3 LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRigh
     if (!pickedLayer || (pickedLayer->polygonObjects.empty() && pickedLayer->polyLineObjects.empty() && pickedLayer->pointObjects.empty()))
         return glm::dvec3();
 
-    if (m_pickingObjectId != -1)
+    if (m_pickingObjectId != -1 && !m_uiState->isCreateObjectMode)
         rightPanel.SetPickingInfo(pickedLayer->m_dbfTable.PrintAttribute(m_pickingObjectId));
 
     return rayStart + rayDir * collisionDistance;
@@ -308,7 +308,7 @@ void LayerManager::ApplyObjectColorWithLevel()
 }
 
 // 카메라 절두체 시각화 (지면과 교차하는 4개 변), NDC 모서리 4개를 unproject해서 z=0 평면과의 교차점을 구해 라인으로 표시
-void LayerManager::DrawCameraFrustum(CameraController& camera)
+void LayerManager::DrawCameraFrustum(CameraManager& camera)
 {
     if (!m_drawedFrustum) {
         m_frustumLineVertices.clear();
@@ -386,7 +386,9 @@ void LayerManager::ReOrderLayer(std::vector<LayerItemData>& items)
 
 void LayerManager::SetHoverObject()
 {
-    Layer* layer = GetLayerById(m_pickingLayerId); // ★ 인덱스 대신 아이디 조회
+    if (m_uiState->isCreateObjectMode) return;
+
+    Layer* layer = GetLayerById(m_pickingLayerId); // 인덱스 대신 아이디 조회
     if (!layer || m_pickingObjectId == -1) {
         m_isHovering = false;
         return;
@@ -415,4 +417,29 @@ void LayerManager::SetHoverObject()
         m_hoverLineIndices.push_back(mesh->m_lineIndices[lineInfo.indexOffset + i] - polyInfo.vertexOffset);
 
     m_hoverOverlay.Upload(m_hoverVertices, m_hoverPolygonIndices, m_hoverLineIndices, GL_DYNAMIC_DRAW);
+}
+
+// 레이어 저장
+bool LayerManager::SaveLayer(int32_t layerId)
+{
+    Layer* layer = GetLayerById(layerId);
+    if (!layer) return false;
+    if (!m_shpWriter.WriteLayer(*layer)) return false;
+    layer->m_isDirty = false;
+    return true;
+}
+
+// 수정된(저장해야 하는) 레이어 아이디 반환
+std::vector<int32_t> LayerManager::GetDirtyLayerIds(bool onlySelectedOrVisible) const
+{
+    std::vector<int32_t> result;
+    for (const auto& layer : m_layers) {
+        if (!layer || !layer->m_isDirty) continue;
+        if (onlySelectedOrVisible) {
+            bool matches = (m_hitLayerId != -1) ? (layer->m_id == m_hitLayerId) : layer->m_isVisible;
+            if (!matches) continue;
+        }
+        result.push_back(layer->m_id);
+    }
+    return result;
 }

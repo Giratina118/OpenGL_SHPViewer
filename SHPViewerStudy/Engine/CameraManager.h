@@ -24,7 +24,7 @@ enum class FrustumState {
 	INSIDE     // 시야에 완전히 들어와 있음 (전체 렌더링)
 };
 
-class CameraController
+class CameraManager
 {
 private:
 	glm::dmat4 viewMatrix           = glm::dmat4(1.0f); // 뷰      행렬

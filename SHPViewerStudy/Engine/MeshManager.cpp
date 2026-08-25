@@ -230,7 +230,7 @@ void MeshManager::BuildPolygonMesh()
 		uint32_t polygonVertStart  = (uint32_t)m_polygonVertices.size();
 		uint32_t lineIndexStart    = (uint32_t)m_lineIndices.size();
 
-		if (results[dataId].vertices.size() < 3 || results[dataId].indices.empty()) {
+		if (polygon.isDeleted || results[dataId].vertices.size() < 3 || results[dataId].indices.empty()) {
 			m_polygonDrawInfos[dataId] = { polygonIndexStart, 0, polygonVertStart, 0 };
 			m_lineDrawInfos[dataId] = { lineIndexStart, 0, 0, 0 };
 			continue;
@@ -296,9 +296,9 @@ void MeshManager::BuildPolygonMesh()
 			}
 		}
 
-		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size() - polygonIndexStart;
-		uint32_t polygonVertCount = (uint32_t)m_polygonVertices.size() - polygonVertStart;
-		uint32_t lineIndexCount = (uint32_t)m_lineIndices.size() - lineIndexStart;
+		uint32_t polygonIndexCount = static_cast<uint32_t>(m_polygonIndices.size())  - polygonIndexStart;
+		uint32_t polygonVertCount  = static_cast<uint32_t>(m_polygonVertices.size()) - polygonVertStart;
+		uint32_t lineIndexCount    = static_cast<uint32_t>(m_lineIndices.size())     - lineIndexStart;
 
 		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
 		m_lineDrawInfos[dataId] = { lineIndexStart, lineIndexCount, 0, 0 };

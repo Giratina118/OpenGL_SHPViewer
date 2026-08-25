@@ -1,9 +1,9 @@
 #include "pch.h"
 #include <algorithm>
-#include "CameraController.h"
+#include "CameraManager.h"
 
 // 카메라 초기화
-void CameraController::Init(const BoundingBox& boundingBox, int32_t screenWidth, int32_t screenHeight)
+void CameraManager::Init(const BoundingBox& boundingBox, int32_t screenWidth, int32_t screenHeight)
 {
     // 카메라 위치 설정 (넣은 파일의 객체가 보이도록 위치 이동)
     double centerX     = (boundingBox.minX + boundingBox.maxX) * 0.5;
@@ -19,7 +19,7 @@ void CameraController::Init(const BoundingBox& boundingBox, int32_t screenWidth,
 }
 
 // 종횡비 갱신
-void CameraController::UpdateAspect(int32_t screenWidth, int32_t screenHeight)
+void CameraManager::UpdateAspect(int32_t screenWidth, int32_t screenHeight)
 {
     if (screenWidth <= 0 || screenHeight <= 0) return;
 
@@ -28,7 +28,7 @@ void CameraController::UpdateAspect(int32_t screenWidth, int32_t screenHeight)
 }
 
 // 로컬 이동
-void CameraController::MoveLocal(double deltaX, double deltaY)
+void CameraManager::MoveLocal(double deltaX, double deltaY)
 {
     double speed = abs(transform.position.z) * moveSpeedCorrection;
     if (speed < 1.0f) speed = 1.0f;
@@ -38,7 +38,7 @@ void CameraController::MoveLocal(double deltaX, double deltaY)
 }
 
 // 월드 이동
-void CameraController::MoveWorld(double deltaX, double deltaY)
+void CameraManager::MoveWorld(double deltaX, double deltaY)
 {
     double speed = abs(transform.position.z) * moveSpeedCorrection;
     if (speed < 1.0f) speed = 1.0f;
@@ -49,7 +49,7 @@ void CameraController::MoveWorld(double deltaX, double deltaY)
 
 /*
 // 특정 지점 기준 3차원 이동
-void CameraController::MoveThird(glm::dvec3& currentPos, glm::dvec3& beforePos)
+void CameraManager::MoveThird(glm::dvec3& currentPos, glm::dvec3& beforePos)
 {
     glm::dvec3 deltaPos = currentPos - beforePos;
     transform.position += deltaPos;
@@ -58,7 +58,7 @@ void CameraController::MoveThird(glm::dvec3& currentPos, glm::dvec3& beforePos)
 */
 
 // 로컬 회전
-void CameraController::RotateLocal(double deltaX, double deltaY, double deltaZ)
+void CameraManager::RotateLocal(double deltaX, double deltaY, double deltaZ)
 {
     double yawDelta   = -deltaX * rotateAngleCorrection;
     double pitchDelta = -deltaY * rotateAngleCorrection;
@@ -70,7 +70,7 @@ void CameraController::RotateLocal(double deltaX, double deltaY, double deltaZ)
 }
 
 // 월드 회전
-void CameraController::RotateWorld(double deltaX, double deltaY, double deltaZ)
+void CameraManager::RotateWorld(double deltaX, double deltaY, double deltaZ)
 {
     double yawDelta   = -deltaX * rotateAngleCorrection;
     double pitchDelta = -deltaY * rotateAngleCorrection;
@@ -82,7 +82,7 @@ void CameraController::RotateWorld(double deltaX, double deltaY, double deltaZ)
 }
 
 // 월드 회전
-void CameraController::RotateFirst(double deltaX, double deltaY, double deltaZ)
+void CameraManager::RotateFirst(double deltaX, double deltaY, double deltaZ)
 {
     double yawDelta   = -deltaX * rotateAngleCorrection;
     double pitchDelta = -deltaY * rotateAngleCorrection;
@@ -94,7 +94,7 @@ void CameraController::RotateFirst(double deltaX, double deltaY, double deltaZ)
 }
 
 // 특정 지점 기준 3차원 회전
-void CameraController::RotateThird(double deltaX, double deltaY, double deltaZ, glm::dvec3& point)
+void CameraManager::RotateThird(double deltaX, double deltaY, double deltaZ, glm::dvec3& point)
 {
     glm::dvec3 currentPos = transform.position;
     glm::dvec3 movePos = point - currentPos;
@@ -109,7 +109,7 @@ void CameraController::RotateThird(double deltaX, double deltaY, double deltaZ, 
 }
 
 // 줌 인 / 줌 아웃
-void CameraController::ZoomLocal(double factor)
+void CameraManager::ZoomLocal(double factor)
 {
     double speed = abs(transform.position.z) * zoomSpeedCorrection;
     if (speed < 1.0f) speed = 1.0f;
@@ -119,7 +119,7 @@ void CameraController::ZoomLocal(double factor)
 }
 
 // 줌 인 / 줌 아웃
-void CameraController::ZoomWorld(double factor)
+void CameraManager::ZoomWorld(double factor)
 {
     double speed = abs(transform.position.z) * zoomSpeedCorrection;
     if (speed < 1.0f) speed = 1.0f;
@@ -129,7 +129,7 @@ void CameraController::ZoomWorld(double factor)
 }
 
 // 특정 지점 기준 3차원 줌인/줌아웃
-void CameraController::ZoomThird(double factor, glm::dvec3& point)
+void CameraManager::ZoomThird(double factor, glm::dvec3& point)
 {
     glm::dvec3 dir = point - transform.position;
     double speed = abs(transform.position.z) * zoomSpeedCorrection;
@@ -140,7 +140,7 @@ void CameraController::ZoomThird(double factor, glm::dvec3& point)
 }
 
 // 행렬 갱신
-void CameraController::UpdateMatrix()
+void CameraManager::UpdateMatrix()
 {
     double safeAspect = (aspect <= 0.0f) ? 1.0f : aspect;
 
@@ -163,7 +163,7 @@ void CameraController::UpdateMatrix()
 }
 
 // 뷰-프로젝션 행렬에서 6개 평면 추출 (Gribb & Hartmann 방법)
-void CameraController::ExtractFrustumPlanes()
+void CameraManager::ExtractFrustumPlanes()
 {
     const glm::dmat4& vp = viewProjectionMatrix;
 
@@ -179,7 +179,7 @@ void CameraController::ExtractFrustumPlanes()
         m_frustumPlanes[i].Normalize();
 }
 
-FrustumState CameraController::GetFrustumState(const BoundingBox& box) const
+FrustumState CameraManager::GetFrustumState(const BoundingBox& box) const
 {
     glm::dvec3 minP(box.minX, box.minY, 0.0f);
     glm::dvec3 maxP(box.maxX, box.maxY, 0.0f);

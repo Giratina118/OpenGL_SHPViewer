@@ -124,7 +124,7 @@ void CPickingPage::OnBtnThirdPerson()
 void CPickingPage::OnBtnEditObjectMode()
 {
     if (m_callback.onEditObjectMode) {
-        m_callback.onEditObjectMode(true);
+        m_callback.onEditObjectMode(m_buttonEditObjectMode.GetCheck() == BST_CHECKED);
         m_buttonPicking.SetCheck(BST_UNCHECKED);
         m_callback.onPicking(false);
     }
@@ -134,8 +134,8 @@ void CPickingPage::OnBtnEditObjectSave()
 {
     if (m_callback.onEditObjectSave) {
         m_callback.onEditObjectSave(true);
-        m_buttonEditObjectMode.SetCheck(BST_UNCHECKED);
-        m_callback.onEditObjectMode(false);
+        //m_buttonEditObjectMode.SetCheck(BST_UNCHECKED);
+        //m_callback.onEditObjectMode(false);
     }
 }
 
@@ -143,8 +143,8 @@ void CPickingPage::OnBtnEditObjectCancle()
 {
     if (m_callback.onEditObjectCancle) {
         m_callback.onEditObjectCancle(true);
-		m_buttonEditObjectMode.SetCheck(BST_UNCHECKED);
-        m_callback.onEditObjectMode(false);
+		//m_buttonEditObjectMode.SetCheck(BST_UNCHECKED);
+        //m_callback.onEditObjectMode(false);
     }
 }
 

@@ -7,6 +7,7 @@
 BEGIN_MESSAGE_MAP(CControlPage, CWnd)
     ON_BN_CLICKED(ID_BTN_GOTO_LAYER,   &CControlPage::OnBtnGotoLayer)
     ON_BN_CLICKED(ID_BTN_DELETE_LAYER, &CControlPage::OnBtnDeleteLayer)
+    ON_BN_CLICKED(ID_BTN_SAVE_LAYER,   &CControlPage::OnBtnSaveLayer)
 END_MESSAGE_MAP()
 
 bool CControlPage::Create(CWnd* pParent, UINT nID)
@@ -20,6 +21,7 @@ void CControlPage::CreateTabControls()
     m_staticInfo.Create(_T("이동: WASD, 좌클릭\r\n줌: R/F, 휠\r\n회전: 방향키, Q/E, 우클릭"), WS_CHILD | WS_VISIBLE | SS_LEFT, CRect(0, 0, 10, 10), this);
     m_buttonGotoLayer.Create  (_T("레이어로 이동"), WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_GOTO_LAYER);
     m_buttonDeleteLayer.Create(_T("레이어 제거"),   WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_DELETE_LAYER);
+    m_buttonSaveLayer.Create  (_T("레이어 저장"),   WS_CHILD | WS_VISIBLE, CRect(0, 0, 10, 10), this, ID_BTN_SAVE_LAYER);
 
     // LVS_OWNERDRAWFIXED 필수, 스크롤은 WS_VSCROLL
     m_listCtrlLayer.Create(WS_CHILD | WS_VISIBLE | WS_VSCROLL | LVS_REPORT | LVS_OWNERDRAWFIXED | LVS_SINGLESEL | LVS_NOCOLUMNHEADER, CRect(0, 0, 10, 10), this, IDC_LAYER_LIST);
@@ -37,9 +39,10 @@ void CControlPage::Resize(UISize& uiSize)
 	m_listCtrlLayer.MoveWindow    (0, textHeight * 9, uiSize.buttonWidth, textHeight * 7);
 
     int32_t curHeight = textHeight * 16;
-    m_buttonGotoLayer.MoveWindow  (0, curHeight,                uiSize.buttonWidth, uiSize.buttonHeight);
-    m_buttonDeleteLayer.MoveWindow(0, curHeight + btnHeightGap, uiSize.buttonWidth, uiSize.buttonHeight);
-    
+    m_buttonGotoLayer.MoveWindow  (0, curHeight,                    uiSize.buttonWidth, uiSize.buttonHeight);
+    m_buttonDeleteLayer.MoveWindow(0, curHeight + btnHeightGap,     uiSize.buttonWidth, uiSize.buttonHeight);
+    m_buttonSaveLayer.MoveWindow  (0, curHeight + btnHeightGap * 2, uiSize.buttonWidth, uiSize.buttonHeight);
+
     // 폰트
     if (uiSize.isFontChanged) {
         auto applyFont = [&](CWnd& w) { if (w.GetSafeHwnd()) w.SetFont(&uiSize.font); };
@@ -48,6 +51,7 @@ void CControlPage::Resize(UISize& uiSize)
         applyFont(m_listCtrlLayer);
         applyFont(m_buttonGotoLayer);
         applyFont(m_buttonDeleteLayer);
+        applyFont(m_buttonSaveLayer);
     }
 
     m_listCtrlLayer.Resize(uiSize);
@@ -93,4 +97,11 @@ void CControlPage::OnBtnDeleteLayer()
 
     m_listCtrlLayer.DeleteLayerItem(hitLayerId); // 레이어 아이템 지우기
     m_callback.onDeleteLayer(hitLayerId);
+}
+
+void CControlPage::OnBtnSaveLayer()
+{
+    if (m_callback.onSaveLayer) {
+        m_callback.onSaveLayer(m_listCtrlLayer.GetHitLayerId());
+    }
 }

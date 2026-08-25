@@ -3,6 +3,7 @@
 #include "pch.h"
 #include "framework.h"
 #include "SHPViewerStudy.h"
+#include "SHPViewerStudyView.h"
 
 #include "MainFrm.h"
 
@@ -16,6 +17,7 @@ IMPLEMENT_DYNCREATE(CMainFrame, CFrameWnd)
 
 BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_WM_CREATE()
+	ON_WM_CLOSE()
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -59,6 +61,13 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	DockControlBar(&m_wndToolBar);
 
 	return 0;
+}
+
+void CMainFrame::OnClose()
+{
+	CSHPViewerStudyView* view = dynamic_cast<CSHPViewerStudyView*>(GetActiveView());
+	if (view && !view->ConfirmSaveBeforeClose()) return; // 취소 -> 종료 중단
+	CFrameWnd::OnClose();
 }
 
 BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)

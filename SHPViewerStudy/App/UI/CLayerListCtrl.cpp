@@ -54,9 +54,18 @@ void CLayerListCtrl::SetCustomItemHeight(int32_t height)
 void CLayerListCtrl::DeleteLayerItem(int32_t layerId)
 {
     if (m_hitItemIndex < 0) return; 
+
+    Layer* layer = m_layerManager->GetLayerById(layerId);
+    if (layer && layer->m_isDirty) {
+        CString msg;
+        msg.Format(_T("'%s' 레이어에 저장되지 않은 변경사항이 있습니다.\n저장하고 삭제하시겠습니까?"), CString(layer->m_name.c_str()));
+        int result = AfxMessageBox(msg, MB_YESNOCANCEL | MB_ICONWARNING);
+        if (result == IDCANCEL) return;
+        if (result == IDYES) m_layerManager->SaveLayer(layerId);
+    }
+
     m_items.erase(m_items.begin() + m_hitItemIndex); 
     m_hitItemIndex = -1;
-
     m_layerManager->DeleteLayer(layerId);
 }
 
