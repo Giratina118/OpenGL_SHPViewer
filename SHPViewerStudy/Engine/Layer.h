@@ -17,7 +17,7 @@ class Layer
 public:
 	std::string m_name;      // 레이어 이름 (파일명과 동일)
 	uint32_t    m_shapeType; // 객체 타입   (1: Point, 3: PolyLine, 5: Polygon, 8: MultiPoint, 31: MultiPatch)
-	double	    m_objSize =  5.0; // 객체 크기   (선 객체 -> 너비, 점 객체 -> 반지름)
+	double	    m_objSize =  1.0; // 객체 크기   (선 객체 -> 너비, 점 객체 -> 반지름)
 	int32_t     m_id      = -1;   // 레이어 인덱스 (LayerManager에서 관리하는 layers 벡터의 인덱스)
 	UCharColor  m_baseColor = { 255, 255, 255, 255 }; // 레이어 색상 (선/면 객체에 적용)
 	std::filesystem::path m_filePath; // 원본 .shp 경로 (저장 시 사용)

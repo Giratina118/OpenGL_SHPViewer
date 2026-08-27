@@ -59,6 +59,23 @@ bool ShpWriter::WriteLayer(Layer& layer)
     shp.close();
     shx.close();
 
+
+    // dbf 저장 전에, HEIGHT 컬럼이 있다면 각 객체의 실제 mbrBox.height 값으로 동기화
+    DBFTable& dbfTable = layer.m_dbfTable;
+    if (dbfTable.heightPos != -1) {
+        for (int32_t id : keepIds) {
+            if (id < 0) continue;
+
+            double currentHeight = 0.0;
+            if      (layer.m_shapeType == 1 && id < static_cast<int32_t>(layer.pointObjects.size()))    currentHeight = layer.pointObjects[id].mbrBox.height;
+            else if (layer.m_shapeType == 3 && id < static_cast<int32_t>(layer.polyLineObjects.size())) currentHeight = layer.polyLineObjects[id].mbrBox.height;
+            else if (layer.m_shapeType == 5 && id < static_cast<int32_t>(layer.polygonObjects.size()))  currentHeight = layer.polygonObjects[id].mbrBox.height;
+
+            if (id < static_cast<int32_t>(dbfTable.doubleColumns[dbfTable.heightPos].size()))
+                dbfTable.doubleColumns[dbfTable.heightPos][id] = currentHeight;
+        }
+    }
+
     DbfWriter dbfWriter;
     return dbfWriter.WriteDbf(dbfPath, layer.m_dbfTable, keepIds);
 }

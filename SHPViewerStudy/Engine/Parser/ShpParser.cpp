@@ -48,17 +48,17 @@ void ShpParser::ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxInd
     };
 
     switch (fileHeader.shapeType) {
-    case 1:  parseLoop(layer.pointObjects,      [&](const uint8_t*& ptr, PointObject& obj)      { ReadPoint (ptr, obj); });      break;
-    case 11: parseLoop(layer.pointObjects,      [&](const uint8_t*& ptr, PointObject& obj)      { ReadPointZ(ptr, obj); });      break;
-    case 21: parseLoop(layer.pointObjects,      [&](const uint8_t*& ptr, PointObject& obj)      { ReadPointM(ptr, obj); });      break;
+    case 1:  parseLoop(layer.pointObjects,    [&](const uint8_t*& ptr, PointObject& obj) { ReadPoint (ptr, obj); }); break;
+    case 11: parseLoop(layer.pointObjects,    [&](const uint8_t*& ptr, PointObject& obj) { ReadPointZ(ptr, obj); }); break;
+    case 21: parseLoop(layer.pointObjects,    [&](const uint8_t*& ptr, PointObject& obj) { ReadPointM(ptr, obj); }); break;
 
-    case 3:  parseLoop(layer.polyLineObjects,   [&](const uint8_t*& ptr, PolyObject& obj)       { ReadPoly (ptr, obj); });       break;
-    case 13: parseLoop(layer.polyLineObjects,   [&](const uint8_t*& ptr, PolyObject& obj)       { ReadPolyZ(ptr, obj); });       break;
-    case 23: parseLoop(layer.polyLineObjects,   [&](const uint8_t*& ptr, PolyObject& obj)       { ReadPolyM(ptr, obj); });       break;
+    case 3:  parseLoop(layer.polyLineObjects, [&](const uint8_t*& ptr, PolyObject& obj)  { ReadPoly (ptr, obj); });  break;
+    case 13: parseLoop(layer.polyLineObjects, [&](const uint8_t*& ptr, PolyObject& obj)  { ReadPolyZ(ptr, obj); });  break;
+    case 23: parseLoop(layer.polyLineObjects, [&](const uint8_t*& ptr, PolyObject& obj)  { ReadPolyM(ptr, obj); });  break;
 
-    case 5:  parseLoop(layer.polygonObjects,    [&](const uint8_t*& ptr, PolyObject& obj)       { ReadPoly (ptr, obj); });       break;
-    case 15: parseLoop(layer.polygonObjects,    [&](const uint8_t*& ptr, PolyObject& obj)       { ReadPolyZ(ptr, obj); });       break;
-    case 25: parseLoop(layer.polygonObjects,    [&](const uint8_t*& ptr, PolyObject& obj)       { ReadPolyM(ptr, obj); });       break;
+    case 5:  parseLoop(layer.polygonObjects,  [&](const uint8_t*& ptr, PolyObject& obj)  { ReadPoly (ptr, obj); });  break;
+    case 15: parseLoop(layer.polygonObjects,  [&](const uint8_t*& ptr, PolyObject& obj)  { ReadPolyZ(ptr, obj); });  break;
+    case 25: parseLoop(layer.polygonObjects,  [&](const uint8_t*& ptr, PolyObject& obj)  { ReadPolyM(ptr, obj); });  break;
 
     //case 8:  parseLoop(layer.multiPointObjects, [&](const uint8_t*& ptr, MultiPointObject& obj) { ReadMultiPoint (ptr, obj); }); break;
     //case 18: parseLoop(layer.multiPointObjects, [&](const uint8_t*& ptr, MultiPointObject& obj) { ReadMultiPointZ(ptr, obj); }); break;

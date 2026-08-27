@@ -151,6 +151,7 @@ void EditObject::SaveEditObject(std::vector<std::unique_ptr<Layer>>& layers)
         double minY = std::numeric_limits<double>::max();
         double maxX = std::numeric_limits<double>::lowest();
         double maxY = std::numeric_limits<double>::lowest();
+        double originalHeight = object.mbrBox.height;
 
         for (glm::dvec2& point : object.points) {
             glm::dvec4 transformedPos = finalMatrix * glm::dvec4(point.x, point.y, 0.0, 1.0);
@@ -159,7 +160,12 @@ void EditObject::SaveEditObject(std::vector<std::unique_ptr<Layer>>& layers)
             minX = std::min(minX, point.x); maxX = std::max(maxX, point.x);
             minY = std::min(minY, point.y); maxY = std::max(maxY, point.y);
         }
+
+        glm::dvec4 transformedRoof = finalMatrix * glm::dvec4(m_editCenter.x, m_editCenter.y, originalHeight, 1.0);
+        double height = transformedRoof.z;
+
         object.SetMBRBox(minX, minY, maxX, maxY);
+        object.mbrBox.height = height;
 
         layer->m_isDirty = true;
         layer->m_quadTree->UpdateTransformObject(*m_pickingNodeId, *m_pickingObjectId);

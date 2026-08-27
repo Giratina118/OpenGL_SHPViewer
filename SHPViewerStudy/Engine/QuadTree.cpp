@@ -30,7 +30,7 @@ void QuadTree::BuildQuadTree()
 
 	int32_t objectsCount = static_cast<int32_t>(m_layer.pointObjects.size()); // 포인트 객체 삽입
 	for (int objectNum = 0; objectNum < objectsCount; objectNum++) 
-		if (!m_layer.polygonObjects[objectNum].isDeleted)          InsertData(rootNodeId, objectNum, m_layer.pointObjects[objectNum].mbrBox,    false);
+		if (!m_layer.pointObjects[objectNum].isDeleted)            InsertData(rootNodeId, objectNum, m_layer.pointObjects[objectNum].mbrBox,    false);
 
 	objectsCount = static_cast<int32_t>(m_layer.polyLineObjects.size());      // 폴리라인 객체 삽입
 	for (int objectNum = 0; objectNum < objectsCount; objectNum++) InsertData(rootNodeId, objectNum, m_layer.polyLineObjects[objectNum].mbrBox, false);
@@ -41,8 +41,8 @@ void QuadTree::BuildQuadTree()
 	std::vector<std::vector<int>> levelInfo(m_maxLevel + 1, std::vector<int>(2, 0));
 	SettingHeight(0); // 노드 높이 설정
 
-	for (auto& node : m_nodes) node.m_objectIds.shrink_to_fit();
-	m_nodes.shrink_to_fit();
+	//for (auto& node : m_nodes) node.m_objectIds.shrink_to_fit();
+	//m_nodes.shrink_to_fit();
 }
 
 // 데이터 삽입
@@ -53,6 +53,7 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	BoundingBox*  curObjBox  = nullptr;                // 현재 객체 mbr박스
 	glm::dvec2    nodeCenter = curNodeBox.GetCenter(); // 노드 중점
 	glm::dvec2    dataCenter = dataMbrBox.GetCenter(); // 객체 중점
+	DBFTable&     dbfTable   = m_layer.m_dbfTable;
 
 	switch (m_layer.m_shapeType) {
 	case 1: curObjBox = &m_layer.pointObjects[dataId].mbrBox;    break;
@@ -64,8 +65,8 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	if (curNode.m_level == m_maxLevel) {
 		curNode.m_objectIds.push_back(dataId);
 
-		if (isBuilding) curObjBox->SetHeight(m_layer.m_dbfTable.doubleColumns[m_layer.m_dbfTable.heightPos][dataId], m_layer.m_dbfTable.doubleColumns[m_layer.m_dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
-		if (curObjBox->height > curNodeBox.height) curNodeBox.height = curObjBox->height;
+		if (m_layer.m_shapeType != 5 || isBuilding) curObjBox->SetHeight(dbfTable.doubleColumns[dbfTable.heightPos][dataId], dbfTable.doubleColumns[dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent(), isBuilding);
+		if (curObjBox->height > curNodeBox.height)  curNodeBox.height = curObjBox->height;
 		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상)
 		return;
 	}
@@ -80,12 +81,11 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 		curNodeBox.maxX - dataMbrBox.minX > looseX && dataMbrBox.maxX - curNodeBox.maxX > looseX ||
 		curNodeBox.minY - dataMbrBox.minY > looseY && dataMbrBox.maxY - curNodeBox.minY > looseY ||
 		nodeCenter.y    - dataMbrBox.minY > looseY && dataMbrBox.maxY - nodeCenter.y    > looseY ||
-		curNodeBox.maxY - dataMbrBox.minY > looseY && dataMbrBox.maxY - curNodeBox.maxY > looseY)
-	{
+		curNodeBox.maxY - dataMbrBox.minY > looseY && dataMbrBox.maxY - curNodeBox.maxY > looseY) {
 		curNode.m_objectIds.push_back(dataId);
 
-		if (isBuilding) curObjBox->SetHeight(m_layer.m_dbfTable.doubleColumns[m_layer.m_dbfTable.heightPos][dataId], m_layer.m_dbfTable.doubleColumns[m_layer.m_dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent());
-		if (curObjBox->height > curNodeBox.height) curNodeBox.height = curObjBox->height;
+		if (m_layer.m_shapeType != 5 || isBuilding) curObjBox->SetHeight(dbfTable.doubleColumns[dbfTable.heightPos][dataId], dbfTable.doubleColumns[dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent(), isBuilding);
+		if (curObjBox->height > curNodeBox.height)  curNodeBox.height = curObjBox->height;
 		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상용)
 		return;
 	}
@@ -94,12 +94,12 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	int32_t childNodeType; // 어느 위치의 자식노드인지
 
 	if (dataCenter.y > nodeCenter.y) {
-		if (dataCenter.x < nodeCenter.x)  childNodeType = static_cast<int32_t>(NodeChild::NorthWest);
-		else							  childNodeType = static_cast<int32_t>(NodeChild::NorthEast);
+		if (dataCenter.x < nodeCenter.x) childNodeType = static_cast<int32_t>(NodeChild::NorthWest);
+		else							 childNodeType = static_cast<int32_t>(NodeChild::NorthEast);
 	}
 	else {
-		if (dataCenter.x < nodeCenter.x)  childNodeType = static_cast<int32_t>(NodeChild::SouthWest);
-		else							  childNodeType = static_cast<int32_t>(NodeChild::SouthEast);
+		if (dataCenter.x < nodeCenter.x) childNodeType = static_cast<int32_t>(NodeChild::SouthWest);
+		else							 childNodeType = static_cast<int32_t>(NodeChild::SouthEast);
 	}
 
 	int32_t childNodeId = curNode.m_childNodes[childNodeType];  // 목표 자식 노드 id

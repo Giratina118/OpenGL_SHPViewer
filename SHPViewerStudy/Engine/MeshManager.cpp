@@ -75,9 +75,9 @@ void MeshManager::BuildMesh()
 	glBindVertexArray(0);
 
 	// GPU 업로드 완료, CPU 사본 해제 (더 이상 안 쓰임)
-	m_polygonVertices.shrink_to_fit();
-	m_polygonIndices.shrink_to_fit();
-	m_lineIndices.shrink_to_fit();
+	//m_polygonVertices.shrink_to_fit();
+	//m_polygonIndices.shrink_to_fit();
+	//m_lineIndices.shrink_to_fit();
 }
 
 void MeshManager::BuildPointMesh()
@@ -128,10 +128,6 @@ void MeshManager::BuildPointMesh()
 		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
 		m_lineDrawInfos[dataId]    = { lineIndexStart, lineIndexCount, 0, 0 };
 	}
-
-	m_polygonVertices.shrink_to_fit();
-	m_polygonIndices.shrink_to_fit();
-	m_lineIndices.shrink_to_fit();
 }
 
 // 선(너비를 부여해 직사각형으로) 빌드
@@ -142,63 +138,103 @@ void MeshManager::BuildPolyLineMesh()
 	m_lineDrawInfos.resize(polyLineCount);
 	if (polyLineCount == 0) return;
 
+	// 사이즈 할당
+	size_t totalSegmentCount = 0;
+	for (const PolyObject& polyLine : m_layer.polyLineObjects) {
+		for (size_t partNum = 0; partNum < polyLine.parts.size(); partNum++) {
+			size_t startPoint = polyLine.parts[partNum];
+			size_t endPoint = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : polyLine.points.size();
+
+			if (endPoint > startPoint + 1) totalSegmentCount += endPoint - startPoint - 1;
+		}
+	}
+	m_polygonVertices.reserve(totalSegmentCount * 2);
+	m_polygonIndices.reserve (totalSegmentCount * 6);
+	m_lineIndices.reserve    (totalSegmentCount * 4);
+
+
 	for (int32_t dataId = 0; dataId < m_layer.polyLineObjects.size(); dataId++) {
 		PolyObject& polyLine = m_layer.polyLineObjects[dataId];
-		uint32_t polygonVertStart = (uint32_t)m_polygonVertices.size();
+		uint32_t polygonVertStart  = (uint32_t)m_polygonVertices.size();
 		uint32_t polygonIndexStart = (uint32_t)m_polygonIndices.size();
-		uint32_t lineIndexStart = (uint32_t)m_lineIndices.size();
+		uint32_t lineIndexStart    = (uint32_t)m_lineIndices.size();
 
-		m_polygonVertices.reserve(m_polygonVertices.size() + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
-		m_polygonIndices.reserve(m_polygonVertices.size()  + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 6);
-		m_lineIndices.reserve(m_polygonVertices.size()     + (((polyLine.points.size() - 1) > 0) ? (polyLine.points.size() - 1) : 0) * 4);
-
-		for (int32_t partNum = 0; partNum < polyLine.parts.size(); partNum++) {
+		for (size_t partNum = 0; partNum < polyLine.parts.size(); partNum++) {
 			int32_t startPoint = polyLine.parts[partNum];
-			int32_t endPoint = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : static_cast<int32_t>(polyLine.points.size());
-			for (int32_t pointNum = startPoint; pointNum < endPoint - 1; pointNum++) {
-				glm::dvec2 pointOrigin1 = polyLine.points[pointNum];
-				glm::dvec2 pointOrigin2 = polyLine.points[pointNum + 1];
-				glm::dvec2 lineDir = pointOrigin2 - pointOrigin1;   // 이 방향 벡터에 수직인 방향으로 두 point에 m_layer.m_objSize 만큼 떨어진 거리에 점 생성
-				glm::dvec2 widthDir = glm::normalize(glm::dvec2(-lineDir.y, lineDir.x));   // 수직 벡터(너비 방향 벡터)
-				glm::dvec2 widthValue = widthDir * m_layer.m_objSize;
+			int32_t endPoint   = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : static_cast<int32_t>(polyLine.points.size());
+			int32_t pointCount = endPoint - startPoint;
 
-				glm::dvec2 point1 = pointOrigin1 + widthValue;
-				glm::dvec2 point2 = pointOrigin1 - widthValue;
-				glm::dvec2 point3 = pointOrigin2 + widthValue;
-				glm::dvec2 point4 = pointOrigin2 - widthValue;
+			if (pointCount < 2) continue; // 점이 2개 미만이면 선 생성 불가
 
-				uint32_t pointVertexNum = (int32_t)m_polygonVertices.size();
+			uint32_t partBaseVertIdx = (uint32_t)m_polygonVertices.size();
 
-				m_polygonVertices.push_back({ (float)point1.x, (float)point1.y, 0.0, 200, 200, 50, 255 });
-				m_polygonVertices.push_back({ (float)point2.x, (float)point2.y, 0.0, 200, 200, 50, 255 });
-				m_polygonVertices.push_back({ (float)point3.x, (float)point3.y, 0.0, 200, 200, 50, 255 });
-				m_polygonVertices.push_back({ (float)point4.x, (float)point4.y, 0.0, 200, 200, 50, 255 });
+			for (int32_t i = 0; i < pointCount; i++) {
+				int32_t currIdx = startPoint + i;
+				glm::dvec2 currPt = polyLine.points[currIdx];
 
-				m_polygonIndices.push_back({ pointVertexNum });
-				m_polygonIndices.push_back({ pointVertexNum + 1 });
-				m_polygonIndices.push_back({ pointVertexNum + 2 });
-				m_polygonIndices.push_back({ pointVertexNum + 1 });
-				m_polygonIndices.push_back({ pointVertexNum + 2 });
-				m_polygonIndices.push_back({ pointVertexNum + 3 });
+				glm::dvec2 normal(0.0);
 
-				m_lineIndices.push_back({ pointVertexNum });
-				m_lineIndices.push_back({ pointVertexNum + 2 });
-				m_lineIndices.push_back({ pointVertexNum + 1 });
-				m_lineIndices.push_back({ pointVertexNum + 3 });
+				if (i == 0) {
+					// 1. 시작점: 첫 세그먼트의 수직 벡터
+					glm::dvec2 dir = glm::normalize(polyLine.points[currIdx + 1] - currPt);
+					normal = glm::dvec2(-dir.y, dir.x);
+				}
+				else if (i == pointCount - 1) {
+					// 2. 끝점: 마지막 세그먼트의 수직 벡터
+					glm::dvec2 dir = glm::normalize(currPt - polyLine.points[currIdx - 1]);
+					normal = glm::dvec2(-dir.y, dir.x);
+				}
+				else {
+					// 3. 중간 꺾임점 (Miter Joint): 이전/다음 세그먼트 수직 벡터의 평균
+					glm::dvec2 dirPrev = glm::normalize(currPt - polyLine.points[currIdx - 1]);
+					glm::dvec2 dirNext = glm::normalize(polyLine.points[currIdx + 1] - currPt);
+
+					glm::dvec2 normPrev(-dirPrev.y, dirPrev.x);
+					glm::dvec2 normNext(-dirNext.y, dirNext.x);
+
+					// 두 수직 벡터의 합을 정규화하여 꺾임 각도의 이등분선 수직 벡터 생성
+					normal = glm::normalize(normPrev + normNext);
+				}
+
+				glm::dvec2 widthValue = normal * m_layer.m_objSize;
+				glm::dvec2 ptLeft     = currPt + widthValue;
+				glm::dvec2 ptRight    = currPt - widthValue;
+
+				// 해당 점에서의 좌/우 버텍스 추가
+				m_polygonVertices.push_back({ (float)ptLeft.x,  (float)ptLeft.y,  (float)polyLine.mbrBox.height, 200, 200, 50, 255 });
+				m_polygonVertices.push_back({ (float)ptRight.x, (float)ptRight.y, (float)polyLine.mbrBox.height, 200, 200, 50, 255 });
+
+				// i >= 1 일 때부터 (이전 점 버텍스 2개) + (현재 점 버텍스 2개)로 사각형 인덱스 구성
+				if (i > 0) {
+					uint32_t prevLeft  = partBaseVertIdx + (i - 1) * 2;
+					uint32_t prevRight = partBaseVertIdx + (i - 1) * 2 + 1;
+					uint32_t currLeft  = partBaseVertIdx + i * 2;
+					uint32_t currRight = partBaseVertIdx + i * 2 + 1;
+
+					// 사각형 면 (삼각형 2개)
+					m_polygonIndices.push_back(prevLeft);
+					m_polygonIndices.push_back(prevRight);
+					m_polygonIndices.push_back(currLeft);
+					m_polygonIndices.push_back(prevRight);
+					m_polygonIndices.push_back(currRight);
+					m_polygonIndices.push_back(currLeft);
+
+					// 외각 라인 (좌측 선, 우측 선)
+					m_lineIndices.push_back(prevLeft);
+					m_lineIndices.push_back(currLeft);
+					m_lineIndices.push_back(prevRight);
+					m_lineIndices.push_back(currRight);
+				}
 			}
 		}
 
-		uint32_t polygonVertCount = (uint32_t)m_polygonVertices.size() - polygonVertStart;
-		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size() - polygonIndexStart;
-		uint32_t lineIndexCount = (uint32_t)m_lineIndices.size() - lineIndexStart;
+		uint32_t polygonVertCount  = (uint32_t)m_polygonVertices.size() - polygonVertStart;
+		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size()  - polygonIndexStart;
+		uint32_t lineIndexCount    = (uint32_t)m_lineIndices.size()     - lineIndexStart;
 
 		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
-		m_lineDrawInfos[dataId] = { lineIndexStart, lineIndexCount, 0, 0 };
+		m_lineDrawInfos[dataId]    = { lineIndexStart, lineIndexCount, 0, 0 };
 	}
-
-	m_polygonVertices.shrink_to_fit();
-	m_polygonIndices.shrink_to_fit();
-	m_lineIndices.shrink_to_fit();
 }
 
 // 면(지붕 + 벽) 메쉬 빌드. 폴리곤 객체만 대상
@@ -303,9 +339,6 @@ void MeshManager::BuildPolygonMesh()
 		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
 		m_lineDrawInfos[dataId] = { lineIndexStart, lineIndexCount, 0, 0 };
 	}
-	m_polygonVertices.shrink_to_fit();
-	m_polygonIndices.shrink_to_fit();
-	m_lineIndices.shrink_to_fit();
 }
 
 // 트리 빌드 후 각 노드의 LOD 메쉬 생성

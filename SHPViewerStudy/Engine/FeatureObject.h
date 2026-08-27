@@ -41,7 +41,7 @@ struct BoundingBox
 	double GetLengthX()    const { return maxX - minX; } // X축 길이 계산
 	double GetLengthY()    const { return maxY - minY; } // Y축 길이 계산
 	double GetMaxExtent()  const { return std::max(GetLengthX(), GetLengthY()); } // LOD용 최대 변 길이
-	void SetHeight(double heightData, double floorData, double nodeLength);
+	void SetHeight(double heightData, double floorData, double nodeLength, bool isBuilding);
     
 
 	BoundingBox GetLooseBox(double looseBoxRate) const; // 느슨한 박스 크기 계산

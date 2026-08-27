@@ -1,7 +1,7 @@
 #include <pch.h>
 #include "FeatureObject.h"
 
-void BoundingBox::SetHeight(double heightData, double floorData, double nodeLength)
+void BoundingBox::SetHeight(double heightData, double floorData, double nodeLength, bool isBuilding)
 {
     int32_t trashHeightDataLimit = 20;
 
@@ -9,7 +9,7 @@ void BoundingBox::SetHeight(double heightData, double floorData, double nodeLeng
         height = heightData;
     if (floorData != -1 && (height == 0 || height > floorData * trashHeightDataLimit))
         height = floorData * 3; // 1층 높아질 때마다 3미터 올라간다고 가정
-    if (height == 0)
+    if (height == 0 && isBuilding)
         height = std::min((GetLengthX() + GetLengthY()) * 0.5, nodeLength * 0.1);
 }
 

@@ -47,7 +47,7 @@ void DbfParser::DbfParse(vector<uint8_t>& buffer, DBFTable& dbfTable) {
 
         if (dbfTable.columns[i].name == "HEIGHT")   dbfTable.heightPos = dbfTable.columns[i].typeIndex;
         if (dbfTable.columns[i].name == "GRND_FLR") dbfTable.floorPos  = dbfTable.columns[i].typeIndex;
-        if (dbfTable.columns[i].name == "CONT")     dbfTable.heightPos = dbfTable.columns[i].typeIndex;
+        if (dbfTable.columns[i].name == "CONT")   { dbfTable.heightPos = dbfTable.columns[i].typeIndex; dbfTable.floorPos = 0; }
     }
 
     dbfTable.intColumns.resize    (dbfTable.intCount,    vector<int32_t>(rowCount));

@@ -207,8 +207,8 @@ void LayerManager::Render(CameraManager& camera, UISize& uiSize, glm::dvec3 hitP
         }
     }
 
-    if (m_uiState->isEditObjectMode) m_isHovering = false; // 에디트 모드 진입 시 호버링 잔상 강제 차단
-    if (m_isHovering)                m_hoverOverlay.Draw(m_colorMultiplierLocation);
+    if (m_uiState->isEditObjectMode || !m_uiState->isPickingMode) m_isHovering = false; // 에디트 모드 진입 시 호버링 잔상 강제 차단
+    if (m_isHovering) m_hoverOverlay.Draw(m_colorMultiplierLocation);
 
     m_editObject.DrawEditObject(m_colorMultiplierLocation);   // 에디트 모드일 때, 변환 중인 객체의 면과 외곽선 그리기
     m_editObject.DrawCreateObject(m_colorMultiplierLocation); // 객체 생성 모드일때 그리기
@@ -291,7 +291,7 @@ glm::dvec3 LayerManager::Picking(glm::dvec3& rayStart, glm::dvec3& rayDir, CRigh
     if (!pickedLayer || (pickedLayer->polygonObjects.empty() && pickedLayer->polyLineObjects.empty() && pickedLayer->pointObjects.empty()))
         return glm::dvec3();
 
-    if (m_pickingObjectId != -1 && !m_uiState->isCreateObjectMode)
+    if (m_pickingObjectId != -1 && !m_uiState->isCreateObjectMode && beforePickingObjectId != m_pickingObjectId)
         rightPanel.SetPickingInfo(pickedLayer->m_dbfTable.PrintAttribute(m_pickingObjectId));
 
     return rayStart + rayDir * collisionDistance;

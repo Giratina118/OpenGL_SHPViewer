@@ -135,7 +135,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	callback.visibilityCallbacks.onMap           = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
 	callback.visibilityCallbacks.onViewRange     = [this](int32_t value) { m_camera.SetViewRange(value);     m_layerManager.ReDraw(); SetFocus(); };
 
-	callback.pickingCallbacks.onPicking          = [this](bool value) { m_uiState.isPickingMode     = value; SetFocus(); };
+	callback.pickingCallbacks.onPicking          = [this](bool value) { m_uiState.isPickingMode     = value; if (!value) m_panelRight.Show(false);       m_layerManager.ReDraw(); SetFocus(); };
 	callback.pickingCallbacks.onThirdMode        = [this](bool value) { m_uiState.isCameraThirdMode = value; SetFocus(); };
 	callback.pickingCallbacks.onEditObjectMode   = [this](bool value) { m_uiState.isEditObjectMode  = value; if (value) m_uiState.isPickingMode = false; else m_layerManager.m_editObject.CancelEditObject(); m_layerManager.ReDraw(); SetFocus(); };
 	callback.pickingCallbacks.onEditObjectSave   = [this](bool value) { m_layerManager.m_editObject.SaveEditObject(m_layerManager.m_layers); m_layerManager.ReDraw(); SetFocus(); };
@@ -223,7 +223,6 @@ void CSHPViewerStudyView::OnLButtonDown(UINT nFlags, CPoint point)
 	}
 	if (m_uiState.isCreateObjectMode) {
 		m_uiState.isCreateObjectMode = false;
-		// TODO: 생성할 객체 자리 확정, 해당 레이어의 뒤에 새로 추가하기, DrawInfo 업데이트, mbr박스 계산, 쿼드트리 삽입
 		m_layerManager.m_editObject.SaveCreateObject(m_layerManager.m_layers);
 	}
 
