@@ -51,6 +51,8 @@ public:
 	void BuildFakeMeshes();   // LOD용 간략화된 메쉬 빌드
 	void BuildConvexHullNode(QuadTreeNode& node); // 노드 대표 메쉬, 볼록 껍질 빌드
 	void ApplyLevelColors(bool useLevelColor); // 라인/면 vertex 색상 다시 칠하기
+	std::vector<glm::dvec2> RamerDouglasPeucker(std::vector<glm::dvec2>& points); // 라인 간략화 알고리즘
+	void RDPEpsilon(std::vector<glm::dvec2>& points, std::vector<bool>& isSkipped, int32_t start, int32_t end, double epsilon);
 
 	std::vector<DrawInfo>& GetPolygonDrawInfo() { return m_polygonDrawInfos; } // 면 객체별 인덱스 범위 반환
 	std::vector<uint32_t>& GetPolygonIndices()  { return m_polygonIndices;   } // 면 인덱스 반환

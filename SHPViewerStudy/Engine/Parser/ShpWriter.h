@@ -1,5 +1,6 @@
 #pragma once
 #include "SwapEndian.h"
+#include "Parser/CoordinateSystem.h"
 #include "Layer.h"
 #include <fstream>
 
@@ -19,4 +20,6 @@ public:
     void WriteLEDouble(std::ofstream& out, double value) { out.write(reinterpret_cast<char*>(&value), 8); }
     int32_t PolyContentBytes(const PolyObject& obj) { return 4 + 32 + 4 + 4 + static_cast<int32_t>(obj.parts.size()) * 4 + static_cast<int32_t>(obj.points.size()) * 16;}
     int32_t PointContentBytes() { return 4 + 16; }
+
+    bool BuildInverseTransformedCopy(Layer& layer, std::vector<PolyObject>& polygonBackup, std::vector<PolyObject>& lineBackup, std::vector<PointObject>& pointBackup);
 };

@@ -12,6 +12,8 @@
 #include <limits>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "TimeDebug.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -71,6 +73,8 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	// shapefile 파싱
 	std::filesystem::path busanBuildingPath = std::filesystem::current_path() / "Resource" / "ShpFile" / "BusanBuilding" / "F_FAC_BUILDING_26_202606.shp";
 	m_shpLoader.Parse(busanBuildingPath, m_layerManager);
+	std::filesystem::path busanContourPath  = std::filesystem::current_path() / "Resource" / "ShpFile" / "BusanContour"  / "N3L_F0010000_26.shp";
+	m_shpLoader.Parse(busanContourPath, m_layerManager);
 
 	// UI 패널 생성
 	CRect rect;
@@ -589,12 +593,18 @@ void CSHPViewerStudyView::TestTimeAboutAltitude(double altitude)
 // 파일 끌어다 놓기
 void CSHPViewerStudyView::OnDropFiles(HDROP hDropInfo)
 {
+	auto totalStart = std::chrono::steady_clock::now();
+
+
 	TCHAR filePath[MAX_PATH];
 	DragQueryFile(hDropInfo, 0, filePath, MAX_PATH);
 	m_shpLoader.Parse(filePath, m_layerManager);
 
 	DragFinish(hDropInfo);
 	OpenFileCommon();
+
+
+	PrintElapsedTime(L"OnDropFiles 전체", totalStart);
 }
 
 // SHP 파일 직접 선택
@@ -645,9 +655,17 @@ void CSHPViewerStudyView::OnFileOpenFolder()
 // 파일 열기 공통 (파일 연 이후 공통동작)
 void CSHPViewerStudyView::OpenFileCommon()
 {
+	if (m_layerManager.m_layers.empty()) return;
+
+	// 렌더러가 없는 레이어(폴더로 여러 개 열었을 때 back() 외의 레이어들 포함)를 전부 초기화
+	for (auto& layer : m_layerManager.m_layers) {
+		if (layer && !layer->m_renderer)
+			layer->m_renderer = std::make_unique<Renderer>(m_hWnd, *layer, *layer->m_quadTree);
+	}
+
 	m_camera.Init(m_layerManager.m_layers.back()->m_boundingBox, m_uiSize.clientWidth - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), m_uiSize.clientHeight);
 	m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager);
-	m_layerManager.m_layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.m_layers.back(), *m_layerManager.m_layers.back()->m_quadTree);
+	//m_layerManager.m_layers.back()->m_renderer = std::make_unique<Renderer>(m_hWnd, *m_layerManager.m_layers.back(), *m_layerManager.m_layers.back()->m_quadTree);
 	m_layerManager.ReDraw();
 }
 

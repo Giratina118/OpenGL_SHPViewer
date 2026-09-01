@@ -5,6 +5,7 @@
 #include "glm/gtc/type_ptr.hpp"
 
 class Layer;
+class CoordinateSystem;
 
 // 타원체 정보
 struct Ellipsoid
@@ -43,6 +44,83 @@ struct Projected
     double unit; // 길이 단위 (미터)
 };
 
+// 좌표계 변환 시 사용하는 상수 저장
+struct EllipsoidParams
+{
+    bool   isBessel = false; // 베젤 타원체인지
+    double semiMajorAxis = 0.0; // 장반경
+    double semiMinorAxis = 0.0; // 단반경
+    double flattening    = 0.0; // 편평률
+
+    double eccentricity2       = 0.0; // 제1이심률 제곱, 타원체의 납작함을 나타내는 값
+    double eccentricity4       = 0.0; // 제1이심률 4제곱
+    double eccentricity6       = 0.0; // 제1이심률 6제곱
+    double secondEccentricity2 = 0.0; // 제2이심률 제곱
+
+    double eTemp1 = 0.0;
+    double eTemp2 = 0.0;
+
+    double footPointE1 = 0.0;
+    double footPointE2 = 0.0;
+    double footPointE3 = 0.0;
+    double footPointE4 = 0.0;
+
+    void Set(CoordinateSystem& coordinate);
+};
+
+struct ProjectionParams
+{
+    bool isProjected = false;
+
+    double angleUnit = 0.0;
+
+    double falseEasting  = 0.0;
+    double falseNorthing = 0.0;
+    double scaleFactor   = 1.0;
+    double latitudeOrigin  = 0.0;
+    double longitudeOrigin = 0.0;
+    double sinLat2 = 0.0;
+    double sinLat4 = 0.0;
+    double sinLat6 = 0.0;
+
+
+    double arcLength = 0.0;
+
+    double arcFactor0 = 0.0;
+    double arcFactor2 = 0.0;
+    double arcFactor4 = 0.0;
+    double arcFactor6 = 0.0;
+
+    void Set(CoordinateSystem& coordinate, EllipsoidParams& ellipsoid);
+};
+
+struct HelmertTransformParams
+{
+    double translationX = 0.0;
+    double translationY = 0.0;
+    double translationZ = 0.0;
+
+    double rotationX = 0.0;
+    double rotationY = 0.0;
+    double rotationZ = 0.0;
+
+    double scale = 1.0;
+
+    double pivotX = 0.0;
+    double pivotY = 0.0;
+    double pivotZ = 0.0;
+};
+
+// 좌표게 변환 시 사용하는 상수 파라미터 저장
+struct CoordinateTransformParameter
+{
+    EllipsoidParams  sourceEllipsoid;       // 출발 타원체
+    EllipsoidParams  destinationEllipsoid;  // 도착 타원체
+    ProjectionParams sourceProjection;      // 출발 좌표계
+    ProjectionParams destinationProjection; // 도착 좌표계
+    HelmertTransformParams helmert;         // 타원체 보정
+};
+
 // 좌표계 클래스
 class CoordinateSystem
 {
@@ -67,11 +145,16 @@ public:
 class CoordinateTransformer
 {
 public:
+    CoordinateTransformParameter parameter;
+
     void TransformCoordinate(CoordinateSystem& prjCoordinate, Layer& newLayer);
-    glm::dvec2 TransformPoint(glm::dvec2& point, CoordinateSystem& source, CoordinateSystem& destination);
-    void InverseProjection(glm::dvec2& point, CoordinateSystem& source); // 역투영
-    void Projection(glm::dvec2& point, CoordinateSystem& destination);   // 정투영
-    glm::dvec3 LLAtoECEF(glm::dvec2& llaPoint,  CoordinateSystem& source);
-    glm::dvec2 ECEFtoLLA(glm::dvec3& ecefPoint, CoordinateSystem& destination);
+    glm::dvec2 TransformPoint(glm::dvec2& point);
+    void InverseProjection(glm::dvec2& point); // 역투영
+    void Projection(glm::dvec2& point);   // 정투영
+    glm::dvec3 LLAtoECEF(glm::dvec2& llaPoint);
+    glm::dvec2 ECEFtoLLA(glm::dvec3& ecefPoint);
     void EllipsoidTransform(glm::dvec3& ecef);
+
+    glm::dvec2 TransformPointInverse(glm::dvec2& point);
+    void EllipsoidTransformInverse(glm::dvec3& ecef);
 };

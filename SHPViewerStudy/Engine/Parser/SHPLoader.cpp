@@ -6,9 +6,9 @@
 #include "DbfParser.h"
 #include "CoordinateSystem.h"
 #include "LayerManager.h"
-
-
 #include "ProjTransformer.h"
+
+#include "TimeDebug.h"
 
 void ShpfileHeader::ReadHeader(const uint8_t*& ptr)
 {
@@ -80,11 +80,13 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     if (!std::filesystem::exists(prjPath)) hasPrj = false;
 
     // 파일 열기
+    auto openFileStart = std::chrono::steady_clock::now();
 	std::vector<uint8_t> shpBuffer, shxBuffer, dbfBuffer, prjBuffer;
                shpBuffer = OpenFile(shpPath);
     if(hasShx) shxBuffer = OpenFile(shxPath);
     if(hasDbf) dbfBuffer = OpenFile(dbfPath);
     if(hasPrj) prjBuffer = OpenFile(prjPath);
+    PrintElapsedTime(L"파일 읽기", openFileStart);
 
 	// 헤더 파싱
                   shpPtr = shpBuffer.data(); shpHeader.ReadHeader(shpPtr);
@@ -97,9 +99,18 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     newLayer.m_filePath = shpPath;
 
 	// 레코드 파싱
+    auto shxStart = std::chrono::steady_clock::now();
     if (hasShx) shxParser.ShxParse(shxPtr,    shxRecords, shxHeader.fileLength); // shx 레코드 파싱
+    PrintElapsedTime(L"SHX 파싱", shxStart);
+
+    auto dbfStart = std::chrono::steady_clock::now();
     if (hasDbf) dbfParser.DbfParse(dbfBuffer, newLayer.m_dbfTable);              // dbf 헤더 + 레코드 파싱, layer.dbfTable에 저장
-                shpParser.ShpParse(shpBuffer, shxRecords, shpHeader, newLayer);  // shp 레코드 파싱,        layer에 저장
+    PrintElapsedTime(L"DBF 파싱", dbfStart);
+
+    auto shpStart = std::chrono::steady_clock::now();
+    shpParser.ShpParse(shpBuffer, shxRecords, shpHeader, newLayer);  // shp 레코드 파싱, layer에 저장
+    PrintElapsedTime(L"SHP 파싱", shpStart);
+
 
     if (newLayer.m_dbfTable.floorPos != -1 || newLayer.m_dbfTable.heightPos != -1) newLayer.m_isBuilding = true; // 높이/층수 정보가 있으면 건물 레이어로 간주
 
@@ -107,7 +118,14 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     // 좌표계 파싱 & 변환
     if (hasPrj) { 
         prjCoordinate.PrjParse(prjBuffer);
+
+
+        auto prjTransformStart = std::chrono::steady_clock::now();
         transformer.TransformCoordinate(prjCoordinate, newLayer);
+        PrintElapsedTime(L"좌표 변환", prjTransformStart);
+
+        newLayer.m_originalCoordinateSystem = prjCoordinate;
+        newLayer.m_hasOriginalPrj = true;
 
         /*
         // PROJ 라이브러리 사용

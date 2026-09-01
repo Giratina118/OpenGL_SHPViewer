@@ -36,7 +36,7 @@ private:
 	CRightPanel      m_panelRight;   // 우측 패널
 	LayerManager	 m_layerManager; // 레이어 클래스
 	SHPLoader        m_shpLoader;    // shp로더 클래스
-	CameraManager m_camera;       // 카메라 클래스
+	CameraManager    m_camera;       // 카메라 클래스
 
 	// 업데이트 주기 조절
 	std::chrono::steady_clock::time_point m_lastTime; // 측정 시간

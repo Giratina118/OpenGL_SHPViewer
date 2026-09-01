@@ -34,6 +34,7 @@ void ShpParser::ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxInd
             ptr = buffer.data() + shxIndex[recordNum].offset;
             ShpRecordHeader recordHeader;
             recordHeader.Read(ptr);
+            
             readFunc(ptr, objects[objectsOffset + recordNum]);
         }
 

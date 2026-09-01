@@ -1,6 +1,7 @@
 #pragma once
 #include "QuadTree.h"
 #include "Render/Renderer.h"
+#include "Parser/CoordinateSystem.h"
 #include <string>
 #include <unordered_map>
 #include <filesystem>
@@ -26,6 +27,10 @@ public:
 	std::unique_ptr<QuadTree> m_quadTree;
 	BoundingBox               m_boundingBox; // 레이어 전체 MBR, 루트노드 생성 시 사용
 	DBFTable                  m_dbfTable;    // dbf 데이터 테이블
+
+	CoordinateSystem m_originalCoordinateSystem; // 원본 .prj가 기술하던 좌표계 (저장 시 역변환용)
+	bool m_hasOriginalPrj = false;               // .prj가 있어서 로드 시 실제로 변환이 일어났는지
+
 
 	bool m_isVisible  = false; // 레이어 가시 상태
 	bool m_isBuilding = false; // 건물인지 여부

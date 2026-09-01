@@ -258,6 +258,7 @@ copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     <ClInclude Include="Engine\QuadTree.h" />
     <ClInclude Include="Engine\Render\Renderer.h" />
     <ClInclude Include="Engine\Render\ShaderLoadAndUse.h" />
+    <ClInclude Include="Engine\TimeDebug.h" />
     <ClInclude Include="Engine\Transform.h" />
     <ClInclude Include="Engine\Triangulate.h" />
     <ClInclude Include="Engine\VertexBuffer.h" />

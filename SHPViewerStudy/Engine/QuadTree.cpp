@@ -2,6 +2,7 @@
 #include "QuadTree.h"
 #include "CameraManager.h"
 #include "Layer.h"
+#include "TimeDebug.h"
 
 QuadTreeNode::QuadTreeNode(int32_t level, BoundingBox& mbrBox)
 {
@@ -12,12 +13,15 @@ QuadTreeNode::QuadTreeNode(int32_t level, BoundingBox& mbrBox)
 // ƒıµÂ∆Æ∏Æ ∫ÙµÂ
 void QuadTree::BuildQuadTree()
 {
+	auto quadTreeBuildStart = std::chrono::steady_clock::now();
+
 	m_maxLevel = 1;
 	m_nodes.clear();
 	m_objectLevels.clear();
 	m_visibleNodeIds.clear();
 	m_visibleNodeFakeObjIds.clear();
 
+	m_nodes.reserve(100000);
 	double layerLength = m_layer.m_boundingBox.GetMaxExtent();
 	if (m_layer.m_isBuilding) m_minNodeLength = 200.0;
 	while (layerLength > m_minNodeLength) { layerLength /= 2; m_maxLevel++; }
@@ -29,20 +33,30 @@ void QuadTree::BuildQuadTree()
 	m_objectLevels.assign(std::max({ m_layer.pointObjects.size(), m_layer.polyLineObjects.size(), m_layer.polygonObjects.size() }), 0);
 
 	int32_t objectsCount = static_cast<int32_t>(m_layer.pointObjects.size()); // ∆˜¿Œ∆Æ ∞¥√º ª¿‘
+
+	auto pointTreeInsertStart = std::chrono::steady_clock::now();
 	for (int objectNum = 0; objectNum < objectsCount; objectNum++) 
 		if (!m_layer.pointObjects[objectNum].isDeleted)            InsertData(rootNodeId, objectNum, m_layer.pointObjects[objectNum].mbrBox,    false);
+	PrintElapsedTime(L"Point ƒıµÂ∆Æ∏Æ ª¿‘", pointTreeInsertStart);
 
+	auto lineTreeInsertStart = std::chrono::steady_clock::now();
 	objectsCount = static_cast<int32_t>(m_layer.polyLineObjects.size());      // ∆˙∏Æ∂Û¿Œ ∞¥√º ª¿‘
 	for (int objectNum = 0; objectNum < objectsCount; objectNum++) InsertData(rootNodeId, objectNum, m_layer.polyLineObjects[objectNum].mbrBox, false);
+	PrintElapsedTime(L"Line ƒıµÂ∆Æ∏Æ ª¿‘", lineTreeInsertStart);
 
+	auto polygonTreeInsertStart = std::chrono::steady_clock::now();
 	objectsCount = static_cast<int32_t>(m_layer.polygonObjects.size());       // ∆˙∏Æ∞Ô ∞¥√º ª¿‘
 	for (int objectNum = 0; objectNum < objectsCount; objectNum++) InsertData(rootNodeId, objectNum, m_layer.polygonObjects[objectNum].mbrBox,  m_layer.m_isBuilding);
+	PrintElapsedTime(L"Polygon ƒıµÂ∆Æ∏Æ ª¿‘", polygonTreeInsertStart);
+
 
 	std::vector<std::vector<int>> levelInfo(m_maxLevel + 1, std::vector<int>(2, 0));
 	SettingHeight(0); // ≥ÎµÂ ≥Ù¿Ã º≥¡§
 
 	//for (auto& node : m_nodes) node.m_objectIds.shrink_to_fit();
 	//m_nodes.shrink_to_fit();
+
+	PrintElapsedTime(L"ƒıµÂ∆Æ∏Æ ¿¸√º", quadTreeBuildStart);
 }
 
 // µ•¿Ã≈Õ ª¿‘
@@ -402,17 +416,9 @@ void QuadTree::UpdateTransformObject(int32_t pickingNodeId, int32_t pickingDataI
 	auto it = std::find(objectIds.begin(), objectIds.end(), pickingDataId);
 	if (it != objectIds.end()) objectIds.erase(it);
 
-
 	switch (m_layer.m_shapeType) {
-	case 1:
-		InsertData(0, pickingDataId, m_layer.pointObjects[pickingDataId].mbrBox, false);
-		break;
-	case 3:
-		InsertData(0, pickingDataId, m_layer.polyLineObjects[pickingDataId].mbrBox, false);
-		break;
-	case 5:
-		InsertData(0, pickingDataId, m_layer.polygonObjects[pickingDataId].mbrBox, false);
-		break;
+	case 1: InsertData(0, pickingDataId, m_layer.pointObjects[pickingDataId].mbrBox, false);    break;
+	case 3: InsertData(0, pickingDataId, m_layer.polyLineObjects[pickingDataId].mbrBox, false); break;
+	case 5: InsertData(0, pickingDataId, m_layer.polygonObjects[pickingDataId].mbrBox, false);  break;
 	}
-
 }

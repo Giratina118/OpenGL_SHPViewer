@@ -181,6 +181,9 @@
     <ClInclude Include="Engine\Parser\DbfWriter.h">
       <Filter>Engine\Parser</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\TimeDebug.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Render\Renderer.cpp">

@@ -4,6 +4,7 @@
 #include "FeatureObject.h"
 #include "QuadTree.h"
 #include "Layer.h"
+#include "TimeDebug.h"
 
 bool MeshManager::InitRenderMesh()
 {
@@ -11,7 +12,11 @@ bool MeshManager::InitRenderMesh()
 	glGenBuffers(1, &m_visibleIBO);
 
 	BuildMesh();
+
+	std::chrono::steady_clock::time_point fakeMeshStart = std::chrono::steady_clock::now();
 	BuildFakeMeshes(); // fake object 활성화
+	PrintElapsedTime(L"BuildFakeMeshes", fakeMeshStart);
+
 
 	return true;
 }
@@ -52,6 +57,8 @@ void MeshManager::Shutdown()
 // 메쉬 빌드 진입점, 파일이 열리면 실행
 void MeshManager::BuildMesh()
 {
+	auto meshBuildStart = std::chrono::steady_clock::now();
+
 	// 모든 멤버 클리어
 	m_polygonVertices.clear();
 	m_polygonIndices.clear();
@@ -61,23 +68,38 @@ void MeshManager::BuildMesh()
 
 	switch (m_layer.m_shapeType) {
 	case 1: BuildPointMesh();    break;
-	case 3: BuildPolyLineMesh(); break; // 선 정점/인덱스 빌드, 선을 직사각형의 폴리곤으로 만들어 너비를 설정
-	case 5: BuildPolygonMesh();  break; // 면 정점/인덱스 빌드
+	case 3: {
+		auto lineMeshBuildStart = std::chrono::steady_clock::now();
+		BuildPolyLineMesh();
+		PrintElapsedTime(L"Build Line Mesh", lineMeshBuildStart);
+		break; // 선 정점/인덱스 빌드, 선을 직사각형의 폴리곤으로 만들어 너비를 설정
+	}
+	case 5: {
+		  auto polygonMeshBuildStart = std::chrono::steady_clock::now();
+		  BuildPolygonMesh();
+		  PrintElapsedTime(L"Build Polygon Mesh", polygonMeshBuildStart);
+		  break; // 면 정점/인덱스 빌드
+	}
 	}
 
 	// 기본 색상 적용 (레벨 색상 OFF 상태)
 	ApplyLevelColors(false);
 
 	// GPU 업로드  VBO 하나에 모든 정점
+	
+	auto meshUploadStart = std::chrono::steady_clock::now();
 	glBindVertexArray(m_polygonVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * m_polygonVertices.size(), m_polygonVertices.data(), GL_DYNAMIC_DRAW);
 	glBindVertexArray(0);
+	PrintElapsedTime(L"Mesh GPU 업로드", meshUploadStart);
 
 	// GPU 업로드 완료, CPU 사본 해제 (더 이상 안 쓰임)
 	//m_polygonVertices.shrink_to_fit();
 	//m_polygonIndices.shrink_to_fit();
 	//m_lineIndices.shrink_to_fit();
+
+	PrintElapsedTime(L"BuildMesh 전체", meshBuildStart);
 }
 
 void MeshManager::BuildPointMesh()
@@ -130,6 +152,7 @@ void MeshManager::BuildPointMesh()
 	}
 }
 
+
 // 선(너비를 부여해 직사각형으로) 빌드
 void MeshManager::BuildPolyLineMesh()
 {
@@ -149,66 +172,88 @@ void MeshManager::BuildPolyLineMesh()
 		}
 	}
 	m_polygonVertices.reserve(totalSegmentCount * 2);
-	m_polygonIndices.reserve (totalSegmentCount * 6);
-	m_lineIndices.reserve    (totalSegmentCount * 4);
+	m_polygonIndices.reserve(totalSegmentCount * 6);
+	m_lineIndices.reserve(totalSegmentCount * 4);
 
+
+	int64_t rdpTotalMicroseconds = 0;
+
+	std::vector<glm::dvec2> subPointsBuffer;
+	subPointsBuffer.reserve(100000);
 
 	for (int32_t dataId = 0; dataId < m_layer.polyLineObjects.size(); dataId++) {
 		PolyObject& polyLine = m_layer.polyLineObjects[dataId];
-		uint32_t polygonVertStart  = (uint32_t)m_polygonVertices.size();
+		uint32_t polygonVertStart = (uint32_t)m_polygonVertices.size();
 		uint32_t polygonIndexStart = (uint32_t)m_polygonIndices.size();
-		uint32_t lineIndexStart    = (uint32_t)m_lineIndices.size();
+		uint32_t lineIndexStart = (uint32_t)m_lineIndices.size();
 
 		for (size_t partNum = 0; partNum < polyLine.parts.size(); partNum++) {
 			int32_t startPoint = polyLine.parts[partNum];
-			int32_t endPoint   = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : static_cast<int32_t>(polyLine.points.size());
+			int32_t endPoint = (partNum + 1 < polyLine.parts.size()) ? polyLine.parts[partNum + 1] : static_cast<int32_t>(polyLine.points.size());
 			int32_t pointCount = endPoint - startPoint;
 
 			if (pointCount < 2) continue; // 점이 2개 미만이면 선 생성 불가
 
 			uint32_t partBaseVertIdx = (uint32_t)m_polygonVertices.size();
 
-			for (int32_t i = 0; i < pointCount; i++) {
-				int32_t currIdx = startPoint + i;
-				glm::dvec2 currPt = polyLine.points[currIdx];
+
+
+			auto rdpStart = std::chrono::steady_clock::now();
+			// 1. 만들어둔 버퍼에 값만 덮어씌움 (메모리 재할당 발생 안 함)
+			subPointsBuffer.assign(polyLine.points.begin() + startPoint, polyLine.points.begin() + endPoint);
+			// 2. 버퍼를 RDP에 전달
+			std::vector<glm::dvec2> points = RamerDouglasPeucker(subPointsBuffer);
+
+			rdpTotalMicroseconds += static_cast<int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - rdpStart).count());
+
+
+
+			int32_t pointsCount = static_cast<int32_t>(points.size());
+			if (pointsCount < 2) continue; // 간략화 후 점이 2개 미만이면 스킵
+
+			// 선분들의 방향(정규화) 벡터를 미리 캐싱해둠 (루프 내 중복 sqrt 연산 제거)
+			std::vector<glm::dvec2> segmentDirs(pointsCount - 1);
+			for (int32_t j = 0; j < pointsCount - 1; ++j)
+				segmentDirs[j] = glm::normalize(points[j + 1] - points[j]);
+			
+
+			// 3. 줄어든 점 개수(pointsCount)와 간략화된 배열(points)을 기준으로 루프 순회
+			for (int32_t i = 0; i < pointsCount; i++) {
+				glm::dvec2 currPt = points[i];
 
 				glm::dvec2 normal(0.0);
 
 				if (i == 0) {
-					// 1. 시작점: 첫 세그먼트의 수직 벡터
-					glm::dvec2 dir = glm::normalize(polyLine.points[currIdx + 1] - currPt);
+					glm::dvec2 dir = segmentDirs[0];
 					normal = glm::dvec2(-dir.y, dir.x);
 				}
-				else if (i == pointCount - 1) {
-					// 2. 끝점: 마지막 세그먼트의 수직 벡터
-					glm::dvec2 dir = glm::normalize(currPt - polyLine.points[currIdx - 1]);
+				else if (i == pointsCount - 1) {
+					glm::dvec2 dir = segmentDirs[i - 1];
 					normal = glm::dvec2(-dir.y, dir.x);
 				}
 				else {
-					// 3. 중간 꺾임점 (Miter Joint): 이전/다음 세그먼트 수직 벡터의 평균
-					glm::dvec2 dirPrev = glm::normalize(currPt - polyLine.points[currIdx - 1]);
-					glm::dvec2 dirNext = glm::normalize(polyLine.points[currIdx + 1] - currPt);
+					glm::dvec2 dirPrev = segmentDirs[i - 1];
+					glm::dvec2 dirNext = segmentDirs[i];
 
 					glm::dvec2 normPrev(-dirPrev.y, dirPrev.x);
 					glm::dvec2 normNext(-dirNext.y, dirNext.x);
 
-					// 두 수직 벡터의 합을 정규화하여 꺾임 각도의 이등분선 수직 벡터 생성
 					normal = glm::normalize(normPrev + normNext);
 				}
 
 				glm::dvec2 widthValue = normal * m_layer.m_objSize;
-				glm::dvec2 ptLeft     = currPt + widthValue;
-				glm::dvec2 ptRight    = currPt - widthValue;
+				glm::dvec2 ptLeft = currPt + widthValue;
+				glm::dvec2 ptRight = currPt - widthValue;
 
 				// 해당 점에서의 좌/우 버텍스 추가
 				m_polygonVertices.push_back({ (float)ptLeft.x,  (float)ptLeft.y,  (float)polyLine.mbrBox.height, 200, 200, 50, 255 });
 				m_polygonVertices.push_back({ (float)ptRight.x, (float)ptRight.y, (float)polyLine.mbrBox.height, 200, 200, 50, 255 });
 
-				// i >= 1 일 때부터 (이전 점 버텍스 2개) + (현재 점 버텍스 2개)로 사각형 인덱스 구성
+				// 사각형 및 라인 인덱스 구성
 				if (i > 0) {
-					uint32_t prevLeft  = partBaseVertIdx + (i - 1) * 2;
+					uint32_t prevLeft = partBaseVertIdx + (i - 1) * 2;
 					uint32_t prevRight = partBaseVertIdx + (i - 1) * 2 + 1;
-					uint32_t currLeft  = partBaseVertIdx + i * 2;
+					uint32_t currLeft = partBaseVertIdx + i * 2;
 					uint32_t currRight = partBaseVertIdx + i * 2 + 1;
 
 					// 사각형 면 (삼각형 2개)
@@ -226,15 +271,20 @@ void MeshManager::BuildPolyLineMesh()
 					m_lineIndices.push_back(currRight);
 				}
 			}
+
 		}
 
-		uint32_t polygonVertCount  = (uint32_t)m_polygonVertices.size() - polygonVertStart;
-		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size()  - polygonIndexStart;
-		uint32_t lineIndexCount    = (uint32_t)m_lineIndices.size()     - lineIndexStart;
+		uint32_t polygonVertCount = (uint32_t)m_polygonVertices.size() - polygonVertStart;
+		uint32_t polygonIndexCount = (uint32_t)m_polygonIndices.size() - polygonIndexStart;
+		uint32_t lineIndexCount = (uint32_t)m_lineIndices.size() - lineIndexStart;
 
 		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
-		m_lineDrawInfos[dataId]    = { lineIndexStart, lineIndexCount, 0, 0 };
+		m_lineDrawInfos[dataId] = { lineIndexStart, lineIndexCount, 0, 0 };
 	}
+
+	TCHAR debugText[256];
+	_stprintf_s(debugText, _T("[TIME] RDP 전체: %.3f ms\n"), rdpTotalMicroseconds / 1000.0);
+	OutputDebugString(debugText);
 }
 
 // 면(지붕 + 벽) 메쉬 빌드. 폴리곤 객체만 대상
@@ -259,6 +309,33 @@ void MeshManager::BuildPolygonMesh()
 		results[dataId].indices = m_triangulate.TriangulatePolygonCDT(m_layer.polygonObjects[dataId], results[dataId].vertices);
 	});
 
+	// 루프 돌기 전 밖에서 한 번에 계산
+	size_t totalVerts = 0;
+	size_t totalPolygonIndices = 0;
+	size_t totalLineIndices = 0;
+
+	for (int32_t i = 0; i < polygonCount; i++) {
+		if (m_layer.polygonObjects[i].isDeleted) continue;
+
+		const auto& poly = m_layer.polygonObjects[i];
+
+		// 1. 지붕 정점 및 인덱스 수
+		totalVerts += results[i].vertices.size();
+		totalPolygonIndices += results[i].indices.size();
+
+		// 2. 벽면 정점 수: 점 1개당 선분 1개라고 가정 시, 선분당 정점 4개 추가
+		totalVerts += poly.points.size() * 4;
+
+		// 3. 벽면 면 인덱스 수: 선분 1개당 삼각형 2개 = 인덱스 6개 추가
+		totalPolygonIndices += poly.points.size() * 6;
+
+		// 4. 벽면 라인 인덱스 수: 선분 1개당 선 2개 = 인덱스 4개 추가
+		totalLineIndices += poly.points.size() * 4;
+	}
+	m_polygonVertices.reserve(totalVerts);
+	m_polygonIndices.reserve(totalPolygonIndices);
+	m_lineIndices.reserve(totalLineIndices);
+
 	// shp에서 받아온 정점을 렌더링하기 위한 형태로 저장하기
 	for (int32_t dataId = 0; dataId < polygonCount; dataId++) {
 		PolyObject& polygon = m_layer.polygonObjects[dataId];
@@ -273,8 +350,8 @@ void MeshManager::BuildPolygonMesh()
 		}
 
 		// 지붕 정점
-		m_polygonVertices.reserve(m_polygonVertices.size() + results[dataId].vertices.size());
-		m_polygonVertices.reserve(m_polygonVertices.size() + polygon.parts.size());
+		//m_polygonVertices.reserve(m_polygonVertices.size() + results[dataId].vertices.size());
+		//m_polygonVertices.reserve(m_polygonVertices.size() + polygon.parts.size());
 		uint32_t roofVertexBase = (uint32_t)m_polygonVertices.size();
 		for (const auto& point : results[dataId].vertices)
 			m_polygonVertices.push_back({ (float)point.x, (float)point.y, (float)polygon.mbrBox.height, 190, 190, 220, 255 });
@@ -503,5 +580,77 @@ void MeshManager::ApplyLevelColors(bool useLevelColor)
 	if (!m_polygonVertices.empty()) {
 		glBindBuffer(GL_ARRAY_BUFFER, m_polygonVBO);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Vertex) * m_polygonVertices.size(), m_polygonVertices.data());
+	}
+}
+
+std::vector<glm::dvec2> MeshManager::RamerDouglasPeucker(std::vector<glm::dvec2>& points)
+{
+	double nearSkip = 1.0; // 두 점 간의 거리가 이보다 짧다면 해당 점을 건너뜀
+	double epsilon  = 2.0; // 두 점을 이은 선으로부터 이 범위 안에 들어온 점들은 생략
+
+	std::vector<glm::dvec2> nearSkipPoints, epsilonSkipPoints;
+	std::vector<bool> isSkipped;
+	nearSkipPoints.reserve(points.size());
+	epsilonSkipPoints.reserve(points.size());
+
+	for (glm::dvec2& point : points) {
+		if (!nearSkipPoints.empty() && (nearSkipPoints.back().x - point.x) * (nearSkipPoints.back().x - point.x) + (nearSkipPoints.back().y - point.y) * (nearSkipPoints.back().y - point.y) < nearSkip) continue;
+		nearSkipPoints.push_back(point);
+	}
+
+	// rdp 적용
+	isSkipped.resize(nearSkipPoints.size(), false);
+	RDPEpsilon(nearSkipPoints, isSkipped, 0, nearSkipPoints.size() - 1, epsilon * epsilon);
+
+	for (int32_t num = 0; num < isSkipped.size(); num++) {
+		if (isSkipped[num]) continue;
+		epsilonSkipPoints.push_back(nearSkipPoints[num]);
+	}
+	
+	return epsilonSkipPoints;
+}
+
+void MeshManager::RDPEpsilon(std::vector<glm::dvec2>& points, std::vector<bool>& isSkipped, int32_t start, int32_t end, double epsilonSq)
+{
+	if (end <= start + 1) return;
+
+	glm::dvec2 line = points[end] - points[start];
+	double lineLenSq = line.x * line.x + line.y * line.y;
+
+	int32_t farPointNum = -1;
+
+	if (line.x == 0.0 && line.y == 0.0) {
+		double  farDistanceSq = epsilonSq;
+		for (int32_t num = start + 1; num < end; num++) {
+			glm::dvec2 startToPoint = points[num] - points[start];
+			double distSq = startToPoint.x * startToPoint.x + startToPoint.y * startToPoint.y;
+			
+			if (distSq > farDistanceSq) {
+				farDistanceSq = distSq;
+				farPointNum = num;
+			}
+		}
+	}
+	else {
+		double  farDistance = epsilonSq * lineLenSq;
+		for (int32_t num = start + 1; num < end; num++) {
+			glm::dvec2 startToPoint = points[num] - points[start];
+
+			double cross = startToPoint.x * line.y - startToPoint.y * line.x;
+			double distance = cross * cross;
+			if (distance > farDistance) {
+				farDistance = distance;
+				farPointNum = num;
+			}
+		}
+	}
+
+	if (farPointNum != -1) {
+		RDPEpsilon(points, isSkipped, start, farPointNum, epsilonSq);
+		RDPEpsilon(points, isSkipped, farPointNum, end, epsilonSq);
+	}
+	else {
+		for (int32_t num = start + 1; num < end; num++)
+			isSkipped[num] = true;
 	}
 }
