@@ -34,6 +34,7 @@ public:
 
 	bool m_isVisible  = false; // 레이어 가시 상태
 	bool m_isBuilding = false; // 건물인지 여부
+	bool m_isContour  = false; // 등고선인지 여부
 	bool m_hasShx     = false; // .shx 파일 존재 여부
 	bool m_hasDbf     = false; // .dbf 파일 존재 여부
 	bool m_isDirty    = false; // 저장되지 않은 변경사항 존재 여부

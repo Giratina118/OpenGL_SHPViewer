@@ -110,6 +110,7 @@ void CoordinateTransformer::TransformCoordinate(CoordinateSystem& prjCoordinate,
     parameter.sourceProjection.Set(prjCoordinate, parameter.sourceEllipsoid);
     parameter.destinationEllipsoid.Set(destCoordinate);
     parameter.destinationProjection.Set(destCoordinate, parameter.destinationEllipsoid);
+    parameter.helmert.Set();
 
     if (prjCoordinate.pcs.name != destCoordinate.pcs.name || prjCoordinate.gcs.name != destCoordinate.gcs.name) {
         double layerMinX, layerMinY, layerMaxX, layerMaxY;
@@ -203,9 +204,7 @@ void CoordinateTransformer::InverseProjection(glm::dvec2& point)
     point.x /= proj.scaleFactor;
     point.y /= proj.scaleFactor;
 
-    double baseLatitude = (proj.arcLength + point.y) / (ellipsoid.semiMajorAxis * ellipsoid.eTemp1);
-    double sinBaseLat   = glm::sin(2.0 * baseLatitude);
-
+    double baseLatitude = (proj.arcLength + point.y) / (ellipsoid.semiMajorAxis * ellipsoid.arcFactor0);
     double footpointLatitude = baseLatitude
         + (3.0    * ellipsoid.footPointE1 / 2.0  - 27.0 * ellipsoid.footPointE3 / 32.0) * glm::sin(2.0 * baseLatitude)
         + (21.0   * ellipsoid.footPointE2 / 16.0 - 55.0 * ellipsoid.footPointE4 / 32.0) * glm::sin(4.0 * baseLatitude)
@@ -216,11 +215,11 @@ void CoordinateTransformer::InverseProjection(glm::dvec2& point)
     double sinLat = glm::sin(footpointLatitude);
     double cosLat = glm::cos(footpointLatitude);
     double tanLat = sinLat / cosLat;
-    double eTemp3 = glm::sqrt(1.0 - ellipsoid.eccentricity2 * sinLat * sinLat); // 재활용을 위한 이심률 중간식 3
+    double eTemp = glm::sqrt(1.0 - ellipsoid.eccentricity2 * sinLat * sinLat); // 재활용을 위한 이심률 중간식
 
     // 발 위도에서의 지구 곡률 파라미터 계산, 발 위도 위치에서 지구가 가로/세로로 각각 얼마나 휘어있는지 반지름을 구하고 보정용 변수를 만듦
-    double transverseRadius = ellipsoid.semiMajorAxis / eTemp3; // 가로 곡률 반경
-    double meridionalRadius = ellipsoid.semiMajorAxis * (1.0 - ellipsoid.eccentricity2) / (eTemp3 * eTemp3 * eTemp3); // 세로 곡률 반경
+    double transverseRadius = ellipsoid.semiMajorAxis / eTemp; // 가로 곡률 반경
+    double meridionalRadius = ellipsoid.semiMajorAxis * (1.0 - ellipsoid.eccentricity2) / (eTemp * eTemp * eTemp); // 세로 곡률 반경
 
     // 각도 임시 변수, 테일러 급수에 들어갈 삼각함수 임시 값들
     double tanLat2 = tanLat * tanLat;
@@ -228,11 +227,11 @@ void CoordinateTransformer::InverseProjection(glm::dvec2& point)
     double d = point.x / transverseRadius; // 가로 이동 각도 비율, 순수 가로 이동 거리를 횡곡률로 나누어 라디안 형태의 각도 비율로 만든다
 
     // 테일러 급수 차수 증가
-    double d2 = d * d,   d3 = d * d2,  d4 = d * d3,  d5 = d * d4;
-    double d6 = d * d5,  d7 = d * d6,  d8 = d * d7;
+    double d2 = d  * d,  d3 = d2 * d,  d4 = d3 * d,  d5 = d4 * d;
+    double d6 = d5 * d,  d7 = d6 * d,  d8 = d7 * d;
     double se2CosLat4 = se2CosLat2 * se2CosLat2;
     double tanLat4 = tanLat2 * tanLat2;
-    double tanLat6 = tanLat2 * tanLat4;
+    double tanLat6 = tanLat4 * tanLat2;
 
     double latitudeRadian = footpointLatitude - (transverseRadius * tanLat / meridionalRadius) * (d2 / 2.0
         - (5.0  + 3.0  * tanLat2 + 10.0  * se2CosLat2 - 4.0  * se2CosLat4 - 9.0 * ellipsoid.secondEccentricity2) * d4 / 24.0
@@ -258,10 +257,10 @@ void CoordinateTransformer::Projection(glm::dvec2& point)
     double latitudeRadian  = point.y * proj.angleUnit; // 현재 위도
 
     // 자오선 호 길이 차이
-    double arcLengthDelta = ellipsoid.semiMajorAxis * (proj.arcFactor0 * (latitudeRadian - proj.latitudeOrigin)
-        - proj.arcFactor2 * (glm::sin(2.0 * latitudeRadian) - proj.sinLat2)
-        + proj.arcFactor4 * (glm::sin(4.0 * latitudeRadian) - proj.sinLat4)
-        - proj.arcFactor6 * (glm::sin(6.0 * latitudeRadian) - proj.sinLat6));
+    double arcLengthDelta = ellipsoid.semiMajorAxis * (ellipsoid.arcFactor0 * (latitudeRadian - proj.latitudeOrigin)
+        - ellipsoid.arcFactor2 * (glm::sin(2.0 * latitudeRadian) - proj.sinLat2)
+        + ellipsoid.arcFactor4 * (glm::sin(4.0 * latitudeRadian) - proj.sinLat4)
+        - ellipsoid.arcFactor6 * (glm::sin(6.0 * latitudeRadian) - proj.sinLat6));
 
     double sinLat = glm::sin(latitudeRadian);
     double cosLat = glm::cos(latitudeRadian);
@@ -273,13 +272,13 @@ void CoordinateTransformer::Projection(glm::dvec2& point)
     double lonFactor = (longitudeRadian - proj.longitudeOrigin) * cosLat; // 경도차 보정 항
 
     // 테일러 급수 차수 증가
-    double lonFactor2 = lonFactor * lonFactor;
-    double lonFactor3 = lonFactor * lonFactor2;
-    double lonFactor4 = lonFactor * lonFactor3;
-    double lonFactor5 = lonFactor * lonFactor4;
-    double lonFactor6 = lonFactor * lonFactor5;
-    double lonFactor7 = lonFactor * lonFactor6;
-    double lonFactor8 = lonFactor * lonFactor7;
+    double lonFactor2 = lonFactor  * lonFactor;
+    double lonFactor3 = lonFactor2 * lonFactor;
+    double lonFactor4 = lonFactor3 * lonFactor;
+    double lonFactor5 = lonFactor4 * lonFactor;
+    double lonFactor6 = lonFactor5 * lonFactor;
+    double lonFactor7 = lonFactor6 * lonFactor;
+    double lonFactor8 = lonFactor7 * lonFactor;
 
     point.x = transverseRadius * (lonFactor + (1.0 - tanLat2 + se2CosLat2) * lonFactor3 / 6.0
         + (5.0 - 18.0 * tanLat2 + tanLat2 * tanLat2 + 14.0 * se2CosLat2 - 58.0 * tanLat2 * se2CosLat2) * lonFactor5 / 120.0
@@ -349,41 +348,23 @@ void CoordinateTransformer::EllipsoidTransform(glm::dvec3& ecefPoint)
     // 회전 수치는 도가 아니라 초 단위, 도 단위로 변환 후 라디안으로 바꿔 사용해야 함
     // 보정 계수의 단위는 ppm(백만분율), 수식에 적용할 때는 1 + (6.342 * 10^{-6}) 형태로 적용해야 함
 
-    // 이동 계수
-    double dx = -145.907;
-    double dy =  505.034;
-    double dz =  685.756;
-
-    // 회전 계수
-    double arcSecToRadian = glm::pi<double>() / 648000.0;
-    double rx = -1.162 * arcSecToRadian;
-    double ry =  2.347 * arcSecToRadian;
-    double rz =  1.592 * arcSecToRadian;
-
-    // 보정 계수
-    double s = 6.342 * 0.000001; 
-
-    // 회전 중심점 (미터)
-    double px = -3159521.31;
-    double py =  4068151.32;
-    double pz =  3748113.85;
+    auto& helmert = parameter.helmert;
 
     // 회전 중심점을 원점으로 이동 (Origin Shift)
-    double x0 = ecefPoint.x - px;
-    double y0 = ecefPoint.y - py;
-    double z0 = ecefPoint.z - pz;
+    double x0 = ecefPoint.x - helmert.pivotX;
+    double y0 = ecefPoint.y - helmert.pivotY;
+    double z0 = ecefPoint.z - helmert.pivotZ;
 
     // 미세 회전 및 스케일 적용 (Small Angle Approximation 행렬)
     // 회전각이 극히 작으므로 sin(r) = r, cos(r) = 1 로 근사화된 3x3 행렬을 사용합니다.
-    double scale = 1.0 + s;
-    double xRot = scale * ( x0 + rz * y0 - ry * z0);
-    double yRot = scale * (-rz * x0 + y0 + rx * z0);
-    double zRot = scale * ( ry * x0 - rx * y0 + z0);
+    double xRot = helmert.scale * ( x0 + helmert.rotationX * y0 - helmert.rotationY * z0);
+    double yRot = helmert.scale * (-helmert.rotationZ * x0 + y0 + helmert.rotationX * z0);
+    double zRot = helmert.scale * (helmert.rotationY * x0 - helmert.rotationX * y0 + z0);
 
     // 회전 중심점 원복 및 원점 이동량(Translation) 최종 적용
-    ecefPoint.x = xRot + px + dx;
-    ecefPoint.y = yRot + py + dy;
-    ecefPoint.z = zRot + pz + dz;
+    ecefPoint.x = xRot + helmert.pivotX + helmert.translationX;
+    ecefPoint.y = yRot + helmert.pivotY + helmert.translationY;
+    ecefPoint.z = zRot + helmert.pivotZ + helmert.translationZ;
 }
 
 int CoordinateSystem::GuessEpsg() const
@@ -490,18 +471,22 @@ void EllipsoidParams::Set(CoordinateSystem& coordinate)
     flattening    = 1.0 / coordinate.gcs.ellipsoid.inverseFlattening; // 편평률
     semiMajorAxis = coordinate.gcs.ellipsoid.semiMajorAxis; // 장반경
     semiMinorAxis = semiMajorAxis * (1.0 - flattening);           // 단반경
+
     eccentricity2 = 2.0 * flattening - flattening * flattening;   // 제1이심률 제곱, 타원체의 납작함을 나타내는 값
     eccentricity4 = eccentricity2 * eccentricity2;
-    eccentricity6 = eccentricity2 * eccentricity4;
+    eccentricity6 = eccentricity4 * eccentricity2;
     secondEccentricity2 = eccentricity2 / (1.0 - eccentricity2);
 
-    eTemp1 = (1 - eccentricity2 / 4.0 - 3.0 * eccentricity4 / 64.0 - 5.0 * eccentricity6 / 256.0); // 재활용을 위한 이심률 중간식
-    eTemp2 = glm::sqrt(1.0 - eccentricity2); // 재활용을 위한 이심률 중간식 2
+    arcFactor0 = 1.0 - eccentricity2 / 4.0 - 3.0 * eccentricity4 / 64.0 - 5.0 * eccentricity6 / 256.0;
+    arcFactor2 = 3.0 * eccentricity2 / 8.0 + 3.0 * eccentricity4 / 32.0 + 45.0 * eccentricity6 / 1024.0;
+    arcFactor4 = 15.0 * eccentricity4 / 256.0 + 45.0 * eccentricity6 / 1024.0;
+    arcFactor6 = 35.0 * eccentricity6 / 3072.0;
 
-    footPointE1 = (1.0 - eTemp2) / (1.0 + eTemp2); // 보정 상수, 발 위도용 이심률
+    double eTemp = glm::sqrt(1.0 - eccentricity2); // 계산을 위한 이심률 중간식
+    footPointE1 = (1.0 - eTemp) / (1.0 + eTemp); // 보정 상수, 발 위도용 이심률
     footPointE2 = footPointE1 * footPointE1;
-    footPointE3 = footPointE1 * footPointE2;
-    footPointE4 = footPointE1 * footPointE3;
+    footPointE3 = footPointE2 * footPointE1;
+    footPointE4 = footPointE3 * footPointE1;
     isBessel = coordinate.gcs.ellipsoid.name.find("bessel") != std::string::npos;
 }
 
@@ -515,19 +500,34 @@ void ProjectionParams::Set(CoordinateSystem& coordinate, EllipsoidParams& ellips
     longitudeOrigin = parameters[Parameter::CentralMeridian]  * coordinate.gcs.unit;
 
     sinLat2 = glm::sin(2.0 * latitudeOrigin);
-    sinLat4 = glm::sin(2.0 * latitudeOrigin);
-    sinLat6 = glm::sin(2.0 * latitudeOrigin);
+    sinLat4 = glm::sin(4.0 * latitudeOrigin);
+    sinLat6 = glm::sin(6.0 * latitudeOrigin);
 
-    arcLength = ellipsoid.semiMajorAxis * (ellipsoid.eTemp1 * latitudeOrigin
-        - (3.0  * ellipsoid.eccentricity2 / 8.0   + 3.0  * ellipsoid.eccentricity4 / 32.0 + 45.0 * ellipsoid.eccentricity6 / 1024.0) * glm::sin(2.0 * latitudeOrigin)
-        + (15.0 * ellipsoid.eccentricity4 / 256.0 + 45.0 * ellipsoid.eccentricity6 / 1024.0) * glm::sin(4.0 * latitudeOrigin)
-        - (35.0 * ellipsoid.eccentricity6 / 3072.0) * glm::sin(6.0 * latitudeOrigin));
+    arcLength = ellipsoid.semiMajorAxis * (ellipsoid.arcFactor0 * latitudeOrigin
+        - ellipsoid.arcFactor2 * sinLat2 + ellipsoid.arcFactor4 * sinLat4 - ellipsoid.arcFactor6 * sinLat6);
 
-    arcFactor0 = 1.0  - ellipsoid.eccentricity2 / 4.0   - 3.0  * ellipsoid.eccentricity4 / 64.0 - 5.0  * ellipsoid.eccentricity6 / 256.0;
-    arcFactor2 = 3.0  * ellipsoid.eccentricity2 / 8.0   + 3.0  * ellipsoid.eccentricity4 / 32.0 + 45.0 * ellipsoid.eccentricity6 / 1024.0;
-    arcFactor4 = 15.0 * ellipsoid.eccentricity4 / 256.0 + 45.0 * ellipsoid.eccentricity6 / 1024.0;
-    arcFactor6 = 35.0 * ellipsoid.eccentricity6 / 3072.0;
-
-    angleUnit = coordinate.gcs.unit;
+    angleUnit   = coordinate.gcs.unit;
     isProjected = coordinate.isProjected;
+}
+
+void HelmertTransformParams::Set()
+{
+    // 이동 계수
+    translationX = -145.907;
+    translationY = 505.034;
+    translationZ = 685.756;
+
+    // 회전 계수
+    double arcSecToRadian = glm::pi<double>() / 648000.0;
+    rotationX = -1.162 * arcSecToRadian;
+    rotationY = 2.347 * arcSecToRadian;
+    rotationZ = 1.592 * arcSecToRadian;
+
+    // 보정 계수
+    scale = 1.0 + 6.342 * 0.000001;
+
+    // 회전 중심
+    pivotX = -3159521.31;
+    pivotY = 4068151.32;
+    pivotZ = 3748113.85;
 }

@@ -41,7 +41,7 @@ struct BoundingBox
 	double GetLengthX()    const { return maxX - minX; } // X축 길이 계산
 	double GetLengthY()    const { return maxY - minY; } // Y축 길이 계산
 	double GetMaxExtent()  const { return std::max(GetLengthX(), GetLengthY()); } // LOD용 최대 변 길이
-	void SetHeight(double heightData, double floorData, double nodeLength, bool isBuilding);
+	void SetHeight(double contPos, double heightData, double floorData, double nodeLength, bool isBuilding);
     
 
 	BoundingBox GetLooseBox(double looseBoxRate) const; // 느슨한 박스 크기 계산
@@ -60,6 +60,7 @@ public:
 	uint32_t    shapeType; // 객체 타입 (1: Point, 3: PolyLine, 5: Polygon, 8: MultiPoint, 31: MultiPatch)
     BoundingBox mbrBox;    // 객체 MBR
 	bool        isDeleted = false;
+	int32_t     dbfRecordId = -1;
 };
 
 class PointObject : public ObjectBase

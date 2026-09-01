@@ -29,6 +29,44 @@ void ShpParser::ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxInd
     auto parseLoop = [&]<typename TObject>(std::vector<TObject>&objects, auto readFunc)
     {
         int32_t objectsOffset = static_cast<int32_t>(objects.size());
+        objects.reserve(objectsOffset + recordCount);
+
+        for (size_t recordNum = 0; recordNum < recordCount; recordNum++) {
+            if (layer.m_shapeType == 3 && layer.m_dbfTable.contPos != -1) {
+                double cont = layer.m_dbfTable.doubleColumns[layer.m_dbfTable.contPos][recordNum];
+                double remainder = std::fmod(std::abs(cont), m_contourInterver);
+
+                if (remainder > 1e-6)
+                    continue;
+            }
+
+            ptr = buffer.data() + shxIndex[recordNum].offset;
+            ShpRecordHeader recordHeader;
+            recordHeader.Read(ptr);
+
+            TObject obj;
+            if constexpr (std::is_same_v<TObject, PolyObject>)
+                obj.dbfRecordId = static_cast<int32_t>(recordNum);
+
+            readFunc(ptr, obj);
+            objects.push_back(std::move(obj));
+        }
+
+        if (recordCount < 1) {
+            while (ptr < end) {
+                ShpRecordHeader recordHeader;
+                recordHeader.Read(ptr);
+
+                TObject obj;
+                readFunc(ptr, obj);
+                objects.push_back(std::move(obj));
+            }
+        }
+    };
+    /*
+    auto parseLoop = [&]<typename TObject>(std::vector<TObject>&objects, auto readFunc)
+    {
+        int32_t objectsOffset = static_cast<int32_t>(objects.size());
         objects.resize(objectsOffset + recordCount);
         for (size_t recordNum = 0; recordNum < recordCount; recordNum++) {
             ptr = buffer.data() + shxIndex[recordNum].offset;
@@ -47,7 +85,7 @@ void ShpParser::ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxInd
 			}
         }
     };
-
+    */
     switch (fileHeader.shapeType) {
     case 1:  parseLoop(layer.pointObjects,    [&](const uint8_t*& ptr, PointObject& obj) { ReadPoint (ptr, obj); }); break;
     case 11: parseLoop(layer.pointObjects,    [&](const uint8_t*& ptr, PointObject& obj) { ReadPointZ(ptr, obj); }); break;

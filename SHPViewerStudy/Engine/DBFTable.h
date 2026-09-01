@@ -52,6 +52,7 @@ struct DBFTable
     uint32_t boolCount   = 0;
     int32_t  heightPos   = -1;
     int32_t  floorPos    = -1;
+    int32_t  contPos   = -1;
 
     std::vector<ColumnInfo> columns;
     std::vector<std::vector<int32_t>> intColumns;

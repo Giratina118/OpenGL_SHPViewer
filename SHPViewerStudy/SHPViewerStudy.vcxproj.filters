@@ -29,6 +29,9 @@
     <Filter Include="App\MFC_Original">
       <UniqueIdentifier>{1ea7a9ec-6ed5-4947-bd72-2ac924de344d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Engine\Map">
+      <UniqueIdentifier>{3c469b36-2e0b-46ab-bfab-a7625e604fd3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="App\SHPViewerStudy.rc">
@@ -43,6 +46,12 @@
       <Filter>Resource\Shader</Filter>
     </None>
     <None Include="Resource\Shader\shader.vert">
+      <Filter>Resource\Shader</Filter>
+    </None>
+    <None Include="Resource\Shader\map.vert">
+      <Filter>Resource\Shader</Filter>
+    </None>
+    <None Include="Resource\Shader\map.frag">
       <Filter>Resource\Shader</Filter>
     </None>
   </ItemGroup>
@@ -184,6 +193,18 @@
     <ClInclude Include="Engine\TimeDebug.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Map\VWorldDownloader.h">
+      <Filter>Engine\Map</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Map\VWorldTexture.h">
+      <Filter>Engine\Map</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Map\stb_image.h">
+      <Filter>Engine\Map</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Map\VWorldMapManager.h">
+      <Filter>Engine\Map</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Render\Renderer.cpp">
@@ -278,6 +299,15 @@
     </ClCompile>
     <ClCompile Include="Engine\Parser\DbfWriter.cpp">
       <Filter>Engine\Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Map\VWorldDownloader.cpp">
+      <Filter>Engine\Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Map\VWorldTexture.cpp">
+      <Filter>Engine\Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Map\VWorldMapManager.cpp">
+      <Filter>Engine\Map</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

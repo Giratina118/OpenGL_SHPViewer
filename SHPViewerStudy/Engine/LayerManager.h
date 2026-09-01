@@ -4,6 +4,7 @@
 #include "Parser/ShpWriter.h"
 #include <variant>
 #include <unordered_map>
+#include "Map/VWorldMapManager.h"
 
 class LayerManager
 {
@@ -50,6 +51,9 @@ public:
 	int32_t m_pickingObjectId = -1; // 피킹한 객체의 아이디, 이전 피킹과 현재 피킹 객체가 같은지 아닌지 판별 시 사용하기 위해 저장
 	int32_t m_pickingNodeId   = -1; // 피킹한 객체의 노드 아이디
 
+
+	VWorldMapManager m_mapManager;
+
 public:
 	LayerManager() = default;
 	~LayerManager() { Shutdown(); }
@@ -78,4 +82,6 @@ public:
 
 	bool SaveLayer(int32_t layerId); // 레이어 저장
 	std::vector<int32_t> GetDirtyLayerIds(bool onlySelectedOrVisible) const; // 수정된(저장해야 하는) 레이어 아이디 반환
+
+	bool InitMap(const std::wstring& apiKey) { return m_mapManager.Initialize(apiKey); }
 };

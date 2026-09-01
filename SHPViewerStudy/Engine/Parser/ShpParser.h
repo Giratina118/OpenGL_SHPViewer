@@ -24,6 +24,8 @@ struct ShpRecordHeader {
 class ShpParser
 {
 public:
+	int32_t m_contourInterver = 50; // 등고선 간격 (dbf에서 읽어옴)
+
     void ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxIndex, ShpfileHeader fileHeader, Layer& layer);
 
 private:

@@ -210,6 +210,8 @@ copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     <ResourceCompile Include="App\SHPViewerStudy.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resource\Shader\map.frag" />
+    <None Include="Resource\Shader\map.vert" />
     <None Include="Resource\Shader\shader.frag" />
     <None Include="Resource\Shader\shader.vert" />
     <None Include="res\SHPViewerStudy.rc2" />
@@ -240,6 +242,10 @@ copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     <ClInclude Include="App\UI\UIState.h" />
     <ClInclude Include="Engine\EditObject.h" />
     <ClInclude Include="Engine\LayerManager.h" />
+    <ClInclude Include="Engine\Map\stb_image.h" />
+    <ClInclude Include="Engine\Map\VWorldDownloader.h" />
+    <ClInclude Include="Engine\Map\VWorldMapManager.h" />
+    <ClInclude Include="Engine\Map\VWorldTexture.h" />
     <ClInclude Include="Engine\MeshManager.h" />
     <ClInclude Include="Engine\CameraManager.h" />
     <ClInclude Include="Engine\ColorData.h" />
@@ -280,6 +286,9 @@ copy /Y "$(ProjectDir)Resource\lib\z.dll" "$(OutDir)."</Command>
     <ClCompile Include="App\UI\CVisibilityPage.cpp" />
     <ClCompile Include="Engine\EditObject.cpp" />
     <ClCompile Include="Engine\LayerManager.cpp" />
+    <ClCompile Include="Engine\Map\VWorldDownloader.cpp" />
+    <ClCompile Include="Engine\Map\VWorldMapManager.cpp" />
+    <ClCompile Include="Engine\Map\VWorldTexture.cpp" />
     <ClCompile Include="Engine\MeshManager.cpp" />
     <ClCompile Include="Engine\CameraManager.cpp" />
     <ClCompile Include="Engine\DBFTable.cpp" />

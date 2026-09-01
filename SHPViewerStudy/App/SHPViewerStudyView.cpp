@@ -86,8 +86,13 @@ int CSHPViewerStudyView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	
 	// 카메라 초기화, UI 패널 부분 남기기
 	m_camera.Init(m_layerManager.m_layers.back()->m_boundingBox, rect.Width() - m_panelLeft.GetWidth() - m_panelRight.GetWidth(), rect.Height());
-	m_layerManager.InitRenderer(m_hWnd, &m_uiState); // 렌더 초기화
+
+	// 렌더 초기화
+	if (!m_layerManager.InitRenderer(m_hWnd, &m_uiState))                 return -1;
+	if (!m_layerManager.InitMap(L"154D5395-08E5-4375-A82F-10CCC9F63D52")) return -1;
+
 	m_panelLeft.m_pageControl.RefreshLayerList(m_layerManager);
+
 
 	m_lastTime = std::chrono::steady_clock::now();
 	SetTimer(1, 8, nullptr); // 8ms마다 WM_TIMER -> OnTimer함수 호출

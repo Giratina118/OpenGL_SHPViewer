@@ -49,7 +49,6 @@ vector<uint8_t> SHPLoader::OpenFile(const std::filesystem::path& filePath)
     return buffer;
 }
 
-// TODO: 현재는 shx와 dbf가 없으면 안 열리도록 되어있지만 추후에 두 가지가 없어도 열리도록 수정
 void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager)
 {
     // 파서 생성
@@ -107,12 +106,12 @@ void SHPLoader::Parse(std::filesystem::path filePath, LayerManager& layerManager
     if (hasDbf) dbfParser.DbfParse(dbfBuffer, newLayer.m_dbfTable);              // dbf 헤더 + 레코드 파싱, layer.dbfTable에 저장
     PrintElapsedTime(L"DBF 파싱", dbfStart);
 
+    if (newLayer.m_dbfTable.floorPos != -1 || newLayer.m_dbfTable.heightPos != -1) newLayer.m_isBuilding = true; // 높이/층수 정보가 있으면 건물 레이어로 간주
+    if (newLayer.m_dbfTable.contPos != -1) newLayer.m_isContour = true; // 높이/층수 정보가 있으면 건물 레이어로 간주
+
     auto shpStart = std::chrono::steady_clock::now();
     shpParser.ShpParse(shpBuffer, shxRecords, shpHeader, newLayer);  // shp 레코드 파싱, layer에 저장
     PrintElapsedTime(L"SHP 파싱", shpStart);
-
-
-    if (newLayer.m_dbfTable.floorPos != -1 || newLayer.m_dbfTable.heightPos != -1) newLayer.m_isBuilding = true; // 높이/층수 정보가 있으면 건물 레이어로 간주
 
     
     // 좌표계 파싱 & 변환

@@ -1,10 +1,12 @@
 #include <pch.h>
 #include "FeatureObject.h"
 
-void BoundingBox::SetHeight(double heightData, double floorData, double nodeLength, bool isBuilding)
+void BoundingBox::SetHeight(double contPos, double heightData, double floorData, double nodeLength, bool isBuilding)
 {
     int32_t trashHeightDataLimit = 20;
 
+    if (contPos != -1)
+        height = contPos;
     if (heightData != -1)
         height = heightData;
     if (floorData != -1 && (height == 0 || height > floorData * trashHeightDataLimit))

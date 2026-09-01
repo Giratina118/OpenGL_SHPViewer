@@ -75,6 +75,10 @@ bool LayerManager::InitRenderer(HWND hWnd, UIState* uiState)
     m_viewProjectionLocation  = glGetUniformLocation(m_shader.GetProgram(), "u_viewProjection");
     m_colorMultiplierLocation = glGetUniformLocation(m_shader.GetProgram(), "u_colorMultiplier");
 
+
+    if (!m_shader.CreateProgram("Resource/Shader/shader.vert", "Resource/Shader/shader.frag")) return false;
+
+
     // 깊이 테스트 활성화 (3D 건물, 면/라인 z-fighting 해결에 필요)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -131,6 +135,7 @@ bool LayerManager::InitEGL(HWND hwnd)
 void LayerManager::Shutdown()
 {
     m_layers.clear();
+    m_mapManager.Shutdown();
     m_debugRectBuffer.Shutdown();
     m_mbrBuffer.Shutdown();
     m_frustumBuffer.Shutdown();
@@ -182,6 +187,17 @@ void LayerManager::Render(CameraManager& camera, UISize& uiSize, glm::dvec3 hitP
     glScissor (uiSize.panelWidth, 0, uiSize.clientWidth - uiSize.panelWidth, uiSize.clientHeight);
     glClearColor(0.8f, 0.8f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    m_mapManager.Update(camera);
+    m_mapManager.Render(camera);
+
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+
 
     if (m_layerOrder.empty() && !m_layers.empty()) {
         for (int32_t i = 0; i < static_cast<int32_t>(m_layers.size()); i++)

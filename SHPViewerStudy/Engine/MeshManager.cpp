@@ -6,6 +6,29 @@
 #include "Layer.h"
 #include "TimeDebug.h"
 
+#include "Map/VWorldDownloader.h"
+
+bool MeshManager::InitRenderMesh()
+{
+	UploadBuffer(m_polygonVAO, m_polygonVBO, nullptr);
+	glGenBuffers(1, &m_visibleIBO);
+
+	std::vector<uint8_t> imageData;
+
+	const std::wstring apiKey = L"154D5395-08E5-4375-A82F-10CCC9F63D52";
+	const std::wstring path = L"/req/wmts/1.0.0/" + apiKey + L"/Base/10/396/873.png";
+
+	if (VWorldDownloader::Download(L"api.vworld.kr", path, imageData))
+		OutputDebugStringA(("[VWORLD] Tile Download Success : " + std::to_string(imageData.size()) + " bytes\n").c_str());
+	else
+		OutputDebugStringA("[VWORLD] Tile Download Failed\n");
+
+	BuildMesh();
+
+	return true;
+}
+
+/*
 bool MeshManager::InitRenderMesh()
 {
 	UploadBuffer(m_polygonVAO, m_polygonVBO, nullptr);
@@ -20,6 +43,7 @@ bool MeshManager::InitRenderMesh()
 
 	return true;
 }
+*/
 
 void MeshManager::UploadBuffer(GLuint& vao, GLuint& vbo, GLuint* ibo)
 {
@@ -303,11 +327,18 @@ void MeshManager::BuildPolygonMesh()
 	std::vector<TriResult> results(polygonCount);
 	std::vector<int> indexArray(polygonCount);
 
+
+	auto cdtStart = std::chrono::high_resolution_clock::now();
+
 	// 병렬 CDT
 	std::iota(indexArray.begin(), indexArray.end(), 0);
 	std::for_each(std::execution::par, indexArray.begin(), indexArray.end(), [&](int dataId) {
 		results[dataId].indices = m_triangulate.TriangulatePolygonCDT(m_layer.polygonObjects[dataId], results[dataId].vertices);
 	});
+
+	auto cdtEnd = std::chrono::high_resolution_clock::now();
+	OutputDebugStringA(("[TIME] CDT 삼각분할(병렬) : " + std::to_string(std::chrono::duration<double, std::milli>(cdtEnd - cdtStart).count()) + " ms\n").c_str());
+
 
 	// 루프 돌기 전 밖에서 한 번에 계산
 	size_t totalVerts = 0;
@@ -416,6 +447,10 @@ void MeshManager::BuildPolygonMesh()
 		m_polygonDrawInfos[dataId] = { polygonIndexStart, polygonIndexCount, polygonVertStart, polygonVertCount };
 		m_lineDrawInfos[dataId] = { lineIndexStart, lineIndexCount, 0, 0 };
 	}
+
+	auto assembleEnd = std::chrono::high_resolution_clock::now();
+	OutputDebugStringA(("[TIME] 정점/인덱스 조립(순차) : " + std::to_string(std::chrono::duration<double, std::milli>(assembleEnd - cdtEnd).count()) + " ms\n").c_str());
+
 }
 
 // 트리 빌드 후 각 노드의 LOD 메쉬 생성
@@ -585,8 +620,8 @@ void MeshManager::ApplyLevelColors(bool useLevelColor)
 
 std::vector<glm::dvec2> MeshManager::RamerDouglasPeucker(std::vector<glm::dvec2>& points)
 {
-	double nearSkip = 1.0; // 두 점 간의 거리가 이보다 짧다면 해당 점을 건너뜀
-	double epsilon  = 2.0; // 두 점을 이은 선으로부터 이 범위 안에 들어온 점들은 생략
+	double nearSkip = 2.0 * 2.0; // 두 점 간의 거리가 이보다 짧다면 해당 점을 건너뜀
+	double epsilon  = 5.0 * 5.0; // 두 점을 이은 선으로부터 이 범위 안에 들어온 점들은 생략
 
 	std::vector<glm::dvec2> nearSkipPoints, epsilonSkipPoints;
 	std::vector<bool> isSkipped;
@@ -600,7 +635,7 @@ std::vector<glm::dvec2> MeshManager::RamerDouglasPeucker(std::vector<glm::dvec2>
 
 	// rdp 적용
 	isSkipped.resize(nearSkipPoints.size(), false);
-	RDPEpsilon(nearSkipPoints, isSkipped, 0, nearSkipPoints.size() - 1, epsilon * epsilon);
+	RDPEpsilon(nearSkipPoints, isSkipped, 0, nearSkipPoints.size() - 1, epsilon);
 
 	for (int32_t num = 0; num < isSkipped.size(); num++) {
 		if (isSkipped[num]) continue;

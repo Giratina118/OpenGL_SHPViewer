@@ -79,7 +79,13 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 	if (curNode.m_level == m_maxLevel) {
 		curNode.m_objectIds.push_back(dataId);
 
-		if (m_layer.m_shapeType != 5 || isBuilding) curObjBox->SetHeight(dbfTable.doubleColumns[dbfTable.heightPos][dataId], dbfTable.doubleColumns[dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent(), isBuilding);
+		int32_t dbfRecordId = dataId;
+		if (m_layer.m_isContour) dbfRecordId = m_layer.polyLineObjects[dataId].dbfRecordId;
+		double contVal   = (dbfTable.contPos   != -1) ? dbfTable.doubleColumns[dbfTable.contPos][dbfRecordId]   : -1.0;
+		double heightVal = (dbfTable.heightPos != -1) ? dbfTable.doubleColumns[dbfTable.heightPos][dbfRecordId] : -1.0;
+		double floorVal  = (dbfTable.floorPos  != -1) ? dbfTable.doubleColumns[dbfTable.floorPos][dbfRecordId]  : -1.0;
+
+		curObjBox->SetHeight(contVal, heightVal, floorVal, curNodeBox.GetMaxExtent(), isBuilding); 
 		if (curObjBox->height > curNodeBox.height)  curNodeBox.height = curObjBox->height;
 		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상)
 		return;
@@ -98,7 +104,13 @@ void QuadTree::InsertData(int32_t currentNodeId, int32_t dataId, BoundingBox& da
 		curNodeBox.maxY - dataMbrBox.minY > looseY && dataMbrBox.maxY - curNodeBox.maxY > looseY) {
 		curNode.m_objectIds.push_back(dataId);
 
-		if (m_layer.m_shapeType != 5 || isBuilding) curObjBox->SetHeight(dbfTable.doubleColumns[dbfTable.heightPos][dataId], dbfTable.doubleColumns[dbfTable.floorPos][dataId], curNodeBox.GetMaxExtent(), isBuilding);
+		int32_t dbfRecordId = dataId;
+		if (m_layer.m_isContour) dbfRecordId = m_layer.polyLineObjects[dataId].dbfRecordId;
+		double contVal   = (dbfTable.contPos   != -1) ? dbfTable.doubleColumns[dbfTable.contPos][dbfRecordId]   : -1.0;
+		double heightVal = (dbfTable.heightPos != -1) ? dbfTable.doubleColumns[dbfTable.heightPos][dbfRecordId] : -1.0;
+		double floorVal  = (dbfTable.floorPos  != -1) ? dbfTable.doubleColumns[dbfTable.floorPos][dbfRecordId]  : -1.0;
+
+		curObjBox->SetHeight(contVal, heightVal, floorVal, curNodeBox.GetMaxExtent(), isBuilding); 
 		if (curObjBox->height > curNodeBox.height)  curNodeBox.height = curObjBox->height;
 		if (dataId >= 0 && dataId < static_cast<int32_t>(m_objectLevels.size())) m_objectLevels[dataId] = curNode.m_level; // 객체가 들어간 레벨 기록 (레벨 색상용)
 		return;

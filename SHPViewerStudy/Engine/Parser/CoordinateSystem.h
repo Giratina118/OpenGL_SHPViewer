@@ -57,8 +57,10 @@ struct EllipsoidParams
     double eccentricity6       = 0.0; // 제1이심률 6제곱
     double secondEccentricity2 = 0.0; // 제2이심률 제곱
 
-    double eTemp1 = 0.0;
-    double eTemp2 = 0.0;
+    double arcFactor0 = 0.0;
+    double arcFactor2 = 0.0;
+    double arcFactor4 = 0.0;
+    double arcFactor6 = 0.0;
 
     double footPointE1 = 0.0;
     double footPointE2 = 0.0;
@@ -73,23 +75,17 @@ struct ProjectionParams
     bool isProjected = false;
 
     double angleUnit = 0.0;
-
     double falseEasting  = 0.0;
     double falseNorthing = 0.0;
     double scaleFactor   = 1.0;
     double latitudeOrigin  = 0.0;
     double longitudeOrigin = 0.0;
+
     double sinLat2 = 0.0;
     double sinLat4 = 0.0;
     double sinLat6 = 0.0;
 
-
     double arcLength = 0.0;
-
-    double arcFactor0 = 0.0;
-    double arcFactor2 = 0.0;
-    double arcFactor4 = 0.0;
-    double arcFactor6 = 0.0;
 
     void Set(CoordinateSystem& coordinate, EllipsoidParams& ellipsoid);
 };
@@ -109,6 +105,8 @@ struct HelmertTransformParams
     double pivotX = 0.0;
     double pivotY = 0.0;
     double pivotZ = 0.0;
+
+    void Set();
 };
 
 // 좌표게 변환 시 사용하는 상수 파라미터 저장
