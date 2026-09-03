@@ -75,10 +75,6 @@ bool LayerManager::InitRenderer(HWND hWnd, UIState* uiState)
     m_viewProjectionLocation  = glGetUniformLocation(m_shader.GetProgram(), "u_viewProjection");
     m_colorMultiplierLocation = glGetUniformLocation(m_shader.GetProgram(), "u_colorMultiplier");
 
-
-    if (!m_shader.CreateProgram("Resource/Shader/shader.vert", "Resource/Shader/shader.frag")) return false;
-
-
     // 깊이 테스트 활성화 (3D 건물, 면/라인 z-fighting 해결에 필요)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -162,12 +158,11 @@ void LayerManager::Shutdown()
 // 메인 렌더 함수
 void LayerManager::Render(CameraManager& camera, UISize& uiSize, glm::dvec3 hitPoint)
 {
+    if (m_uiState->isShowMap)
+        m_mapManager.Update(camera, *this);
+
     // render여부 체크 -> 변화 없으면 그냥 return (CPU/GPU idle, 화면은 이전 프레임 유지)
     if (!m_needRedraw) return;
-
-    m_shader.UseProgram();
-    glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(camera.GetViewProjectionMatrix())));
-    glUniform1f(m_colorMultiplierLocation, 1.0f); // 기본값
 
     // 실제 EGL surface 크기 (윈도우와 다를 수 있음 - 리사이즈 중 한 프레임 지연)
     EGLint surficeWidth = 0, surficeHeight = 0;
@@ -189,14 +184,20 @@ void LayerManager::Render(CameraManager& camera, UISize& uiSize, glm::dvec3 hitP
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
+    if (m_uiState->isShowMap) {
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
 
-    m_mapManager.Update(camera);
-    m_mapManager.Render(camera);
+        m_mapManager.Render(camera);
 
-    glDepthMask(GL_TRUE);
-    glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+    }
+
+
+    m_shader.UseProgram();
+    glUniformMatrix4fv(m_viewProjectionLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(camera.GetViewProjectionMatrix())));
+    glUniform1f(m_colorMultiplierLocation, 1.0f); // 기본값
 
 
     if (m_layerOrder.empty() && !m_layers.empty()) {

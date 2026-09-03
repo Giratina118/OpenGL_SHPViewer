@@ -40,9 +40,6 @@ bool ShpWriter::WriteLayer(Layer& layer)
         }
     };
 
-    //if      (layer.m_shapeType == 1) accumulate(layer.pointObjects,    [this](const PointObject&)  { return PointContentBytes(); });
-    //else if (layer.m_shapeType == 3) accumulate(layer.polyLineObjects, [this](const PolyObject& o) { return PolyContentBytes(o); });
-    //else if (layer.m_shapeType == 5) accumulate(layer.polygonObjects,  [this](const PolyObject& o) { return PolyContentBytes(o); });
     if      (layer.m_shapeType == 1) accumulate(pointSource,   [this](const PointObject&)  { return PointContentBytes(); });
     else if (layer.m_shapeType == 3) accumulate(lineSource,    [this](const PolyObject& o) { return PolyContentBytes(o); });
     else if (layer.m_shapeType == 5) accumulate(polygonSource, [this](const PolyObject& o) { return PolyContentBytes(o); });

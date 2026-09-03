@@ -141,7 +141,7 @@ void CSHPViewerStudyView::LinkCallbacksToUI()
 	callback.visibilityCallbacks.onFrustumView   = [this](bool value) { m_uiState.isShowFrustumView = value; m_layerManager.SetDrawFrustum(!value);      m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onFakeObject    = [this](bool value) { m_uiState.isShowFakeObject  = value; m_layerManager.ReDraw(); SetFocus(); };
 	callback.visibilityCallbacks.onBuilding      = [this](bool value) { m_uiState.isShowBuilding    = value; m_layerManager.ReDraw(); SetFocus(); };
-	callback.visibilityCallbacks.onMap           = [this](bool value) { m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
+	callback.visibilityCallbacks.onMap           = [this](bool value) { m_uiState.isShowMap         = value; m_layerManager.ReDraw(); SetFocus(); }; // TODO: 버튼 기능 추가하기
 	callback.visibilityCallbacks.onViewRange     = [this](int32_t value) { m_camera.SetViewRange(value);     m_layerManager.ReDraw(); SetFocus(); };
 
 	callback.pickingCallbacks.onPicking          = [this](bool value) { m_uiState.isPickingMode     = value; if (!value) m_panelRight.Show(false);       m_layerManager.ReDraw(); SetFocus(); };

@@ -28,23 +28,6 @@ bool MeshManager::InitRenderMesh()
 	return true;
 }
 
-/*
-bool MeshManager::InitRenderMesh()
-{
-	UploadBuffer(m_polygonVAO, m_polygonVBO, nullptr);
-	glGenBuffers(1, &m_visibleIBO);
-
-	BuildMesh();
-
-	std::chrono::steady_clock::time_point fakeMeshStart = std::chrono::steady_clock::now();
-	BuildFakeMeshes(); // fake object 활성화
-	PrintElapsedTime(L"BuildFakeMeshes", fakeMeshStart);
-
-
-	return true;
-}
-*/
-
 void MeshManager::UploadBuffer(GLuint& vao, GLuint& vbo, GLuint* ibo)
 {
 	glGenVertexArrays(1, &vao);			// vao 생성(id를 1개 생성해서 변수에 담기)
@@ -99,10 +82,10 @@ void MeshManager::BuildMesh()
 		break; // 선 정점/인덱스 빌드, 선을 직사각형의 폴리곤으로 만들어 너비를 설정
 	}
 	case 5: {
-		  auto polygonMeshBuildStart = std::chrono::steady_clock::now();
-		  BuildPolygonMesh();
-		  PrintElapsedTime(L"Build Polygon Mesh", polygonMeshBuildStart);
-		  break; // 면 정점/인덱스 빌드
+		auto polygonMeshBuildStart = std::chrono::steady_clock::now();
+		BuildPolygonMesh();
+		PrintElapsedTime(L"Build Polygon Mesh", polygonMeshBuildStart);
+		break; // 면 정점/인덱스 빌드
 	}
 	}
 
@@ -205,6 +188,7 @@ void MeshManager::BuildPolyLineMesh()
 	std::vector<glm::dvec2> subPointsBuffer;
 	subPointsBuffer.reserve(100000);
 
+	
 	for (int32_t dataId = 0; dataId < m_layer.polyLineObjects.size(); dataId++) {
 		PolyObject& polyLine = m_layer.polyLineObjects[dataId];
 		uint32_t polygonVertStart = (uint32_t)m_polygonVertices.size();
@@ -235,6 +219,20 @@ void MeshManager::BuildPolyLineMesh()
 			int32_t pointsCount = static_cast<int32_t>(points.size());
 			if (pointsCount < 2) continue; // 간략화 후 점이 2개 미만이면 스킵
 
+
+			/*
+			// 등고선 지형
+			if (m_layer.m_isContour) {
+				for (int32_t i = 0; i < pointsCount; i++) {
+					m_polygonVertices.push_back({ (float)points[i].x, (float)points[i].y, (float)polyLine.mbrBox.height, 200, 200, 50, 255 });
+				}
+
+				continue; // 등고선은 두께가 없으므로 스킵
+			}
+			*/
+
+
+			// 두께있는 라인을 폴리곤으로 표현 
 			// 선분들의 방향(정규화) 벡터를 미리 캐싱해둠 (루프 내 중복 sqrt 연산 제거)
 			std::vector<glm::dvec2> segmentDirs(pointsCount - 1);
 			for (int32_t j = 0; j < pointsCount - 1; ++j)
@@ -381,8 +379,6 @@ void MeshManager::BuildPolygonMesh()
 		}
 
 		// 지붕 정점
-		//m_polygonVertices.reserve(m_polygonVertices.size() + results[dataId].vertices.size());
-		//m_polygonVertices.reserve(m_polygonVertices.size() + polygon.parts.size());
 		uint32_t roofVertexBase = (uint32_t)m_polygonVertices.size();
 		for (const auto& point : results[dataId].vertices)
 			m_polygonVertices.push_back({ (float)point.x, (float)point.y, (float)polygon.mbrBox.height, 190, 190, 220, 255 });

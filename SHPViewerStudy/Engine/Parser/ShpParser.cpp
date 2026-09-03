@@ -36,7 +36,7 @@ void ShpParser::ShpParse(vector<uint8_t>& buffer, std::vector<ShxRecord>& shxInd
                 double cont = layer.m_dbfTable.doubleColumns[layer.m_dbfTable.contPos][recordNum];
                 double remainder = std::fmod(std::abs(cont), m_contourInterver);
 
-                if (remainder > 1e-6)
+                if (!(remainder < 1.0 || cont > -6.0 && cont < 6.0))
                     continue;
             }
 
